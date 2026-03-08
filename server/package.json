@@ -1,0 +1,12 @@
+{
+  "name": "homi-server",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "googleapis": "^171.4.0",
+    "xlsx": "^0.18.5"
+  }
+}
