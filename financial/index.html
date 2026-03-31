@@ -184,10 +184,35 @@
     .dash-grid{grid-template-columns:1fr;gap:8px;}
     .card-value{font-size:20px;}
   }
+
+  /* Lock screen */
+  #lockScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;}
+  .lock-box{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:40px 36px;width:320px;max-width:90vw;text-align:center;}
+  .lock-icon{font-size:36px;margin-bottom:16px;}
+  .lock-box h2{font-size:18px;font-weight:700;margin-bottom:6px;}
+  .lock-box p{font-size:13px;color:var(--text-muted);margin-bottom:24px;}
+  .lock-input{width:100%;padding:12px 16px;background:#1a2332;border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:18px;text-align:center;letter-spacing:6px;outline:none;transition:border-color .2s;}
+  .lock-input:focus{border-color:var(--primary);}
+  .lock-error{color:var(--red);font-size:12px;margin-top:8px;height:18px;}
+  .lock-btn{width:100%;margin-top:16px;padding:12px;background:var(--primary);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;}
+  .lock-btn:hover{background:var(--primary-light);}
 </style>
 </head>
 <body>
 
+<div id="lockScreen">
+  <div class="lock-box">
+    <div class="lock-icon">🔒</div>
+    <h2>재무재표</h2>
+    <p>순애 &amp; 장훈이네</p>
+    <input class="lock-input" id="pwInput" type="password" maxlength="10" placeholder="••••" autofocus
+      onkeydown="if(event.key==='Enter')checkPw()">
+    <div class="lock-error" id="pwError"></div>
+    <button class="lock-btn" onclick="checkPw()">확인</button>
+  </div>
+</div>
+
+<div id="appWrap" style="display:none">
 <div class="header">
   <div class="logo">
     <div class="logo-icon">$</div>
@@ -197,10 +222,33 @@
 <div class="year-tabs" id="yearTabs"></div>
 <div class="section-tabs" id="sectionTabs"></div>
 <div class="content" id="content"></div>
+</div><!-- /appWrap -->
 
 <script src="https://cdn.jsdelivr.net/npm/jsuites@5/dist/jsuites.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jexcel.min.js"></script>
 <script>
+// ===== Auth =====
+const PW_HASH = '5e88489b5e88489b'; // internal marker
+function checkPw(){
+  const v = document.getElementById('pwInput').value;
+  if(v === '0907'){
+    sessionStorage.setItem('auth','1');
+    document.getElementById('lockScreen').style.display='none';
+    document.getElementById('appWrap').style.display='';
+    init();
+  } else {
+    const el = document.getElementById('pwError');
+    el.textContent = '비밀번호가 틀렸습니다.';
+    document.getElementById('pwInput').value='';
+    document.getElementById('pwInput').focus();
+    setTimeout(()=>el.textContent='', 2000);
+  }
+}
+if(sessionStorage.getItem('auth')==='1'){
+  document.getElementById('lockScreen').style.display='none';
+  document.getElementById('appWrap').style.display='';
+}
+
 // ===== State =====
 const rawSheets={};
 const sections={};
@@ -790,7 +838,7 @@ async function init(){
   renderYearTabs();renderSectionTabs();renderView();
 }
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();sheetDownload();}});
-init();
+if(sessionStorage.getItem('auth')==='1') init();
 </script>
 </body>
 </html>
