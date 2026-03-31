@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>재무재표 - 순애&장훈이네</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jexcel.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@5/dist/jsuites.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary:#6366f1; --primary-light:#818cf8;
+    --bg:#0f172a; --bg-card:#1e293b; --bg-hover:#334155;
+    --text:#f1f5f9; --text-muted:#94a3b8; --text-dim:#64748b; --border:#334155;
+    --green:#34d399; --green-bg:rgba(52,211,153,0.1);
+    --red:#f87171; --red-bg:rgba(248,113,113,0.1);
+    --blue:#60a5fa; --blue-bg:rgba(96,165,250,0.1);
+    --amber:#fbbf24; --amber-bg:rgba(251,191,36,0.1);
+    --pink:#f472b6; --pink-bg:rgba(244,114,182,0.1);
+    --cyan:#22d3ee; --cyan-bg:rgba(34,211,238,0.1);
+    --radius:14px; --pad:28px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+
+  .header{background:linear-gradient(135deg,#1e1b4b,#312e81);padding:16px var(--pad);display:flex;align-items:center;border-bottom:1px solid rgba(99,102,241,0.3);}
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-icon{width:38px;height:38px;background:var(--primary);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;}
+  .logo h1{font-size:17px;font-weight:700;letter-spacing:-0.3px;}
+  .logo .sub{font-size:11px;color:var(--primary-light);margin-top:1px;}
+
+  .year-tabs{display:flex;gap:2px;padding:0 var(--pad);background:var(--bg-card);border-bottom:1px solid var(--border);}
+  .year-tab{padding:11px 24px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-size:14px;font-weight:600;position:relative;transition:all .2s;}
+  .year-tab:hover{color:var(--text);}
+  .year-tab.active{color:var(--primary-light);}
+  .year-tab.active::after{content:'';position:absolute;bottom:0;left:10px;right:10px;height:2px;background:var(--primary);border-radius:1px;}
+
+  .section-tabs{display:flex;gap:6px;padding:12px var(--pad);background:var(--bg);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .section-tabs::-webkit-scrollbar{display:none;}
+  .sec-tab{padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;white-space:nowrap;flex-shrink:0;}
+  .sec-tab:hover{border-color:var(--primary);color:var(--text);}
+  .sec-tab.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;}
+
+  .content{padding:20px var(--pad) 40px;}
+
+  /* Month Selector */
+  .month-selector{display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+  .month-selector label{font-size:13px;color:var(--text-muted);font-weight:500;}
+  .month-pills{display:flex;gap:4px;flex-wrap:wrap;}
+  .month-pill{padding:6px 12px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;font-weight:500;transition:all .15s;}
+  .month-pill:hover{border-color:var(--primary);color:var(--text);}
+  .month-pill.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .month-pill.disabled{opacity:0.3;pointer-events:none;}
+
+  /* Dashboard Cards */
+  .dash-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;}
+  .dash-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;transition:border-color .2s;}
+  .dash-card:hover{border-color:var(--primary);}
+  .card-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:7px;}
+  .card-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .card-value{font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px;}
+  .card-change{font-size:11px;font-weight:500;display:flex;align-items:center;gap:3px;}
+  .card-change.up{color:var(--green);}
+  .card-change.down{color:var(--red);}
+
+  /* Charts */
+  .chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+  .chart-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;}
+  .chart-card h3{font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:14px;}
+  .chart-card canvas{max-height:240px;}
+  .chart-card.full{grid-column:1/-1;}
+
+  /* Monthly table */
+  .mtable{width:100%;border-collapse:collapse;margin-top:12px;}
+  .mtable th{text-align:left;padding:9px 12px;font-size:11px;color:var(--text-muted);border-bottom:1px solid var(--border);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+  .mtable td{padding:9px 12px;font-size:13px;border-bottom:1px solid rgba(51,65,85,.4);}
+  .mtable tr:hover td{background:rgba(99,102,241,.04);}
+  .mtable .n{text-align:right;font-variant-numeric:tabular-nums;}
+  .mtable .pos{color:var(--green);}
+  .mtable .neg{color:var(--red);}
+  .mtable .hl{background:rgba(99,102,241,.08);}
+  .mtable-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+  /* Sheet */
+  .sheet-toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+  .btn{padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;}
+  .btn:hover{background:var(--bg-hover);color:var(--text);border-color:var(--primary);}
+  .btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .btn.primary:hover{background:var(--primary-light);}
+  .sheet-status{margin-left:auto;font-size:12px;color:var(--green);font-weight:500;opacity:0;transition:opacity .3s;}
+  .sheet-status.show{opacity:1;}
+
+  /* jspreadsheet dark */
+  .jexcel_container{background:var(--bg-card)!important;border-radius:12px!important;overflow:hidden!important;border:1px solid var(--border)!important;}
+  .jexcel{background:var(--bg-card)!important;}
+  .jexcel td{background:var(--bg-card)!important;color:var(--text)!important;border-color:#2d3748!important;font-size:13px!important;}
+  .jexcel thead td{background:#1a2332!important;color:var(--text-muted)!important;font-weight:600!important;border-color:#2d3748!important;}
+  .jexcel tbody tr td:first-child{background:#1a2332!important;color:var(--text-muted)!important;}
+  .jexcel td.highlight{background:rgba(99,102,241,.12)!important;}
+  .jexcel td.selected,.jexcel td.selection{background:rgba(99,102,241,.2)!important;border:1px solid var(--primary)!important;}
+  .jexcel>thead>tr>td.selected{background:var(--primary)!important;color:#fff!important;}
+  .jexcel>tbody>tr>td:first-child.selected{background:var(--primary)!important;color:#fff!important;}
+  .jexcel .highlight-left{border-left:2px solid var(--primary)!important;}
+  .jexcel .highlight-right{border-right:2px solid var(--primary)!important;}
+  .jexcel .highlight-top{border-top:2px solid var(--primary)!important;}
+  .jexcel .highlight-bottom{border-bottom:2px solid var(--primary)!important;}
+  .jexcel_contextmenu{background:var(--bg-card)!important;border:1px solid var(--border)!important;border-radius:10px!important;box-shadow:0 8px 24px rgba(0,0,0,.5)!important;}
+  .jexcel_contextmenu>div{color:var(--text)!important;}
+  .jexcel_contextmenu>div:hover{background:var(--bg-hover)!important;}
+
+  /* Sheet header row (first data row = column titles) */
+  .jexcel td.cell-header{background:#1a2640!important;color:var(--primary-light)!important;font-weight:700!important;font-size:12px!important;letter-spacing:.3px;}
+  /* Category column (col B = 통장분류) */
+  .jexcel td.cell-category{background:#162035!important;color:var(--cyan)!important;font-weight:600!important;}
+  /* Sub-category column (col C = 상세항목) */
+  .jexcel td.cell-subcategory{background:#151e30!important;color:var(--text)!important;}
+  /* Owner column (col D = 분류) */
+  .jexcel td.cell-owner{background:#151e30!important;color:var(--text-muted)!important;text-align:center!important;font-size:12px!important;}
+  /* Total/summary rows */
+  .jexcel td.cell-total{background:#1e1b3a!important;color:var(--primary-light)!important;font-weight:700!important;}
+
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+  /* Mobile */
+  @media(max-width:768px){
+    :root{--pad:16px;}
+    .header{padding:12px var(--pad);}
+    .logo-icon{width:32px;height:32px;font-size:15px;}
+    .logo h1{font-size:15px;}
+    .year-tab{padding:10px 18px;font-size:13px;}
+    .section-tabs{padding:10px var(--pad);gap:5px;}
+    .sec-tab{padding:7px 13px;font-size:12px;}
+    .content{padding:14px var(--pad) 30px;}
+    .dash-grid{grid-template-columns:1fr 1fr;gap:10px;}
+    .card-value{font-size:17px;}
+    .card-label{font-size:10px;}
+    .card-icon{width:22px;height:22px;font-size:11px;}
+    .chart-row{grid-template-columns:1fr;gap:12px;}
+    .chart-card canvas{max-height:200px;}
+    .month-pills{gap:3px;}
+    .month-pill{padding:5px 10px;font-size:11px;}
+    .mtable th,.mtable td{padding:7px 8px;font-size:12px;}
+  }
+  @media(max-width:400px){
+    .dash-grid{grid-template-columns:1fr;gap:8px;}
+    .card-value{font-size:20px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">$</div>
+    <div><h1>재무재표</h1><div class="sub">순애 &amp; 장훈이네</div></div>
+  </div>
+</div>
+<div class="year-tabs" id="yearTabs"></div>
+<div class="section-tabs" id="sectionTabs"></div>
+<div class="content" id="content"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsuites@5/dist/jsuites.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jexcel.min.js"></script>
+<script>
+// ===== State =====
+const rawSheets={};
+const sections={};
+let activeYear=null, activeSection='dashboard', selectedMonthIdx=-1;
+let jexcelInstance=null;
+let chartInstances=[];
+
+const TODAY=new Date();
+const THIS_MONTH=TODAY.getMonth()+1; // 1-12
+const THIS_YEAR=TODAY.getFullYear();
+
+// ===== Utils =====
+function parseCSV(t){const rows=[];let c='',q=false,row=[];for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch==='"'&&t[i+1]==='"'){c+='"';i++;}else if(ch==='"')q=false;else c+=ch;}else{if(ch==='"')q=true;else if(ch===','){row.push(c);c='';}else if(ch==='\n'||(ch==='\r'&&t[i+1]==='\n')){row.push(c);c='';rows.push(row);row=[];if(ch==='\r')i++;}else c+=ch;}}if(c||row.length){row.push(c);rows.push(row);}const mx=Math.max(...rows.map(r=>r.length));rows.forEach(r=>{while(r.length<mx)r.push('');});return rows;}
+function toCSV(d){return d.map(r=>r.map(c=>{const s=String(c??'');return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');}
+function parseNum(s){if(!s)return 0;s=String(s).trim().replace(/[₩,\s]/g,'');if(!s||s==='-'||s.startsWith('#'))return 0;const n=parseFloat(s);return isNaN(n)?0:n;}
+function fmtNum(n){if(n===0)return'-';return n.toLocaleString('ko-KR');}
+function fmtWon(n){if(!n)return'-';const a=Math.abs(n);const sign=n<0?'-':'';if(a>=1e8)return sign+(a/1e8).toFixed(1)+'억';if(a>=1e4)return sign+Math.round(a/1e4).toLocaleString('ko-KR')+'만';return n.toLocaleString('ko-KR');}
+function destroyCharts(){chartInstances.forEach(c=>{try{c.destroy();}catch(e){}});chartInstances=[];}
+
+// ===== Parse month index from label =====
+function monthNumFromLabel(label) {
+  // "2026-03" -> 3, "24.11" -> 11, "2025-01" -> 1
+  const m1 = label.match(/[-.](\d{1,2})$/);
+  if (m1) return parseInt(m1[1]);
+  return 0;
+}
+
+// ===== Find default month index based on today =====
+function getDefaultMonthIdx(months) {
+  // Find the month matching this month, or closest previous
+  let best = -1;
+  for (let i = 0; i < months.length; i++) {
+    const mn = monthNumFromLabel(months[i].label);
+    if (mn <= THIS_MONTH) best = i;
+  }
+  // If current year doesn't match, find last with data
+  if (best < 0 && months.length) best = months.length - 1;
+  return best;
+}
+
+// ===== Split Sections =====
+function splitSections(year){
+  const data=rawSheets[year]; if(!data)return;
+  let headerRow=-1, monthStart=-1;
+  for(let r=0;r<Math.min(5,data.length);r++){for(let c=3;c<data[r].length;c++){const v=(data[r][c]||'').trim();if(/^\d{4}-\d{2}$/.test(v)||/^\d{2}\.\d{1,2}/.test(v)){headerRow=r;monthStart=c;break;}}if(headerRow>=0)break;}
+  if(headerRow<0){headerRow=1;monthStart=4;}
+  const months=[];
+  for(let c=monthStart;c<data[headerRow].length;c++){const v=(data[headerRow][c]||'').trim();if(v&&!v.startsWith('*'))months.push({col:c,label:v});}
+
+  let mode='',incRows=[],savRows=[],expRows=[],astRows=[];
+  for(let r=0;r<data.length;r++){
+    const c1=(data[r][1]||'').trim(), joined=data[r].join('').trim();
+    if(!joined){mode='';continue;}
+    if(c1.includes('급여')||c1==='순애 (90%)'||c1==='장훈 (90%)'||c1==='금융소득'||c1==='배당소득'||c1==='기타소득'||c1==='기타'){if(mode!=='savings'&&mode!=='expense'&&mode!=='asset')mode='income';}
+    if(c1==='저축'||(c1==='비상금'&&mode!=='expense'))mode='savings';
+    if(c1==='지출'||c1==='고정지출'||c1==='변동지출')mode='expense';
+    if(c1.includes('자산')||c1==='부동산')mode='asset';
+    const isT=(c1==='합계'||c1==='계');
+    if(mode==='income'){incRows.push(r);if(isT)mode='';}
+    else if(mode==='savings'){savRows.push(r);if(isT)mode='';}
+    else if(mode==='expense'){expRows.push(r);if(isT||c1.includes('잔액')||c1==='저축합계'||c1==='지출합계'){}}
+    else if(mode==='asset'){astRows.push(r);}
+    else{if(c1==='저축합계'||c1==='지출합계')expRows.push(r);}
+  }
+  const extract=(rows)=>{if(!rows.length)return[];const res=[data[headerRow]];rows.forEach(r=>res.push(data[r]));return res;};
+  const getTotal=(rows)=>{for(let i=rows.length-1;i>=0;i--){const c1=(data[rows[i]][1]||'').trim();if(c1==='합계'||c1==='계')return data[rows[i]];}return null;};
+
+  // Parse asset items for pie chart
+  const assetItems = [];
+  astRows.forEach(r => {
+    const c1 = (data[r][1]||'').trim();
+    const c2 = (data[r][2]||'').trim();
+    const c3 = (data[r][3]||'').trim();
+    // Skip total/subtotal/empty/percentage rows
+    if (c1==='계'||c1==='유동자산계'||!c1||c1.includes('자산')) return;
+    if (c2.startsWith('▲')||c2.startsWith('▼')) return;
+    // Get latest value
+    let val = 0;
+    for (let i=months.length-1;i>=0;i--) {
+      const v = parseNum(data[r][months[i].col]);
+      if (v) { val = v; break; }
+    }
+    if (val !== 0) {
+      assetItems.push({ name: c1 + (c2 ? ' ' + c2 : ''), owner: c3, value: val });
+    }
+  });
+
+  sections[year]={months, monthStart, headerRow,
+    income:{rows:incRows, data:extract(incRows), total:getTotal(incRows)},
+    savings:{rows:savRows, data:extract(savRows), total:getTotal(savRows)},
+    expense:{rows:expRows, data:extract(expRows), total:getTotal(expRows)},
+    asset:{rows:astRows, data:extract(astRows), total:null, items:assetItems}
+  };
+}
+
+// ===== Render =====
+function renderYearTabs(){document.getElementById('yearTabs').innerHTML=Object.keys(rawSheets).map(y=>`<button class="year-tab ${y===activeYear?'active':''}" onclick="switchYear('${y}')">${y}</button>`).join('');}
+function renderSectionTabs(){
+  const tabs=[{id:'dashboard',label:'대시보드',dot:''},{id:'income',label:'소득',dot:'green'},{id:'savings',label:'저축',dot:'blue'},{id:'expense',label:'지출',dot:'amber'},{id:'asset',label:'자산',dot:'pink'}];
+  document.getElementById('sectionTabs').innerHTML=tabs.map(t=>`<button class="sec-tab ${t.id===activeSection?'active':''}" onclick="switchSection('${t.id}')">${t.dot?`<span class="dot" style="background:var(--${t.dot})"></span>`:''}${t.label}</button>`).join('');
+}
+function switchYear(y){activeYear=y;activeSection='dashboard';selectedMonthIdx=-1;renderYearTabs();renderSectionTabs();renderView();}
+function switchSection(s){activeSection=s;renderSectionTabs();renderView();}
+
+function renderView(){
+  destroyCharts();
+  const el=document.getElementById('content');
+  if(activeSection==='dashboard')renderDashboard(el);
+  else renderSpreadsheet(el,activeSection);
+}
+
+// ===== Dashboard =====
+function renderDashboard(container){
+  const sec=sections[activeYear];
+  if(!sec){container.innerHTML='<p style="color:var(--text-muted)">데이터 없음</p>';return;}
+  const months=sec.months;
+  const gv=(tr)=>months.map(m=>tr?parseNum(tr[m.col]):0);
+  const incV=gv(sec.income.total), savV=gv(sec.savings.total), expV=gv(sec.expense.total);
+
+  // Determine selected month
+  if(selectedMonthIdx<0) selectedMonthIdx=getDefaultMonthIdx(months);
+  const si=selectedMonthIdx;
+  const pi=Math.max(0,si-1);
+  const calcChg=(v)=>v[pi]?((v[si]-v[pi])/Math.abs(v[pi])*100):null;
+  const chgHtml=(v)=>{if(v===null)return'';const d=v>=0?'up':'down';const a=v>=0?'&#9650;':'&#9660;';return`<div class="card-change ${d}">${a} ${Math.abs(v).toFixed(1)}% vs 전월</div>`;};
+
+  // Asset total
+  let assetTotal=0;
+  if(sec.asset.rows.length){const d=rawSheets[activeYear];sec.asset.rows.forEach(r=>{const c1=(d[r][1]||'').trim();if(c1==='계'||c1==='유동자산계'){for(let i=months.length-1;i>=0;i--){const v=parseNum(d[r][months[i].col]);if(v){assetTotal=v;return;}}}});}
+
+  // Month pills
+  let pillsHtml = months.map((m,i) => {
+    const mn = monthNumFromLabel(m.label);
+    const hasData = incV[i] || savV[i] || expV[i];
+    const cls = i===si ? 'active' : (!hasData ? 'disabled' : '');
+    const shortLabel = m.label.replace(/^\d{4}-/,'').replace(/^24\./,'');
+    return `<button class="month-pill ${cls}" onclick="selectMonth(${i})">${shortLabel}</button>`;
+  }).join('');
+
+  // Asset items for pie
+  const assetItems = sec.asset.items || [];
+  const positiveAssets = assetItems.filter(a => a.value > 0);
+  const negativeAssets = assetItems.filter(a => a.value < 0);
+
+  let html = `
+  <div class="month-selector">
+    <label>기준월</label>
+    <div class="month-pills">${pillsHtml}</div>
+  </div>
+
+  <div class="dash-grid">
+    <div class="dash-card">
+      <div class="card-label"><span class="card-icon" style="background:var(--green-bg);color:var(--green)">&#8593;</span>소득</div>
+      <div class="card-value" style="color:var(--green)">${fmtWon(incV[si])}</div>
+      ${chgHtml(calcChg(incV))}
+    </div>
+    <div class="dash-card">
+      <div class="card-label"><span class="card-icon" style="background:var(--blue-bg);color:var(--blue)">&#9776;</span>저축</div>
+      <div class="card-value" style="color:var(--blue)">${fmtWon(savV[si])}</div>
+      ${chgHtml(calcChg(savV))}
+    </div>
+    <div class="dash-card">
+      <div class="card-label"><span class="card-icon" style="background:var(--amber-bg);color:var(--amber)">&#8595;</span>지출</div>
+      <div class="card-value" style="color:var(--amber)">${fmtWon(expV[si])}</div>
+      ${chgHtml(calcChg(expV))}
+    </div>
+    <div class="dash-card">
+      <div class="card-label"><span class="card-icon" style="background:var(--pink-bg);color:var(--pink)">&#9733;</span>순자산</div>
+      <div class="card-value" style="color:var(--pink)">${assetTotal?fmtWon(assetTotal):'-'}</div>
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-card">
+      <h3>월별 수입 vs 지출</h3>
+      <canvas id="chIncExp"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>월별 저축</h3>
+      <canvas id="chSav"></canvas>
+    </div>
+  </div>
+
+  ${positiveAssets.length ? `
+  <div class="chart-row">
+    <div class="chart-card">
+      <h3>자산 구성</h3>
+      <canvas id="chAssetPie"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>부채</h3>
+      <canvas id="chDebtPie"></canvas>
+    </div>
+  </div>` : ''}
+
+  <div class="chart-card" style="margin-bottom:20px">
+    <h3>월별 상세</h3>
+    <div class="mtable-wrap">
+    <table class="mtable">
+      <thead><tr><th>월</th><th class="n">소득</th><th class="n">저축</th><th class="n">지출</th><th class="n">잔액</th></tr></thead>
+      <tbody>`;
+
+  const lastData = months.reduce((acc,_,i) => (incV[i]||savV[i]||expV[i]) ? i : acc, 0);
+  for(let i=0;i<=lastData;i++){
+    const bal=incV[i]-savV[i]-expV[i];
+    const hl=i===si?' class="hl"':'';
+    html+=`<tr${hl}><td>${months[i].label}</td><td class="n">${fmtNum(incV[i])}</td><td class="n">${fmtNum(savV[i])}</td><td class="n">${fmtNum(expV[i])}</td><td class="n ${bal>=0?'pos':'neg'}">${fmtNum(bal)}</td></tr>`;
+  }
+  html+=`</tbody></table></div></div>`;
+  container.innerHTML=html;
+
+  // Charts
+  const labels=months.slice(0,lastData+1).map(m=>{const s=m.label.replace(/^\d{4}-/,'').replace(/^24\./,'');return s;});
+  const chartColors={grid:'rgba(51,65,85,.3)',tick:'#64748b',legend:'#94a3b8'};
+  const baseOpts={responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:chartColors.legend,font:{size:11},boxWidth:12}}},scales:{x:{ticks:{color:chartColors.tick,font:{size:11}},grid:{color:chartColors.grid}},y:{ticks:{color:chartColors.tick,font:{size:11},callback:v=>fmtWon(v)},grid:{color:chartColors.grid}}}};
+
+  chartInstances.push(new Chart(document.getElementById('chIncExp'),{
+    type:'bar', data:{labels, datasets:[
+      {label:'소득',data:incV.slice(0,lastData+1),backgroundColor:'rgba(52,211,153,.55)',borderColor:'#34d399',borderWidth:1,borderRadius:3},
+      {label:'지출',data:expV.slice(0,lastData+1),backgroundColor:'rgba(251,191,36,.55)',borderColor:'#fbbf24',borderWidth:1,borderRadius:3}
+    ]}, options:baseOpts
+  }));
+
+  chartInstances.push(new Chart(document.getElementById('chSav'),{
+    type:'line', data:{labels, datasets:[{
+      label:'저축',data:savV.slice(0,lastData+1),borderColor:'#60a5fa',backgroundColor:'rgba(96,165,250,.12)',fill:true,tension:.3,pointRadius:3,pointBackgroundColor:'#60a5fa'
+    }]}, options:baseOpts
+  }));
+
+  // Asset Pie
+  if(positiveAssets.length){
+    const pieColors=['#34d399','#60a5fa','#fbbf24','#f472b6','#a78bfa','#22d3ee','#fb923c','#4ade80','#818cf8','#f87171','#38bdf8','#e879f9'];
+    const pieOpts={responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:chartColors.legend,font:{size:11},boxWidth:10,padding:8}}}};
+
+    chartInstances.push(new Chart(document.getElementById('chAssetPie'),{
+      type:'doughnut', data:{
+        labels:positiveAssets.map(a=>a.name),
+        datasets:[{data:positiveAssets.map(a=>a.value),backgroundColor:pieColors.slice(0,positiveAssets.length),borderColor:'#1e293b',borderWidth:2}]
+      }, options:pieOpts
+    }));
+
+    if(negativeAssets.length){
+      chartInstances.push(new Chart(document.getElementById('chDebtPie'),{
+        type:'doughnut', data:{
+          labels:negativeAssets.map(a=>a.name),
+          datasets:[{data:negativeAssets.map(a=>Math.abs(a.value)),backgroundColor:['#f87171','#fb923c','#fbbf24'],borderColor:'#1e293b',borderWidth:2}]
+        }, options:pieOpts
+      }));
+    }
+  }
+}
+
+function selectMonth(i){selectedMonthIdx=i;renderView();}
+
+// ===== Spreadsheet =====
+function renderSpreadsheet(container,key){
+  const sec=sections[activeYear];
+  if(!sec||!sec[key]){container.innerHTML='<p style="color:var(--text-muted)">데이터 없음</p>';return;}
+  const sData=sec[key].data;
+  if(!sData.length){container.innerHTML='<p style="color:var(--text-muted)">해당 섹션 데이터가 없습니다.</p>';return;}
+  const names={income:'소득',savings:'저축',expense:'지출',asset:'자산'};
+  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>`;
+  const nc=sData[0].length;
+  const cols=[];for(let i=0;i<nc;i++)cols.push({type:'text',width:i===0?30:i<=2?110:i===3?60:95});
+  jexcelInstance=jspreadsheet(document.getElementById('spreadsheet'),{
+    data:sData.map(r=>[...r]), columns:cols, defaultColWidth:95,
+    tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
+    allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
+    contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
+    onchange:()=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);},
+    oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);},
+    ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);}
+  });
+  setTimeout(applyCellStyles,100);
+}
+
+function applyCellStyles(){
+  if(!jexcelInstance)return;
+  const data=jexcelInstance.getData();
+  const numCols=data[0]?data[0].length:0;
+
+  for(let r=0;r<data.length;r++){
+    const row=data[r];
+    const col1=(row[1]||'').trim();
+    const isHeader=r===0; // first row is the header from extract()
+    const isTotal=(col1==='합계'||col1==='계'||col1==='저축합계'||col1==='지출합계'||col1.includes('잔액'));
+
+    for(let c=0;c<numCols;c++){
+      const td=jexcelInstance.getCell([c,r]);
+      if(!td)continue;
+      // Clear previous custom classes
+      td.classList.remove('cell-header','cell-category','cell-subcategory','cell-owner','cell-total');
+
+      if(isHeader){
+        td.classList.add('cell-header');
+      } else if(isTotal){
+        td.classList.add('cell-total');
+      } else {
+        // Category columns styling
+        if(c===1) td.classList.add('cell-category');
+        else if(c===2) td.classList.add('cell-subcategory');
+        else if(c===3) td.classList.add('cell-owner');
+      }
+    }
+  }
+}
+function sheetInsertRow(){if(jexcelInstance)jexcelInstance.insertRow();showSS('행 추가됨');}
+function sheetUndo(){if(jexcelInstance)jexcelInstance.undo();showSS('되돌림');}
+function sheetDownload(){
+  if(!jexcelInstance)return;
+  const csv=toCSV(jexcelInstance.getData());
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  const n={income:'소득',savings:'저축',expense:'지출',asset:'자산'};
+  a.download=`${activeYear}_${n[activeSection]||activeSection}.csv`;a.click();URL.revokeObjectURL(a.href);showSS('CSV 저장됨');
+}
+function showSS(m){const el=document.getElementById('sheetStatus');if(!el)return;el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+
+// ===== Init =====
+async function init(){
+  for(const f of['2025','2026']){try{const r=await fetch(`./${f}.csv`);if(r.ok){rawSheets[f]=parseCSV(await r.text());splitSections(f);}}catch(e){}}
+  if(!Object.keys(rawSheets).length){rawSheets['new']=[Array(20).fill('')];splitSections('new');}
+  // Default to year matching today, or latest
+  activeYear=rawSheets[String(THIS_YEAR)]?String(THIS_YEAR):Object.keys(rawSheets).pop();
+  activeSection='dashboard';
+  selectedMonthIdx=-1;
+  renderYearTabs();renderSectionTabs();renderView();
+}
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();sheetDownload();}});
+init();
+</script>
+</body>
+</html>
