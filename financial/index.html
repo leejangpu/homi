@@ -322,20 +322,29 @@ function renderView(){
 
 // ===== Monthly Summary Generator =====
 function generateMonthlySummary(sec, months) {
-  // Check for AI-generated summary first
-  const aiSum = aiSummaries[activeYear];
-  if (aiSum && aiSum.summary) {
-    const trendMap = { up: 'tag-up', down: 'tag-down', neutral: 'tag-neutral' };
-    const trendLabel = { up: '개선', down: '주의', neutral: '보합' };
-    const cls = trendMap[aiSum.trend] || 'tag-neutral';
-    const label = trendLabel[aiSum.trend] || '보합';
-    return {
-      title: `${aiSum.period} AI 브리핑`,
-      tag: `<span class="summary-tag ${cls}">${label}</span>`,
-      body: aiSum.summary,
-      isAI: true,
-      date: aiSum.date
-    };
+  // Check for AI-generated summary (per-month)
+  const yearSummaries = aiSummaries[activeYear];
+  if (yearSummaries) {
+    // Find summary for selected month
+    const defaultIdx = getDefaultMonthIdx(months);
+    const selIdx = selectedMonthIdx >= 0 ? selectedMonthIdx : defaultIdx;
+    if (selIdx >= 0 && selIdx < months.length) {
+      const mn = String(monthNumFromLabel(months[selIdx].label)).padStart(2, '0');
+      const aiSum = yearSummaries[mn];
+      if (aiSum && aiSum.summary) {
+        const trendMap = { up: 'tag-up', down: 'tag-down', neutral: 'tag-neutral' };
+        const trendLabel = { up: '개선', down: '주의', neutral: '보합' };
+        const cls = trendMap[aiSum.trend] || 'tag-neutral';
+        const label = trendLabel[aiSum.trend] || '보합';
+        return {
+          title: `${aiSum.period} AI 브리핑`,
+          tag: `<span class="summary-tag ${cls}">${label}</span>`,
+          body: aiSum.summary,
+          isAI: true,
+          date: aiSum.date
+        };
+      }
+    }
   }
 
   const day = TODAY.getDate();
