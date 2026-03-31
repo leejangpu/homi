@@ -54,7 +54,7 @@
   .month-pill.disabled{opacity:0.3;pointer-events:none;}
 
   /* Dashboard Cards */
-  .dash-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;}
+  .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
   .dash-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;transition:border-color .2s;}
   .dash-card:hover{border-color:var(--primary);}
   .card-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:7px;}
@@ -70,6 +70,38 @@
   .chart-card h3{font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:14px;}
   .chart-card canvas{max-height:240px;}
   .chart-card.full{grid-column:1/-1;}
+
+  /* Milestone */
+  .milestone-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:20px;}
+  .milestone-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+  .milestone-header h3{font-size:14px;font-weight:700;color:var(--text);margin:0;}
+  .milestone-header .milestone-meta{font-size:12px;color:var(--text-muted);}
+  .milestone-bar-wrap{position:relative;height:32px;background:#1a2332;border-radius:16px;overflow:hidden;margin-bottom:12px;}
+  .milestone-bar-fill{height:100%;border-radius:16px;background:linear-gradient(90deg,var(--primary),var(--cyan));transition:width .6s ease;position:relative;min-width:2px;}
+  .milestone-bar-fill::after{content:attr(data-pct);position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);}
+  .milestone-markers{display:flex;justify-content:space-between;position:relative;padding:0 2px;}
+  .milestone-marker{display:flex;flex-direction:column;align-items:center;position:relative;}
+  .milestone-marker .dot{width:8px;height:8px;border-radius:50%;background:var(--border);margin-bottom:4px;}
+  .milestone-marker .dot.reached{background:var(--primary);}
+  .milestone-marker .dot.current{background:var(--cyan);box-shadow:0 0 8px rgba(34,211,238,.5);}
+  .milestone-marker .yr{font-size:10px;color:var(--text-dim);}
+  .milestone-marker .amt{font-size:10px;color:var(--text-muted);font-weight:500;}
+  .milestone-stats{display:flex;gap:20px;margin-top:14px;flex-wrap:wrap;}
+  .milestone-stat{font-size:12px;color:var(--text-muted);}
+  .milestone-stat strong{color:var(--text);font-weight:600;}
+
+  /* Summary Banner */
+  .summary-banner{background:linear-gradient(135deg,#1e1b4b,#312e81);border:1px solid rgba(99,102,241,0.3);border-radius:var(--radius);padding:20px 24px;margin-bottom:20px;position:relative;overflow:hidden;}
+  .summary-banner::before{content:'';position:absolute;top:-20px;right:-20px;width:120px;height:120px;background:rgba(99,102,241,0.08);border-radius:50%;}
+  .summary-banner .summary-title{font-size:14px;font-weight:700;color:var(--primary-light);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .summary-banner .summary-body{font-size:13px;color:var(--text);line-height:1.7;}
+  .summary-banner .summary-body .highlight{color:var(--green);font-weight:600;}
+  .summary-banner .summary-body .warn{color:var(--amber);font-weight:600;}
+  .summary-banner .summary-body .down{color:var(--red);font-weight:600;}
+  .summary-banner .summary-tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;margin-right:4px;}
+  .summary-banner .tag-up{background:var(--green-bg);color:var(--green);}
+  .summary-banner .tag-down{background:var(--red-bg);color:var(--red);}
+  .summary-banner .tag-neutral{background:rgba(148,163,184,0.15);color:var(--text-muted);}
 
   /* Monthly table */
   .mtable{width:100%;border-collapse:collapse;margin-top:12px;}
@@ -143,6 +175,10 @@
     .month-pills{gap:3px;}
     .month-pill{padding:5px 10px;font-size:11px;}
     .mtable th,.mtable td{padding:7px 8px;font-size:12px;}
+    .milestone-stats{gap:12px;}
+    .milestone-marker .yr{font-size:9px;}
+    .milestone-marker .amt{font-size:9px;}
+    .milestone-bar-wrap{height:28px;}
   }
   @media(max-width:400px){
     .dash-grid{grid-template-columns:1fr;gap:8px;}
@@ -169,8 +205,10 @@
 const rawSheets={};
 const sections={};
 let activeYear=null, activeSection='dashboard', selectedMonthIdx=-1;
+let assetViewMode='group'; // 'group' or 'detail'
 let jexcelInstance=null;
 let chartInstances=[];
+let aiSummaries={}; // loaded from summary.json
 
 const TODAY=new Date();
 const THIS_MONTH=TODAY.getMonth()+1; // 1-12
@@ -221,7 +259,7 @@ function splitSections(year){
     if(c1.includes('급여')||c1==='순애 (90%)'||c1==='장훈 (90%)'||c1==='금융소득'||c1==='배당소득'||c1==='기타소득'||c1==='기타'){if(mode!=='savings'&&mode!=='expense'&&mode!=='asset')mode='income';}
     if(c1==='저축'||(c1==='비상금'&&mode!=='expense'))mode='savings';
     if(c1==='지출'||c1==='고정지출'||c1==='변동지출')mode='expense';
-    if(c1.includes('자산')||c1==='부동산')mode='asset';
+    if(c1.includes('자산')||c1==='부동산'||c1==='대출'||c1==='유동자산계')mode='asset';
     const isT=(c1==='합계'||c1==='계');
     if(mode==='income'){incRows.push(r);if(isT)mode='';}
     else if(mode==='savings'){savRows.push(r);if(isT)mode='';}
@@ -232,8 +270,9 @@ function splitSections(year){
   const extract=(rows)=>{if(!rows.length)return[];const res=[data[headerRow]];rows.forEach(r=>res.push(data[r]));return res;};
   const getTotal=(rows)=>{for(let i=rows.length-1;i>=0;i--){const c1=(data[rows[i]][1]||'').trim();if(c1==='합계'||c1==='계')return data[rows[i]];}return null;};
 
-  // Parse asset items for pie chart
+  // Parse asset items for pie chart (individual + grouped)
   const assetItems = [];
+  const assetGroupMap = {};
   astRows.forEach(r => {
     const c1 = (data[r][1]||'').trim();
     const c2 = (data[r][2]||'').trim();
@@ -248,15 +287,20 @@ function splitSections(year){
       if (v) { val = v; break; }
     }
     if (val !== 0) {
-      assetItems.push({ name: c1 + (c2 ? ' ' + c2 : ''), owner: c3, value: val });
+      assetItems.push({ name: c1 + (c2 ? ' ' + c2 : ''), owner: c3, value: val, category: c1 });
+      // Group by category (col1)
+      const groupKey = c1;
+      if (!assetGroupMap[groupKey]) assetGroupMap[groupKey] = 0;
+      assetGroupMap[groupKey] += val;
     }
   });
+  const assetGroups = Object.entries(assetGroupMap).map(([name,value]) => ({name, value}));
 
   sections[year]={months, monthStart, headerRow,
     income:{rows:incRows, data:extract(incRows), total:getTotal(incRows)},
     savings:{rows:savRows, data:extract(savRows), total:getTotal(savRows)},
     expense:{rows:expRows, data:extract(expRows), total:getTotal(expRows)},
-    asset:{rows:astRows, data:extract(astRows), total:null, items:assetItems}
+    asset:{rows:astRows, data:extract(astRows), total:null, items:assetItems, groups:assetGroups}
   };
 }
 
@@ -276,6 +320,175 @@ function renderView(){
   else renderSpreadsheet(el,activeSection);
 }
 
+// ===== Monthly Summary Generator =====
+function generateMonthlySummary(sec, months) {
+  // Check for AI-generated summary first
+  const aiSum = aiSummaries[activeYear];
+  if (aiSum && aiSum.summary) {
+    const trendMap = { up: 'tag-up', down: 'tag-down', neutral: 'tag-neutral' };
+    const trendLabel = { up: '개선', down: '주의', neutral: '보합' };
+    const cls = trendMap[aiSum.trend] || 'tag-neutral';
+    const label = trendLabel[aiSum.trend] || '보합';
+    return {
+      title: `${aiSum.period} AI 브리핑`,
+      tag: `<span class="summary-tag ${cls}">${label}</span>`,
+      body: aiSum.summary,
+      isAI: true,
+      date: aiSum.date
+    };
+  }
+
+  const day = TODAY.getDate();
+  // >=26: compare this month vs last month, <26: compare last month vs month before last
+  let curIdx, prevIdx, curLabel, prevLabel;
+  const defaultIdx = getDefaultMonthIdx(months);
+
+  if (day >= 26) {
+    curIdx = defaultIdx;
+    prevIdx = curIdx - 1;
+  } else {
+    curIdx = defaultIdx > 0 ? defaultIdx - 1 : defaultIdx;
+    prevIdx = curIdx - 1;
+  }
+
+  if (prevIdx < 0 || curIdx < 0 || curIdx >= months.length) return null;
+  curLabel = months[curIdx].label.replace(/^\d{4}-0?/, '').replace(/^0/, '') + '월';
+  prevLabel = months[prevIdx].label.replace(/^\d{4}-0?/, '').replace(/^0/, '') + '월';
+
+  const gv = (total) => total ? parseNum(total[months[curIdx].col]) : 0;
+  const gvP = (total) => total ? parseNum(total[months[prevIdx].col]) : 0;
+
+  const incCur = gv(sec.income.total), incPrev = gvP(sec.income.total);
+  const savCur = gv(sec.savings.total), savPrev = gvP(sec.savings.total);
+  const expCur = gv(sec.expense.total), expPrev = gvP(sec.expense.total);
+
+  // Check if we have enough data
+  if (!incCur && !incPrev && !expCur && !expPrev) return null;
+
+  const pct = (cur, prev) => prev ? ((cur - prev) / Math.abs(prev) * 100) : null;
+  const incPct = pct(incCur, incPrev);
+  const savPct = pct(savCur, savPrev);
+  const expPct = pct(expCur, expPrev);
+  const balCur = incCur - savCur - expCur;
+  const balPrev = incPrev - savPrev - expPrev;
+
+  // Find biggest expense changes (detail rows)
+  const data = rawSheets[activeYear];
+  const expRows = sec.expense.rows || [];
+  const expChanges = [];
+  expRows.forEach(r => {
+    const c1 = (data[r][1]||'').trim();
+    const c2 = (data[r][2]||'').trim();
+    if (c1==='계'||c1==='합계'||c1.includes('잔액')||!c1) return;
+    const name = c2 || c1;
+    const cur = parseNum(data[r][months[curIdx].col]);
+    const prev = parseNum(data[r][months[prevIdx].col]);
+    if (cur || prev) {
+      const diff = cur - prev;
+      expChanges.push({ name, cur, prev, diff, pct: prev ? (diff/Math.abs(prev)*100) : (cur ? 100 : 0) });
+    }
+  });
+  expChanges.sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff));
+
+  // Find biggest income changes
+  const incRows = sec.income.rows || [];
+  const incChanges = [];
+  incRows.forEach(r => {
+    const c1 = (data[r][1]||'').trim();
+    const c2 = (data[r][2]||'').trim();
+    const c3 = (data[r][3]||'').trim();
+    if (c1==='계'||c1==='합계'||!c1) return;
+    const name = (c2||c1) + (c3 ? `(${c3})` : '');
+    const cur = parseNum(data[r][months[curIdx].col]);
+    const prev = parseNum(data[r][months[prevIdx].col]);
+    if (cur || prev) {
+      const diff = cur - prev;
+      incChanges.push({ name, cur, prev, diff });
+    }
+  });
+  incChanges.sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff));
+
+  // Build commentary
+  const parts = [];
+  const titleParts = [];
+
+  // Income analysis
+  if (incPct !== null) {
+    if (Math.abs(incPct) < 3) {
+      parts.push(`소득은 ${fmtWon(incCur)}으로 전월과 비슷한 수준입니다.`);
+    } else if (incPct > 0) {
+      parts.push(`소득이 <span class="highlight">${fmtWon(incCur)}</span>으로 전월 대비 <span class="highlight">+${incPct.toFixed(0)}%</span> 증가했습니다.`);
+      if (incChanges.length && incChanges[0].diff > 0) {
+        parts.push(`${incChanges[0].name}이(가) ${fmtWon(Math.abs(incChanges[0].diff))} 늘어난 것이 주요 요인입니다.`);
+      }
+    } else {
+      parts.push(`소득이 <span class="down">${fmtWon(incCur)}</span>으로 전월 대비 <span class="down">${incPct.toFixed(0)}%</span> 감소했습니다.`);
+      if (incChanges.length && incChanges[0].diff < 0) {
+        parts.push(`${incChanges[0].name}이(가) ${fmtWon(Math.abs(incChanges[0].diff))} 줄었습니다.`);
+      }
+    }
+  }
+
+  // Expense analysis
+  if (expPct !== null) {
+    const expIncomplete = expChanges.some(e => e.name.includes('생활비') && e.cur === 0 && e.prev > 0)
+                       || expChanges.some(e => e.name.includes('기타') && e.cur === 0 && e.prev > 0);
+
+    if (expIncomplete && day >= 26) {
+      parts.push(`지출은 <span class="warn">${fmtWon(expCur)}</span>인데, 아직 미입력 항목(생활비/기타)이 있어 실제 지출은 더 높을 수 있습니다.`);
+    } else if (expPct < -10) {
+      parts.push(`지출이 <span class="highlight">${fmtWon(expCur)}</span>으로 전월 대비 <span class="highlight">${expPct.toFixed(0)}%</span> 크게 줄었습니다.`);
+    } else if (expPct > 10) {
+      parts.push(`지출이 <span class="down">${fmtWon(expCur)}</span>으로 전월 대비 <span class="down">+${expPct.toFixed(0)}%</span> 증가했습니다.`);
+    } else {
+      parts.push(`지출은 ${fmtWon(expCur)}으로 전월과 유사합니다.`);
+    }
+
+    // Top expense changes
+    const topExp = expChanges.filter(e => Math.abs(e.diff) > 50000).slice(0, 3);
+    if (topExp.length) {
+      const items = topExp.map(e => {
+        const dir = e.diff > 0 ? '증가' : '감소';
+        const cls = e.diff > 0 ? 'warn' : 'highlight';
+        return `<span class="${cls}">${e.name}(${dir} ${fmtWon(Math.abs(e.diff))})</span>`;
+      });
+      parts.push(`주요 변동: ${items.join(', ')}`);
+    }
+  }
+
+  // Savings analysis
+  if (savPct !== null && (savCur || savPrev)) {
+    if (savCur > savPrev) {
+      parts.push(`저축은 <span class="highlight">${fmtWon(savCur)}</span>으로 전월보다 늘렸습니다.`);
+    } else if (savCur < savPrev) {
+      parts.push(`저축은 ${fmtWon(savCur)}으로 전월 대비 소폭 줄었습니다.`);
+    } else {
+      parts.push(`저축은 ${fmtWon(savCur)}으로 동일합니다.`);
+    }
+  }
+
+  // Balance verdict
+  if (balCur > 0 && balPrev <= 0) {
+    parts.push(`급여 대비 잔액이 <span class="highlight">흑자 전환(${fmtWon(balCur)})</span>되어 좋은 흐름입니다.`);
+  } else if (balCur <= 0 && balPrev > 0) {
+    parts.push(`급여 대비 잔액이 <span class="down">적자 전환(${fmtWon(balCur)})</span>되었습니다. 지출 관리에 유의하세요.`);
+  } else if (balCur > 0 && balCur > balPrev) {
+    parts.push(`급여 대비 잔액이 ${fmtWon(balCur)}으로 개선되었습니다.`);
+  }
+
+  // Title tag
+  const overallTrend = (incPct||0) > 0 && (expPct||0) < 0 ? 'up' :
+                       (incPct||0) < 0 && (expPct||0) > 0 ? 'down' : 'neutral';
+  const tagCls = overallTrend==='up' ? 'tag-up' : overallTrend==='down' ? 'tag-down' : 'tag-neutral';
+  const tagText = overallTrend==='up' ? '개선' : overallTrend==='down' ? '주의' : '보합';
+
+  return {
+    title: `${prevLabel} → ${curLabel} 비교`,
+    tag: `<span class="summary-tag ${tagCls}">${tagText}</span>`,
+    body: parts.join(' ')
+  };
+}
+
 // ===== Dashboard =====
 function renderDashboard(container){
   const sec=sections[activeYear];
@@ -291,9 +504,11 @@ function renderDashboard(container){
   const calcChg=(v)=>v[pi]?((v[si]-v[pi])/Math.abs(v[pi])*100):null;
   const chgHtml=(v)=>{if(v===null)return'';const d=v>=0?'up':'down';const a=v>=0?'&#9650;':'&#9660;';return`<div class="card-change ${d}">${a} ${Math.abs(v).toFixed(1)}% vs 전월</div>`;};
 
-  // Asset total
-  let assetTotal=0;
-  if(sec.asset.rows.length){const d=rawSheets[activeYear];sec.asset.rows.forEach(r=>{const c1=(d[r][1]||'').trim();if(c1==='계'||c1==='유동자산계'){for(let i=months.length-1;i>=0;i--){const v=parseNum(d[r][months[i].col]);if(v){assetTotal=v;return;}}}});}
+  // Asset totals (자산총액, 부채총액, 순자산)
+  const assetGroups = sec.asset.groups || [];
+  const totalPositive = assetGroups.filter(a=>a.value>0).reduce((s,a)=>s+a.value,0);
+  const totalDebt = assetGroups.filter(a=>a.value<0).reduce((s,a)=>s+a.value,0);
+  const netAsset = totalPositive + totalDebt;
 
   // Month pills
   let pillsHtml = months.map((m,i) => {
@@ -304,16 +519,69 @@ function renderDashboard(container){
     return `<button class="month-pill ${cls}" onclick="selectMonth(${i})">${shortLabel}</button>`;
   }).join('');
 
-  // Asset items for pie
-  const assetItems = sec.asset.items || [];
-  const positiveAssets = assetItems.filter(a => a.value > 0);
-  const negativeAssets = assetItems.filter(a => a.value < 0);
+  // Asset groups for pie (카테고리별 그룹) - assetGroups already declared above
+  const positiveGroups = assetGroups.filter(a => a.value > 0);
+  const negativeGroups = assetGroups.filter(a => a.value < 0);
+
+  // Generate monthly summary
+  const summary = generateMonthlySummary(sec, months);
+  const summaryHtml = summary ? `
+  <div class="summary-banner">
+    <div class="summary-title">${summary.tag}${summary.title}${summary.date ? `<span style="margin-left:auto;font-size:11px;color:var(--text-dim);font-weight:400">${summary.date} 작성</span>` : ''}</div>
+    <div class="summary-body">${summary.body}</div>
+  </div>` : '';
+
+  // Milestone: 10-year retirement goal (15억, 2026-2036)
+  const GOAL_START = 2026, GOAL_END = 2036, GOAL_AMOUNT = 1500000000;
+  const YEARLY_TARGET = GOAL_AMOUNT / (GOAL_END - GOAL_START); // 1.5억/year
+  const currentAssets = totalPositive; // 유동자산 (부동산 제외, 대출 제외)
+  const yearsElapsed = THIS_YEAR - GOAL_START + (THIS_MONTH - 1) / 12;
+  const expectedNow = Math.min(GOAL_AMOUNT, YEARLY_TARGET * yearsElapsed);
+  const goalPct = Math.min(100, (currentAssets / GOAL_AMOUNT * 100));
+  const expectedPct = Math.min(100, (expectedNow / GOAL_AMOUNT * 100));
+  const gap = currentAssets - expectedNow;
+
+  let milestoneMarkers = '';
+  for (let y = GOAL_START; y <= GOAL_END; y++) {
+    const targetAtYear = YEARLY_TARGET * (y - GOAL_START);
+    const reached = currentAssets >= targetAtYear;
+    const isCurrent = y === THIS_YEAR;
+    const dotCls = isCurrent ? 'current' : (reached ? 'reached' : '');
+    milestoneMarkers += `<div class="milestone-marker"><div class="dot ${dotCls}"></div><div class="yr">${String(y).slice(2)}</div><div class="amt">${fmtWon(targetAtYear)||'0'}</div></div>`;
+  }
+
+  const gapText = gap >= 0
+    ? `<span style="color:var(--green)">목표 대비 +${fmtWon(gap)} 초과</span>`
+    : `<span style="color:var(--red)">목표 대비 ${fmtWon(gap)} 부족</span>`;
+  const remainYears = GOAL_END - THIS_YEAR;
+  const needPerYear = remainYears > 0 ? (GOAL_AMOUNT - currentAssets) / remainYears : 0;
+
+  const milestoneHtml = currentAssets > 0 ? `
+  <div class="milestone-card">
+    <div class="milestone-header">
+      <h3>은퇴 마일스톤 — 10년 15억 목표</h3>
+      <div class="milestone-meta">${GOAL_START}~${GOAL_END} · 연 ${fmtWon(YEARLY_TARGET)} 목표</div>
+    </div>
+    <div class="milestone-bar-wrap">
+      <div class="milestone-bar-fill" style="width:${Math.max(goalPct,1)}%" data-pct="${goalPct.toFixed(1)}%"></div>
+    </div>
+    <div class="milestone-markers">${milestoneMarkers}</div>
+    <div class="milestone-stats">
+      <div class="milestone-stat">현재 유동자산: <strong>${fmtWon(currentAssets)}</strong></div>
+      <div class="milestone-stat">예상 도달: <strong>${fmtWon(Math.round(expectedNow))}</strong></div>
+      <div class="milestone-stat">${gapText}</div>
+      <div class="milestone-stat">남은 기간 연 필요: <strong>${fmtWon(Math.round(needPerYear))}</strong></div>
+    </div>
+  </div>` : '';
 
   let html = `
   <div class="month-selector">
     <label>기준월</label>
     <div class="month-pills">${pillsHtml}</div>
   </div>
+
+  ${summaryHtml}
+  ${milestoneHtml}
 
   <div class="dash-grid">
     <div class="dash-card">
@@ -332,8 +600,16 @@ function renderDashboard(container){
       ${chgHtml(calcChg(expV))}
     </div>
     <div class="dash-card">
+      <div class="card-label"><span class="card-icon" style="background:var(--cyan-bg);color:var(--cyan)">&#9650;</span>자산 총액</div>
+      <div class="card-value" style="color:var(--cyan)">${totalPositive?fmtWon(totalPositive):'-'}</div>
+    </div>
+    <div class="dash-card">
+      <div class="card-label"><span class="card-icon" style="background:var(--red-bg);color:var(--red)">&#9660;</span>부채</div>
+      <div class="card-value" style="color:var(--red)">${totalDebt?fmtWon(totalDebt):'-'}</div>
+    </div>
+    <div class="dash-card">
       <div class="card-label"><span class="card-icon" style="background:var(--pink-bg);color:var(--pink)">&#9733;</span>순자산</div>
-      <div class="card-value" style="color:var(--pink)">${assetTotal?fmtWon(assetTotal):'-'}</div>
+      <div class="card-value" style="color:var(--pink)">${netAsset?fmtWon(netAsset):'-'}</div>
     </div>
   </div>
 
@@ -348,10 +624,15 @@ function renderDashboard(container){
     </div>
   </div>
 
-  ${positiveAssets.length ? `
+  ${positiveGroups.length ? `
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <span style="font-size:13px;color:var(--text-muted);font-weight:500">자산 보기</span>
+    <button class="month-pill ${assetViewMode==='group'?'active':''}" onclick="setAssetView('group')">유형별</button>
+    <button class="month-pill ${assetViewMode==='detail'?'active':''}" onclick="setAssetView('detail')">전체 상세</button>
+  </div>
   <div class="chart-row">
     <div class="chart-card">
-      <h3>자산 구성</h3>
+      <h3>${assetViewMode==='group'?'자산 유형별 구성':'자산 상세 구성'}</h3>
       <canvas id="chAssetPie"></canvas>
     </div>
     <div class="chart-card">
@@ -395,27 +676,36 @@ function renderDashboard(container){
   }));
 
   // Asset Pie
-  if(positiveAssets.length){
+  if(positiveGroups.length){
     const pieColors=['#34d399','#60a5fa','#fbbf24','#f472b6','#a78bfa','#22d3ee','#fb923c','#4ade80','#818cf8','#f87171','#38bdf8','#e879f9'];
-    const pieOpts={responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:chartColors.legend,font:{size:11},boxWidth:10,padding:8}}}};
+    const pieOpts={responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:chartColors.legend,font:{size:11},boxWidth:10,padding:8}},tooltip:{callbacks:{label:function(ctx){const v=ctx.parsed;const total=ctx.dataset.data.reduce((a,b)=>a+b,0);const pct=(v/total*100).toFixed(1);return` ${ctx.label}: ${fmtWon(v)} (${pct}%)`;}}}}};
+
+    // Choose data source based on view mode
+    const assetItems = sec.asset.items || [];
+    const positiveItems = assetItems.filter(a => a.value > 0);
+    const pieData = assetViewMode==='group' ? positiveGroups : positiveItems;
 
     chartInstances.push(new Chart(document.getElementById('chAssetPie'),{
       type:'doughnut', data:{
-        labels:positiveAssets.map(a=>a.name),
-        datasets:[{data:positiveAssets.map(a=>a.value),backgroundColor:pieColors.slice(0,positiveAssets.length),borderColor:'#1e293b',borderWidth:2}]
+        labels:pieData.map(a=>a.name),
+        datasets:[{data:pieData.map(a=>a.value),backgroundColor:pieColors.slice(0,pieData.length),borderColor:'#1e293b',borderWidth:2}]
       }, options:pieOpts
     }));
 
-    if(negativeAssets.length){
+    if(negativeGroups.length){
+      const negItems = assetItems.filter(a => a.value < 0);
+      const debtData = assetViewMode==='group' ? negativeGroups : negItems;
       chartInstances.push(new Chart(document.getElementById('chDebtPie'),{
         type:'doughnut', data:{
-          labels:negativeAssets.map(a=>a.name),
-          datasets:[{data:negativeAssets.map(a=>Math.abs(a.value)),backgroundColor:['#f87171','#fb923c','#fbbf24'],borderColor:'#1e293b',borderWidth:2}]
+          labels:debtData.map(a=>a.name),
+          datasets:[{data:debtData.map(a=>Math.abs(a.value)),backgroundColor:['#f87171','#fb923c','#fbbf24','#ef4444'],borderColor:'#1e293b',borderWidth:2}]
         }, options:pieOpts
       }));
     }
   }
 }
+
+function setAssetView(mode){assetViewMode=mode;renderView();}
 
 function selectMonth(i){selectedMonthIdx=i;renderView();}
 
@@ -485,6 +775,8 @@ function showSS(m){const el=document.getElementById('sheetStatus');if(!el)return
 
 // ===== Init =====
 async function init(){
+  // Load AI summaries
+  try{const r=await fetch('./summary.json');if(r.ok)aiSummaries=await r.json();}catch(e){}
   for(const f of['2025','2026']){try{const r=await fetch(`./${f}.csv`);if(r.ok){rawSheets[f]=parseCSV(await r.text());splitSections(f);}}catch(e){}}
   if(!Object.keys(rawSheets).length){rawSheets['new']=[Array(20).fill('')];splitSections('new');}
   // Default to year matching today, or latest
