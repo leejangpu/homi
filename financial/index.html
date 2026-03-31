@@ -534,7 +534,8 @@ function renderDashboard(container){
   // Milestone: 10-year retirement goal (15억, 2026-2036)
   const GOAL_START = 2026, GOAL_END = 2036, GOAL_AMOUNT = 1500000000;
   const YEARLY_TARGET = GOAL_AMOUNT / (GOAL_END - GOAL_START); // 1.5억/year
-  const currentAssets = totalPositive; // 유동자산 (부동산 제외, 대출 제외)
+  const liquidPositive = assetGroups.filter(a=>a.value>0 && a.name!=='부동산').reduce((s,a)=>s+a.value,0);
+  const currentAssets = liquidPositive + totalDebt; // 유동자산 - 부채 (부동산 제외)
   const yearsElapsed = THIS_YEAR - GOAL_START + (THIS_MONTH - 1) / 12;
   const expectedNow = Math.min(GOAL_AMOUNT, YEARLY_TARGET * yearsElapsed);
   const goalPct = Math.min(100, (currentAssets / GOAL_AMOUNT * 100));
