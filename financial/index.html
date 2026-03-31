@@ -336,8 +336,8 @@ function splitSections(year){
     }
     if (val !== 0) {
       assetItems.push({ name: c1 + (c2 ? ' ' + c2 : ''), owner: c3, value: val, category: c1 });
-      // Group by category (col1)
-      const groupKey = c1;
+      // 대출은 상세항목(c2)으로 구분, 나머지는 통장분류(c1)로 그룹
+      const groupKey = c1 === '대출' ? (c2 || c1) : c1;
       if (!assetGroupMap[groupKey]) assetGroupMap[groupKey] = 0;
       assetGroupMap[groupKey] += val;
     }
