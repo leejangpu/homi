@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet-ce@4/dist/jexcel.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@5/dist/jsuites.min.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3/dist/apexcharts.min.js"></script>
 <style>
   :root {
     --primary:#2dd4bf; --primary-light:#5eead4;
@@ -218,7 +218,6 @@
     margin-bottom:14px;
     text-transform:uppercase;letter-spacing:.6px;
   }
-  .chart-card canvas{max-height:240px;}
   .chart-card.full{grid-column:1/-1;}
 
   /* ── MILESTONE ── */
@@ -459,6 +458,78 @@
   }
   .lock-btn:hover{opacity:0.9;transform:translateY(-1px);box-shadow:0 8px 24px rgba(45,212,191,0.2);}
 
+  /* ── AI BRIEFING ── */
+  .summary-banner{
+    background:linear-gradient(135deg,rgba(45,212,191,0.06) 0%,rgba(7,11,20,0.95) 70%);
+    border:1px solid rgba(45,212,191,0.2);
+    border-radius:var(--radius);
+    padding:22px 26px;
+    margin-bottom:20px;
+    position:relative;overflow:hidden;
+  }
+  /* Top glow line */
+  .summary-banner::before{
+    content:'';position:absolute;
+    top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent 0%,rgba(45,212,191,0.8) 30%,rgba(245,158,11,0.6) 70%,transparent 100%);
+  }
+  /* Scanning animation */
+  .summary-banner::after{
+    content:'';position:absolute;
+    top:0;left:-60%;width:50%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(45,212,191,0.04),transparent);
+    animation:aiScan 5s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes aiScan{0%{left:-60%}100%{left:160%}}
+  /* Corner accent */
+  .summary-banner .ai-corner{
+    position:absolute;top:0;right:0;
+    width:80px;height:80px;
+    background:radial-gradient(circle at top right,rgba(45,212,191,0.08),transparent 70%);
+    pointer-events:none;
+  }
+  .summary-banner .summary-title{
+    font-size:11px;font-weight:800;
+    color:var(--primary);
+    margin-bottom:12px;
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    text-transform:uppercase;letter-spacing:.8px;
+  }
+  .ai-badge{
+    display:inline-flex;align-items:center;gap:4px;
+    background:linear-gradient(135deg,var(--primary),var(--gold));
+    color:#070b14;font-size:9px;font-weight:900;
+    padding:3px 7px;border-radius:4px;letter-spacing:1.5px;
+  }
+  .ai-badge::before{
+    content:'';display:inline-block;
+    width:5px;height:5px;border-radius:50%;
+    background:#070b14;
+    animation:aiPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes aiPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.7);}}
+  .summary-banner .summary-body{
+    font-size:13.5px;color:rgba(238,242,255,0.85);
+    line-height:1.8;font-weight:400;
+    position:relative;z-index:1;
+  }
+  .summary-banner .summary-body .highlight{color:var(--green);font-weight:700;}
+  .summary-banner .summary-body .warn{color:var(--amber);font-weight:700;}
+  .summary-banner .summary-body .down{color:var(--red);font-weight:700;}
+  .summary-banner .summary-tag{
+    display:inline-block;padding:2px 8px;
+    border-radius:4px;font-size:10px;font-weight:700;
+    margin-right:4px;letter-spacing:.4px;
+    vertical-align:middle;
+  }
+  .summary-banner .tag-up{background:rgba(52,211,153,0.15);color:var(--green);border:1px solid rgba(52,211,153,0.25);}
+  .summary-banner .tag-down{background:rgba(251,113,133,0.15);color:var(--red);border:1px solid rgba(251,113,133,0.25);}
+  .summary-banner .tag-neutral{background:rgba(122,139,160,0.1);color:var(--text-muted);border:1px solid rgba(122,139,160,0.15);}
+  /* Typewriter reveal for AI body */
+  .summary-banner.is-ai .summary-body{animation:fadeIn .6s ease .2s both;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
   /* ── ANIMATIONS ── */
   @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
   .content{animation:fadeUp .3s ease;}
@@ -467,6 +538,12 @@
   .dash-card:nth-child(2){animation-delay:.08s;}
   .dash-card:nth-child(3){animation-delay:.12s;}
   .dash-card:nth-child(4){animation-delay:.16s;}
+
+  @media(max-width:768px){
+    .chart-card canvas{max-height:200px;}
+    .summary-banner{padding:16px 18px;}
+    .summary-banner .summary-body{font-size:12.5px;}
+  }
 </style>
 </head>
 <body>
@@ -849,8 +926,12 @@ function renderDashboard(container){
   // Generate monthly summary
   const summary = generateMonthlySummary(sec, months);
   const summaryHtml = summary ? `
-  <div class="summary-banner">
-    <div class="summary-title">${summary.tag}${summary.title}${summary.date ? `<span style="margin-left:auto;font-size:11px;color:var(--text-dim);font-weight:400">${summary.date} 작성</span>` : ''}</div>
+  <div class="summary-banner${summary.isAI ? ' is-ai' : ''}">
+    <div class="ai-corner"></div>
+    <div class="summary-title">
+      <span class="ai-badge">AI</span>
+      ${summary.tag}${summary.title}${summary.date ? `<span style="margin-left:auto;font-size:10px;color:var(--text-dim);font-weight:500;text-transform:none;letter-spacing:0">${summary.date}</span>` : ''}
+    </div>
     <div class="summary-body">${summary.body}</div>
   </div>` : '';
 
@@ -939,22 +1020,22 @@ function renderDashboard(container){
   <div class="chart-row">
     <div class="chart-card">
       <h3>월별 수입 vs 지출</h3>
-      <canvas id="chIncExp"></canvas>
+      <div id="chIncExp"></div>
     </div>
     <div class="chart-card">
       <h3>월별 저축 vs 지출</h3>
-      <canvas id="chSav"></canvas>
+      <div id="chSav"></div>
     </div>
   </div>
 
   <div class="chart-row">
     <div class="chart-card">
       <h3 id="expPieTitle">${months[si] ? months[si].label.replace(/^\d{4}-/,'') : ''}월 지출 구성</h3>
-      <canvas id="chExpPie"></canvas>
+      <div id="chExpPie"></div>
     </div>
     <div class="chart-card full" style="grid-column:unset">
       <h3>월별 상세 지출 항목</h3>
-      <canvas id="chExpBar"></canvas>
+      <div id="chExpBar"></div>
     </div>
   </div>
 
@@ -967,11 +1048,11 @@ function renderDashboard(container){
   <div class="chart-row">
     <div class="chart-card">
       <h3>${assetViewMode==='group'?'자산 유형별 구성':'자산 상세 구성'}</h3>
-      <canvas id="chAssetPie"></canvas>
+      <div id="chAssetPie"></div>
     </div>
     <div class="chart-card">
       <h3>부채</h3>
-      <canvas id="chDebtPie"></canvas>
+      <div id="chDebtPie"></div>
     </div>
   </div>` : ''}
 
@@ -991,24 +1072,13 @@ function renderDashboard(container){
   html+=`</tbody></table></div></div>`;
   container.innerHTML=html;
 
-  // Charts
+  // Charts (ApexCharts)
   const labels=months.slice(0,lastData+1).map(m=>{const s=m.label.replace(/^\d{4}-/,'').replace(/^24\./,'');return s;});
-  const chartColors={grid:'rgba(51,65,85,.3)',tick:'#64748b',legend:'#94a3b8'};
-  const baseOpts={responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:chartColors.legend,font:{size:11},boxWidth:12}}},scales:{x:{ticks:{color:chartColors.tick,font:{size:11}},grid:{color:chartColors.grid}},y:{ticks:{color:chartColors.tick,font:{size:11},callback:v=>fmtWon(v)},grid:{color:chartColors.grid}}}};
+  const apxBase={chart:{background:'transparent',fontFamily:'Manrope,Noto Sans KR,sans-serif',toolbar:{show:false},animations:{enabled:true,speed:500,easing:'easeinout'}},theme:{mode:'dark'},grid:{borderColor:'rgba(255,255,255,0.05)',strokeDashArray:4},xaxis:{axisBorder:{show:false},axisTicks:{show:false}},tooltip:{theme:'dark'},dataLabels:{enabled:false},legend:{labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'}};
 
-  chartInstances.push(new Chart(document.getElementById('chIncExp'),{
-    type:'bar', data:{labels, datasets:[
-      {label:'소득',data:incV.slice(0,lastData+1),backgroundColor:'rgba(52,211,153,.55)',borderColor:'#34d399',borderWidth:1,borderRadius:3},
-      {label:'지출',data:expV.slice(0,lastData+1),backgroundColor:'rgba(251,191,36,.55)',borderColor:'#fbbf24',borderWidth:1,borderRadius:3}
-    ]}, options:baseOpts
-  }));
+  {const c=new ApexCharts(document.getElementById('chIncExp'),{...apxBase,chart:{...apxBase.chart,type:'bar',height:250},series:[{name:'소득',data:incV.slice(0,lastData+1)},{name:'지출',data:expV.slice(0,lastData+1)}],colors:['#2dd4bf','#f59e0b'],plotOptions:{bar:{columnWidth:'55%',borderRadius:3,borderRadiusApplication:'end'}},xaxis:{...apxBase.xaxis,categories:labels},yaxis:{labels:{style:{colors:'#7a8ba0'},formatter:v=>fmtWon(v)}},tooltip:{...apxBase.tooltip,y:{formatter:v=>fmtWon(v)}}});c.render();chartInstances.push(c);}
 
-  chartInstances.push(new Chart(document.getElementById('chSav'),{
-    type:'line', data:{labels, datasets:[
-      {label:'저축',data:savV.slice(0,lastData+1),borderColor:'#60a5fa',backgroundColor:'rgba(96,165,250,.08)',fill:true,tension:.3,pointRadius:3,pointBackgroundColor:'#60a5fa'},
-      {label:'지출',data:expV.slice(0,lastData+1),borderColor:'#fbbf24',backgroundColor:'rgba(251,191,36,.08)',fill:true,tension:.3,pointRadius:3,pointBackgroundColor:'#fbbf24'}
-    ]}, options:baseOpts
-  }));
+  {const c=new ApexCharts(document.getElementById('chSav'),{...apxBase,chart:{...apxBase.chart,type:'area',height:250},series:[{name:'저축',data:savV.slice(0,lastData+1)},{name:'지출',data:expV.slice(0,lastData+1)}],colors:['#60a5fa','#f59e0b'],fill:{type:'gradient',gradient:{shadeIntensity:1,type:'vertical',opacityFrom:0.25,opacityTo:0.02}},stroke:{curve:'smooth',width:2},markers:{size:4,hover:{size:6}},xaxis:{...apxBase.xaxis,categories:labels},yaxis:{labels:{style:{colors:'#7a8ba0'},formatter:v=>fmtWon(v)}},tooltip:{...apxBase.tooltip,y:{formatter:v=>fmtWon(v)}}});c.render();chartInstances.push(c);}
 
   // Expense Pie & Bar
   {
@@ -1046,16 +1116,10 @@ function renderDashboard(container){
     // Sort by value descending
     pieItems.sort((a,b)=>b.val-a.val);
     const pieTotal = pieItems.reduce((s,e)=>s+e.val,0);
-    const expPieOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:chartColors.legend,font:{size:11},boxWidth:10,padding:8}},tooltip:{callbacks:{label:function(ctx){const v=ctx.parsed;const pct=(v/pieTotal*100).toFixed(1);return` ${ctx.label}: ${fmtWon(v)} (${pct}%)`;}}}}};
     const expPieTitleEl = document.getElementById('expPieTitle');
     if(expPieTitleEl) expPieTitleEl.textContent = pieLabel+' 지출 구성';
     if(pieItems.length){
-      chartInstances.push(new Chart(document.getElementById('chExpPie'),{
-        type:'doughnut', data:{
-          labels:pieItems.map(e=>e.name),
-          datasets:[{data:pieItems.map(e=>e.val),backgroundColor:expColors.slice(0,pieItems.length),borderColor:'#1e293b',borderWidth:2}]
-        }, options:expPieOpts
-      }));
+      const c=new ApexCharts(document.getElementById('chExpPie'),{...apxBase,chart:{...apxBase.chart,type:'donut',height:280},series:pieItems.map(e=>e.val),labels:pieItems.map(e=>e.name),colors:expColors.slice(0,pieItems.length),plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'합계',color:'#7a8ba0',formatter:()=>fmtWon(pieTotal)}}}}},legend:{position:'right',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)} (${(v/pieTotal*100).toFixed(1)}%)`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);
     }
     // Multi-month expense bar by category (always render)
     const allExpCats = new Set();
@@ -1066,7 +1130,7 @@ function renderDashboard(container){
     });
     if(allExpCats.size){
       const cats = Array.from(allExpCats);
-      const expBarData = cats.map((cat,ci) => {
+      const expBarSeries = cats.map((cat,ci) => {
         const vals = months.slice(0,lastData+1).map(m => {
           let sum=0;
           for(const r of expRows){
@@ -1075,42 +1139,28 @@ function renderDashboard(container){
           }
           return sum;
         });
-        return {label:cat, data:vals, backgroundColor:expColors[ci%expColors.length]+'99', borderColor:expColors[ci%expColors.length], borderWidth:1, borderRadius:2};
+        return {name:cat, data:vals};
       });
-      const expBarOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:chartColors.legend,font:{size:10},boxWidth:10,padding:6}},tooltip:{callbacks:{label:function(ctx){return` ${ctx.dataset.label}: ${fmtWon(ctx.parsed.y)}`;},footer:function(items){const total=items.reduce((a,i)=>a+i.parsed.y,0);return'합계: '+fmtWon(total);}}},datalabels:{display:false}},scales:{x:{ticks:{color:chartColors.ticks},grid:{color:chartColors.grid},stacked:true},y:{ticks:{color:chartColors.ticks,callback:v=>fmtWon(v)},grid:{color:chartColors.grid},stacked:true}}};
-      chartInstances.push(new Chart(document.getElementById('chExpBar'),{
-        type:'bar', data:{labels, datasets:expBarData},
-        options:expBarOpts
-      }));
+      const c=new ApexCharts(document.getElementById('chExpBar'),{...apxBase,chart:{...apxBase.chart,type:'bar',height:280,stacked:true},series:expBarSeries,colors:expColors,plotOptions:{bar:{columnWidth:'60%',borderRadius:2,borderRadiusApplication:'end',borderRadiusWhenStacked:'last'}},xaxis:{...apxBase.xaxis,categories:labels},yaxis:{labels:{style:{colors:'#7a8ba0'},formatter:v=>fmtWon(v)}},tooltip:{...apxBase.tooltip,y:{formatter:v=>fmtWon(v)}}});c.render();chartInstances.push(c);
     }
   }
 
-  // Asset Pie
+  // Asset Pie (ApexCharts)
   if(positiveGroups.length){
-    const pieColors=['#34d399','#60a5fa','#fbbf24','#f472b6','#a78bfa','#22d3ee','#fb923c','#4ade80','#818cf8','#f87171','#38bdf8','#e879f9'];
-    const pieOpts={responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:chartColors.legend,font:{size:11},boxWidth:10,padding:8}},tooltip:{callbacks:{label:function(ctx){const v=ctx.parsed;const total=ctx.dataset.data.reduce((a,b)=>a+b,0);const pct=(v/total*100).toFixed(1);return` ${ctx.label}: ${fmtWon(v)} (${pct}%)`;}}}}};
-
-    // Choose data source based on view mode
+    const pieColors=['#2dd4bf','#60a5fa','#fbbf24','#f472b6','#a78bfa','#34d399','#fb923c','#4ade80','#818cf8','#f87171','#38bdf8','#e879f9'];
     const assetItems = sec.asset.items || [];
     const positiveItems = assetItems.filter(a => a.value > 0);
     const pieData = assetViewMode==='group' ? positiveGroups : positiveItems;
+    const pieTotal2 = pieData.reduce((s,a)=>s+a.value,0);
 
-    chartInstances.push(new Chart(document.getElementById('chAssetPie'),{
-      type:'doughnut', data:{
-        labels:pieData.map(a=>a.name),
-        datasets:[{data:pieData.map(a=>a.value),backgroundColor:pieColors.slice(0,pieData.length),borderColor:'#1e293b',borderWidth:2}]
-      }, options:pieOpts
-    }));
+    {const c=new ApexCharts(document.getElementById('chAssetPie'),{...apxBase,chart:{...apxBase.chart,type:'donut',height:280},series:pieData.map(a=>a.value),labels:pieData.map(a=>a.name),colors:pieColors.slice(0,pieData.length),plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'총 자산',color:'#7a8ba0',formatter:()=>fmtWon(pieTotal2)}}}}},legend:{position:'bottom',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)} (${(v/pieTotal2*100).toFixed(1)}%)`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);}
 
     if(negativeGroups.length){
       const negItems = assetItems.filter(a => a.value < 0);
       const debtData = assetViewMode==='group' ? negativeGroups : negItems;
-      chartInstances.push(new Chart(document.getElementById('chDebtPie'),{
-        type:'doughnut', data:{
-          labels:debtData.map(a=>a.name),
-          datasets:[{data:debtData.map(a=>Math.abs(a.value)),backgroundColor:['#f87171','#fb923c','#fbbf24','#ef4444'],borderColor:'#1e293b',borderWidth:2}]
-        }, options:pieOpts
-      }));
+      const debtTotal = debtData.reduce((s,a)=>s+Math.abs(a.value),0);
+      const debtColors=['#fb7185','#fb923c','#fbbf24','#f472b6'];
+      const c=new ApexCharts(document.getElementById('chDebtPie'),{...apxBase,chart:{...apxBase.chart,type:'donut',height:280},series:debtData.map(a=>Math.abs(a.value)),labels:debtData.map(a=>a.name),colors:debtColors.slice(0,debtData.length),plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'총 부채',color:'#fb7185',formatter:()=>fmtWon(debtTotal)}}}}},legend:{position:'bottom',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)} (${(v/debtTotal*100).toFixed(1)}%)`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);
     }
   }
 }
