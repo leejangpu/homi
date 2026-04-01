@@ -743,28 +743,32 @@ function renderDashboard(container){
   {
     const data = rawSheets[activeYear];
     const expRows = sec.expense.rows || [];
-    const expItems = [];
+    const expItemMap = {};
     expRows.forEach(r => {
       const c1 = (data[r][1]||'').trim();
       const c2 = (data[r][2]||'').trim();
-      if (c1==='계'||c1==='합계'||c1.includes('잔액')||c1==='고정지출'||c1==='변동지출'||c1==='지출'||!c1) return;
+      if (c1==='계'||c1==='합계'||c1.includes('잔액')||c1==='지출') return;
       const name = c2 || c1;
+      if (!name) return;
       const val = parseNum(data[r][months[si].col]);
-      if (val > 0) expItems.push({ name, val });
+      if (val > 0) expItemMap[name] = (expItemMap[name]||0) + val;
     });
+    const expItems = Object.entries(expItemMap).map(([name,val])=>({name,val}));
     const expColors=['#fbbf24','#f87171','#a78bfa','#34d399','#f472b6','#60a5fa','#fb923c','#22d3ee','#4ade80','#e879f9','#38bdf8','#818cf8'];
     // Pie: fallback to most recent month with data if selected month is empty
     let pieItems = expItems;
     let pieLabel = months[si] ? months[si].label.replace(/^\d{4}-/,'')+'월' : '';
     if(!pieItems.length){
       for(let fi=lastData;fi>=0;fi--){
-        const tmp=[];
+        const tmpMap={};
         expRows.forEach(r=>{
           const c1=(data[r][1]||'').trim(),c2=(data[r][2]||'').trim();
-          if(c1==='계'||c1==='합계'||c1.includes('잔액')||c1==='고정지출'||c1==='변동지출'||c1==='지출'||!c1) return;
+          if(c1==='계'||c1==='합계'||c1.includes('잔액')||c1==='지출') return;
+          const name=c2||c1; if(!name) return;
           const v=parseNum(data[r][months[fi].col]);
-          if(v>0) tmp.push({name:c2||c1,val:v});
+          if(v>0) tmpMap[name]=(tmpMap[name]||0)+v;
         });
+        const tmp=Object.entries(tmpMap).map(([name,val])=>({name,val}));
         if(tmp.length){pieItems=tmp;pieLabel=months[fi].label.replace(/^\d{4}-/,'')+'월';break;}
       }
     }
@@ -783,18 +787,19 @@ function renderDashboard(container){
     const allExpCats = new Set();
     expRows.forEach(r => {
       const c1=(data[r][1]||'').trim(), c2=(data[r][2]||'').trim();
-      if(c1==='계'||c1==='합계'||c1.includes('잔액')||c1==='고정지출'||c1==='변동지출'||c1==='지출'||!c1) return;
-      allExpCats.add(c2||c1);
+      if(c1==='계'||c1==='합계'||c1.includes('잔액')||c1==='지출') return;
+      const name=c2||c1; if(name) allExpCats.add(name);
     });
     if(allExpCats.size){
       const cats = Array.from(allExpCats);
       const expBarData = cats.map((cat,ci) => {
         const vals = months.slice(0,lastData+1).map(m => {
+          let sum=0;
           for(const r of expRows){
             const c1=(data[r][1]||'').trim(), c2=(data[r][2]||'').trim();
-            if((c2||c1)===cat) return parseNum(data[r][m.col]);
+            if((c2||c1)===cat) sum+=parseNum(data[r][m.col]);
           }
-          return 0;
+          return sum;
         });
         return {label:cat, data:vals, backgroundColor:expColors[ci%expColors.length]+'99', borderColor:expColors[ci%expColors.length], borderWidth:1, borderRadius:2};
       });
