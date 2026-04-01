@@ -772,7 +772,10 @@ function renderDashboard(container){
         if(tmp.length){pieItems=tmp;pieLabel=months[fi].label.replace(/^\d{4}-/,'')+'월';break;}
       }
     }
-    const expPieOpts={responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:chartColors.legend,font:{size:11},boxWidth:10,padding:8}},tooltip:{callbacks:{label:function(ctx){const v=ctx.parsed;const total=ctx.dataset.data.reduce((a,b)=>a+b,0);const pct=(v/total*100).toFixed(1);return` ${ctx.label}: ${fmtWon(v)} (${pct}%)`;}}}}};
+    // Sort by value descending
+    pieItems.sort((a,b)=>b.val-a.val);
+    const pieTotal = pieItems.reduce((s,e)=>s+e.val,0);
+    const expPieOpts={responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'bottom',labels:{color:chartColors.legend,font:{size:11},boxWidth:10,padding:8,generateLabels:function(chart){const ds=chart.data.datasets[0];return chart.data.labels.map((label,i)=>{const v=ds.data[i];const pct=(v/pieTotal*100).toFixed(1);return{text:`${label} ${pct}%`,fillStyle:ds.backgroundColor[i],strokeStyle:ds.borderColor,lineWidth:ds.borderWidth,index:i};});}}},tooltip:{callbacks:{label:function(ctx){const v=ctx.parsed;const pct=(v/pieTotal*100).toFixed(1);return` ${ctx.label}: ${fmtWon(v)} (${pct}%)`;}}}}};
     const expPieTitleEl = document.getElementById('expPieTitle');
     if(expPieTitleEl) expPieTitleEl.textContent = pieLabel+' 지출 구성';
     if(pieItems.length){
