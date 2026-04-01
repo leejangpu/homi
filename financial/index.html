@@ -617,7 +617,7 @@ function parseCSV(t){const rows=[];let c='',q=false,row=[];for(let i=0;i<t.lengt
 function toCSV(d){return d.map(r=>r.map(c=>{const s=String(c??'');return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');}
 function parseNum(s){if(!s)return 0;s=String(s).trim().replace(/[₩,\s]/g,'');if(!s||s==='-'||s.startsWith('#'))return 0;const n=parseFloat(s);return isNaN(n)?0:n;}
 function fmtNum(n){if(n===0)return'-';return n.toLocaleString('ko-KR');}
-function fmtWon(n){if(!n)return'-';const a=Math.abs(n);const sign=n<0?'-':'';if(a<10000)return sign+a.toLocaleString('ko-KR')+'원';return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만원';}
+function fmtWon(n){if(!n)return'-';const a=Math.abs(n);const sign=n<0?'-':'';if(a<10000)return sign+a.toLocaleString('ko-KR')+'원';if(a>=100000000){const eok=Math.floor(a/100000000);const man=Math.round((a%100000000)/10000);return sign+eok+'억'+(man?man.toLocaleString('ko-KR')+'만':'')+'원';}return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만원';}
 function destroyCharts(){chartInstances.forEach(c=>{try{c.dispose();}catch(e){}});chartInstances=[];}
 
 function initChart(el,opts){
