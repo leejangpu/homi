@@ -754,18 +754,11 @@ function generateMonthlySummary(sec, months) {
       const trendLabel = { up: '개선', down: '주의', neutral: '보합' };
       const cls = trendMap[aiSum.trend] || 'tag-neutral';
       const label = trendLabel[aiSum.trend] || '보합';
-      // Colorize increase/decrease patterns in summary text
-      const colorized = aiSum.summary
-        .replace(/(▲|증가|상승|올랐|늘|급등|확대)([^.]*?)([\d,.]+%|[\d,.]+만원|[\d,.]+원)/g, '<span class="up-color">$1$2$3</span>')
-        .replace(/(▼|감소|하락|줄|약세|축소)([^.]*?)([\d,.]+%|[\d,.]+만원|[\d,.]+원)/g, '<span class="down-color">$1$2$3</span>')
-        .replace(/\+(\d[\d,.]*%)/g, '<span class="up-color">+$1</span>')
-        .replace(/-(\d[\d,.]*%)/g, '<span class="down-color">-$1</span>')
-        .replace(/(\d[\d,.]*%)(\s*)(감소|하락|줄)/g, '<span class="down-color">$1</span>$2$3')
-        .replace(/(\d[\d,.]*%)(\s*)(증가|상승|올)/g, '<span class="up-color">$1</span>$2$3');
+      // summary.json already contains HTML markup from the scheduled agent
       return {
         title: `${aiSum.period} AI 브리핑`,
         tag: `<span class="summary-tag ${cls}">${label}</span>`,
-        body: colorized,
+        body: aiSum.summary,
         isAI: true,
         date: aiSum.date
       };
