@@ -376,10 +376,16 @@
   ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px;}
   ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.14);}
 
-  /* ApexCharts legend toggle */
-  .apexcharts-legend-series{cursor:pointer;}
-  .apexcharts-legend-series.apexcharts-inactive-legend .apexcharts-legend-text{text-decoration:line-through!important;opacity:0.4;}
-  .apexcharts-legend-series.apexcharts-inactive-legend .apexcharts-legend-marker{opacity:0.3;}
+  /* Custom donut legend */
+  .donut-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;}
+  .donut-legend.legend-right{flex-direction:column;gap:5px;}
+  .donut-legend-item{display:flex;align-items:center;gap:6px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:opacity .2s;}
+  .donut-legend-item:hover{background:rgba(255,255,255,0.04);}
+  .donut-legend-item.hidden{opacity:0.35;}
+  .donut-legend-item.hidden .dl-text{text-decoration:line-through;}
+  .donut-legend-item.hidden .dl-marker{opacity:0.3;}
+  .dl-marker{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+  .dl-text{font-size:11px;color:#7a8ba0;font-family:Manrope,sans-serif;white-space:nowrap;}
 
   /* ── MOBILE ── */
   @media(max-width:768px){
@@ -622,6 +628,34 @@ function parseNum(s){if(!s)return 0;s=String(s).trim().replace(/[₩,\s]/g,'');i
 function fmtNum(n){if(n===0)return'-';return n.toLocaleString('ko-KR');}
 function fmtWon(n){if(!n)return'-';const a=Math.abs(n);const sign=n<0?'-':'';if(a<10000)return sign+a.toLocaleString('ko-KR')+'원';return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만원';}
 function destroyCharts(){chartInstances.forEach(c=>{try{c.destroy();}catch(e){}});chartInstances=[];}
+
+// Custom donut legend (ApexCharts pie/donut built-in toggle is broken)
+function renderDonut(chartEl, legendEl, items, colors, opts){
+  const hidden=new Set();
+  let chart=null;
+  function build(){
+    if(chart){try{chart.destroy();}catch(e){}}
+    const vis=items.filter((_,i)=>!hidden.has(i));
+    const visColors=colors.filter((_,i)=>!hidden.has(i));
+    const total=vis.reduce((s,e)=>s+(e.val||e.value||0),0);
+    const cfg={...opts.base,chart:{...opts.base.chart,...(opts.chartExtra||{}),type:'donut',height:opts.height||280,animations:{enabled:true,speed:400,dynamicAnimation:{enabled:true,speed:300}}},
+      series:vis.map(e=>e.val||e.value||0),labels:vis.map(e=>e.name),colors:visColors,
+      stroke:{show:false},states:{active:{filter:{type:'none'}},hover:{filter:{type:'darken',value:0.85}}},
+      plotOptions:{pie:{expandOnClick:true,donut:{size:'60%',labels:{show:true,value:{color:'#e2eaf3',fontFamily:'IBM Plex Mono,monospace',formatter:v=>fmtWon(Number(v))},total:{show:true,label:opts.totalLabel||'합계',color:opts.totalColor||'#7a8ba0',formatter:()=>fmtWon(total)}}}}},
+      legend:{show:false},tooltip:{theme:'dark',y:{formatter:v=>`${fmtWon(v)} (${total?((v/total*100).toFixed(1)):'0'}%)`}},dataLabels:{enabled:false}};
+    chart=new ApexCharts(chartEl,cfg);chart.render();chartInstances.push(chart);
+  }
+  function renderLegend(){
+    legendEl.innerHTML=items.map((item,i)=>{
+      const h=hidden.has(i);
+      return `<div class="donut-legend-item${h?' hidden':''}" data-i="${i}"><span class="dl-marker" style="background:${h?'rgba(255,255,255,0.1)':colors[i]}"></span><span class="dl-text">${item.name}</span></div>`;
+    }).join('');
+    legendEl.querySelectorAll('.donut-legend-item').forEach(el=>{
+      el.onclick=function(){const idx=+this.dataset.i;if(hidden.has(idx))hidden.delete(idx);else{if(hidden.size>=items.length-1)return;hidden.add(idx);}build();renderLegend();};
+    });
+  }
+  build();renderLegend();return chart;
+}
 
 // ===== Parse month index from label =====
 function monthNumFromLabel(label) {
@@ -1036,7 +1070,7 @@ function renderDashboard(container){
   <div class="chart-row">
     <div class="chart-card">
       <h3 id="expPieTitle">${months[si] ? months[si].label.replace(/^\d{4}-/,'') : ''}월 지출 구성</h3>
-      <div id="chExpPie"></div>
+      <div style="display:flex;align-items:center;gap:12px"><div id="chExpPie" style="flex:1;min-width:0"></div><div id="lgExpPie" class="donut-legend legend-right"></div></div>
     </div>
     <div class="chart-card full" style="grid-column:unset">
       <h3>월별 상세 지출 항목</h3>
@@ -1054,10 +1088,12 @@ function renderDashboard(container){
     <div class="chart-card">
       <h3>${assetViewMode==='group'?'자산 유형별 구성':'자산 상세 구성'}</h3>
       <div id="chAssetPie"></div>
+      <div id="lgAssetPie" class="donut-legend"></div>
     </div>
     <div class="chart-card">
       <h3>부채</h3>
       <div id="chDebtPie"></div>
+      <div id="lgDebtPie" class="donut-legend"></div>
     </div>
   </div>` : ''}
 
@@ -1124,7 +1160,8 @@ function renderDashboard(container){
     const expPieTitleEl = document.getElementById('expPieTitle');
     if(expPieTitleEl) expPieTitleEl.textContent = pieLabel+' 지출 구성';
     if(pieItems.length){
-      const c=new ApexCharts(document.getElementById('chExpPie'),{...apxBase,chart:{...apxBase.chart,id:'expPie',type:'donut',height:280,animations:{...apxBase.chart.animations,dynamicAnimation:{enabled:true,speed:350}}},series:pieItems.map(e=>e.val),labels:pieItems.map(e=>e.name),colors:expColors.slice(0,pieItems.length),stroke:{show:false},states:{active:{filter:{type:'none'}},hover:{filter:{type:'darken',value:0.85}}},plotOptions:{pie:{expandOnClick:true,donut:{size:'60%',labels:{show:true,value:{color:'#e2eaf3',fontFamily:'IBM Plex Mono,monospace',formatter:v=>fmtWon(Number(v))},total:{show:true,label:'합계',color:'#7a8ba0',formatter:w=>{const t=w.globals.seriesTotals.reduce((a,b)=>a+b,0);return fmtWon(t);}}}}}},legend:{show:true,position:'right',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif',onItemClick:{toggleDataSeries:true},onItemHover:{highlightDataSeries:true}},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)}`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);
+      const el=document.getElementById('chExpPie'), lg=document.getElementById('lgExpPie');
+      if(el&&lg) renderDonut(el,lg,pieItems,expColors.slice(0,pieItems.length),{base:apxBase,height:280,totalLabel:'합계',totalColor:'#7a8ba0'});
     }
     // Multi-month expense bar by category (always render)
     const allExpCats = new Set();
@@ -1158,14 +1195,18 @@ function renderDashboard(container){
     const pieData = assetViewMode==='group' ? positiveGroups : positiveItems;
     const pieTotal2 = pieData.reduce((s,a)=>s+a.value,0);
 
-    {const c=new ApexCharts(document.getElementById('chAssetPie'),{...apxBase,chart:{...apxBase.chart,id:'assetPie',type:'donut',height:280,animations:{...apxBase.chart.animations,dynamicAnimation:{enabled:true,speed:350}}},series:pieData.map(a=>a.value),labels:pieData.map(a=>a.name),colors:pieColors.slice(0,pieData.length),stroke:{show:false},states:{active:{filter:{type:'none'}},hover:{filter:{type:'darken',value:0.85}}},plotOptions:{pie:{expandOnClick:true,donut:{size:'60%',labels:{show:true,value:{color:'#e2eaf3',fontFamily:'IBM Plex Mono,monospace',formatter:v=>fmtWon(Number(v))},total:{show:true,label:'총 자산',color:'#7a8ba0',formatter:w=>{const t=w.globals.seriesTotals.reduce((a,b)=>a+b,0);return fmtWon(t);}}}}}},legend:{show:true,position:'bottom',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif',onItemClick:{toggleDataSeries:true},onItemHover:{highlightDataSeries:true}},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)}`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);}
+    {const el=document.getElementById('chAssetPie'),lg=document.getElementById('lgAssetPie');
+      const assetDonutItems=pieData.map(a=>({name:a.name,val:a.value}));
+      if(el&&lg) renderDonut(el,lg,assetDonutItems,pieColors.slice(0,pieData.length),{base:apxBase,height:280,totalLabel:'총 자산',totalColor:'#7a8ba0'});}
 
     if(negativeGroups.length){
       const negItems = assetItems.filter(a => a.value < 0);
       const debtData = assetViewMode==='group' ? negativeGroups : negItems;
       const debtTotal = debtData.reduce((s,a)=>s+Math.abs(a.value),0);
       const debtColors=['#fb7185','#fb923c','#fbbf24','#f472b6'];
-      const c=new ApexCharts(document.getElementById('chDebtPie'),{...apxBase,chart:{...apxBase.chart,id:'debtPie',type:'donut',height:280,animations:{...apxBase.chart.animations,dynamicAnimation:{enabled:true,speed:350}}},series:debtData.map(a=>Math.abs(a.value)),labels:debtData.map(a=>a.name),colors:debtColors.slice(0,debtData.length),stroke:{show:false},states:{active:{filter:{type:'none'}},hover:{filter:{type:'darken',value:0.85}}},plotOptions:{pie:{expandOnClick:true,donut:{size:'60%',labels:{show:true,value:{color:'#e2eaf3',fontFamily:'IBM Plex Mono,monospace',formatter:v=>fmtWon(Number(v))},total:{show:true,label:'총 부채',color:'#fb7185',formatter:w=>{const t=w.globals.seriesTotals.reduce((a,b)=>a+b,0);return fmtWon(t);}}}}}},legend:{show:true,position:'bottom',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif',onItemClick:{toggleDataSeries:true},onItemHover:{highlightDataSeries:true}},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)}`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);
+      const el=document.getElementById('chDebtPie'),lg=document.getElementById('lgDebtPie');
+      const debtDonutItems=debtData.map(a=>({name:a.name,val:Math.abs(a.value)}));
+      if(el&&lg) renderDonut(el,lg,debtDonutItems,debtColors.slice(0,debtData.length),{base:apxBase,height:280,totalLabel:'총 부채',totalColor:'#fb7185'});
     }
   }
 }
