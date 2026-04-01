@@ -376,8 +376,7 @@
   ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px;}
   ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.14);}
 
-  /* ECharts container sizing */
-  .chart-card [id^="ch"]{width:100%;min-height:250px;}
+  /* ECharts container sizing — explicit block dimensions required */
 
   /* ── MOBILE ── */
   @media(max-width:768px){
@@ -394,7 +393,6 @@
     .card-label{font-size:9px;}
     .card-icon{width:20px;height:20px;font-size:10px;}
     .chart-row{grid-template-columns:1fr;gap:10px;}
-    .chart-card canvas{max-height:200px;}
     .month-pills{gap:3px;}
     .month-pill{padding:5px 9px;font-size:10px;}
     .mtable th,.mtable td{padding:8px 9px;font-size:12px;}
@@ -543,7 +541,6 @@
   .dash-card:nth-child(4){animation-delay:.16s;}
 
   @media(max-width:768px){
-    .chart-card canvas{max-height:200px;}
     .summary-banner{padding:16px 18px;}
     .summary-banner .summary-body{font-size:12.5px;}
   }
@@ -1086,8 +1083,9 @@ function renderDashboard(container){
   html+=`</tbody></table></div></div>`;
   container.innerHTML=html;
 
-  // Charts (ECharts)
+  // Charts (ECharts) — defer to next frame so DOM layout is settled
   const labels=months.slice(0,lastData+1).map(m=>{const s=m.label.replace(/^\d{4}-/,'').replace(/^24\./,'');return s;});
+  requestAnimationFrame(()=>{
 
   // 1. Income vs Expense Bar
   {const el=document.getElementById('chIncExp');
@@ -1254,6 +1252,10 @@ function renderDashboard(container){
       });
     }
   }
+
+  // Force resize after init to fix canvas dimensions
+  setTimeout(()=>{chartInstances.forEach(c=>{try{c.resize();}catch(e){}});},50);
+  }); // end requestAnimationFrame
 }
 
 function setAssetView(mode){assetViewMode=mode;renderView();}
