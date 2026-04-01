@@ -240,26 +240,26 @@
   .milestone-header h3{font-size:13px;font-weight:800;color:var(--text);margin:0;letter-spacing:-.2px;}
   .milestone-header .milestone-meta{font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:.3px;}
   .milestone-bar-wrap{
-    position:relative;height:10px;
+    position:relative;height:24px;
     background:rgba(255,255,255,0.05);
-    border-radius:5px;overflow:hidden;
+    border-radius:12px;overflow:hidden;
     margin-bottom:16px;
     border:1px solid rgba(255,255,255,0.04);
   }
   .milestone-bar-fill{
-    height:100%;border-radius:5px;
+    height:100%;border-radius:12px;
     background:linear-gradient(90deg,var(--primary),var(--gold));
     transition:width .8s cubic-bezier(.23,1,.32,1);
-    position:relative;min-width:2px;
-    box-shadow:0 0 12px rgba(45,212,191,0.4);
+    position:relative;min-width:28px;
+    box-shadow:0 0 16px rgba(45,212,191,0.35);
+    display:flex;align-items:center;justify-content:flex-end;
   }
   .milestone-bar-fill::after{
     content:attr(data-pct);
-    position:absolute;right:0;top:50%;
-    transform:translateY(-50%) translateX(calc(100% + 8px));
+    padding-right:10px;
     font-family:var(--font-num);
-    font-size:11px;font-weight:600;
-    color:var(--primary);
+    font-size:11px;font-weight:700;
+    color:#070b14;
     white-space:nowrap;
   }
   .milestone-markers{display:flex;justify-content:space-between;position:relative;padding:0;}
@@ -615,7 +615,7 @@ function parseCSV(t){const rows=[];let c='',q=false,row=[];for(let i=0;i<t.lengt
 function toCSV(d){return d.map(r=>r.map(c=>{const s=String(c??'');return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');}
 function parseNum(s){if(!s)return 0;s=String(s).trim().replace(/[₩,\s]/g,'');if(!s||s==='-'||s.startsWith('#'))return 0;const n=parseFloat(s);return isNaN(n)?0:n;}
 function fmtNum(n){if(n===0)return'-';return n.toLocaleString('ko-KR');}
-function fmtWon(n){if(!n)return'-';const a=Math.abs(n);const sign=n<0?'-':'';if(a>=1e8)return sign+(a/1e8).toFixed(1)+'억';if(a>=1e4)return sign+Math.round(a/1e4).toLocaleString('ko-KR')+'만';return n.toLocaleString('ko-KR');}
+function fmtWon(n){if(!n)return'-';const a=Math.abs(n);const sign=n<0?'-':'';if(a<10000)return sign+a.toLocaleString('ko-KR')+'원';return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만원';}
 function destroyCharts(){chartInstances.forEach(c=>{try{c.destroy();}catch(e){}});chartInstances=[];}
 
 // ===== Parse month index from label =====
@@ -1119,7 +1119,7 @@ function renderDashboard(container){
     const expPieTitleEl = document.getElementById('expPieTitle');
     if(expPieTitleEl) expPieTitleEl.textContent = pieLabel+' 지출 구성';
     if(pieItems.length){
-      const c=new ApexCharts(document.getElementById('chExpPie'),{...apxBase,chart:{...apxBase.chart,type:'donut',height:280},series:pieItems.map(e=>e.val),labels:pieItems.map(e=>e.name),colors:expColors.slice(0,pieItems.length),plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'합계',color:'#7a8ba0',formatter:()=>fmtWon(pieTotal)}}}}},legend:{position:'right',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)} (${(v/pieTotal*100).toFixed(1)}%)`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);
+      const c=new ApexCharts(document.getElementById('chExpPie'),{...apxBase,chart:{...apxBase.chart,type:'donut',height:280},series:pieItems.map(e=>e.val),labels:pieItems.map(e=>e.name),colors:expColors.slice(0,pieItems.length),stroke:{show:false},plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'합계',color:'#7a8ba0',formatter:()=>fmtWon(pieTotal)}}}}},legend:{position:'right',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)} (${(v/pieTotal*100).toFixed(1)}%)`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);
     }
     // Multi-month expense bar by category (always render)
     const allExpCats = new Set();
@@ -1153,14 +1153,14 @@ function renderDashboard(container){
     const pieData = assetViewMode==='group' ? positiveGroups : positiveItems;
     const pieTotal2 = pieData.reduce((s,a)=>s+a.value,0);
 
-    {const c=new ApexCharts(document.getElementById('chAssetPie'),{...apxBase,chart:{...apxBase.chart,type:'donut',height:280},series:pieData.map(a=>a.value),labels:pieData.map(a=>a.name),colors:pieColors.slice(0,pieData.length),plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'총 자산',color:'#7a8ba0',formatter:()=>fmtWon(pieTotal2)}}}}},legend:{position:'bottom',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)} (${(v/pieTotal2*100).toFixed(1)}%)`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);}
+    {const c=new ApexCharts(document.getElementById('chAssetPie'),{...apxBase,chart:{...apxBase.chart,type:'donut',height:280},series:pieData.map(a=>a.value),labels:pieData.map(a=>a.name),colors:pieColors.slice(0,pieData.length),stroke:{show:false},plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'총 자산',color:'#7a8ba0',formatter:()=>fmtWon(pieTotal2)}}}}},legend:{position:'bottom',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)} (${(v/pieTotal2*100).toFixed(1)}%)`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);}
 
     if(negativeGroups.length){
       const negItems = assetItems.filter(a => a.value < 0);
       const debtData = assetViewMode==='group' ? negativeGroups : negItems;
       const debtTotal = debtData.reduce((s,a)=>s+Math.abs(a.value),0);
       const debtColors=['#fb7185','#fb923c','#fbbf24','#f472b6'];
-      const c=new ApexCharts(document.getElementById('chDebtPie'),{...apxBase,chart:{...apxBase.chart,type:'donut',height:280},series:debtData.map(a=>Math.abs(a.value)),labels:debtData.map(a=>a.name),colors:debtColors.slice(0,debtData.length),plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'총 부채',color:'#fb7185',formatter:()=>fmtWon(debtTotal)}}}}},legend:{position:'bottom',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)} (${(v/debtTotal*100).toFixed(1)}%)`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);
+      const c=new ApexCharts(document.getElementById('chDebtPie'),{...apxBase,chart:{...apxBase.chart,type:'donut',height:280},series:debtData.map(a=>Math.abs(a.value)),labels:debtData.map(a=>a.name),colors:debtColors.slice(0,debtData.length),stroke:{show:false},plotOptions:{pie:{donut:{size:'60%',labels:{show:true,total:{show:true,label:'총 부채',color:'#fb7185',formatter:()=>fmtWon(debtTotal)}}}}},legend:{position:'bottom',labels:{colors:'#7a8ba0'},fontFamily:'Manrope,sans-serif'},tooltip:{...apxBase.tooltip,y:{formatter:(v)=>`${fmtWon(v)} (${(v/debtTotal*100).toFixed(1)}%)`}},dataLabels:{enabled:false}});c.render();chartInstances.push(c);
     }
   }
 }
