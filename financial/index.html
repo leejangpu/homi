@@ -758,7 +758,7 @@ function renderDashboard(container){
     // Pie: fallback to most recent month with data if selected month is empty
     let pieItems = expItems;
     let pieLabel = months[si] ? months[si].label.replace(/^\d{4}-/,'')+'월' : '';
-    if(!pieItems.length){
+    if(pieItems.length < 3){
       for(let fi=lastData;fi>=0;fi--){
         const tmpMap={};
         expRows.forEach(r=>{
