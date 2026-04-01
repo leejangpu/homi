@@ -518,6 +518,8 @@
   .summary-banner .summary-body .highlight{color:var(--green);font-weight:700;}
   .summary-banner .summary-body .warn{color:var(--amber);font-weight:700;}
   .summary-banner .summary-body .down{color:var(--red);font-weight:700;}
+  .summary-banner .summary-body .up-color{color:#60a5fa;font-weight:600;}
+  .summary-banner .summary-body .down-color{color:#fb7185;font-weight:600;}
   .summary-banner .summary-tag{
     display:inline-block;padding:2px 8px;
     border-radius:4px;font-size:10px;font-weight:700;
@@ -752,10 +754,18 @@ function generateMonthlySummary(sec, months) {
       const trendLabel = { up: '개선', down: '주의', neutral: '보합' };
       const cls = trendMap[aiSum.trend] || 'tag-neutral';
       const label = trendLabel[aiSum.trend] || '보합';
+      // Colorize increase/decrease patterns in summary text
+      const colorized = aiSum.summary
+        .replace(/(▲|증가|상승|올랐|늘|급등|확대)([^.]*?)([\d,.]+%|[\d,.]+만원|[\d,.]+원)/g, '<span class="up-color">$1$2$3</span>')
+        .replace(/(▼|감소|하락|줄|약세|축소)([^.]*?)([\d,.]+%|[\d,.]+만원|[\d,.]+원)/g, '<span class="down-color">$1$2$3</span>')
+        .replace(/\+(\d[\d,.]*%)/g, '<span class="up-color">+$1</span>')
+        .replace(/-(\d[\d,.]*%)/g, '<span class="down-color">-$1</span>')
+        .replace(/(\d[\d,.]*%)(\s*)(감소|하락|줄)/g, '<span class="down-color">$1</span>$2$3')
+        .replace(/(\d[\d,.]*%)(\s*)(증가|상승|올)/g, '<span class="up-color">$1</span>$2$3');
       return {
         title: `${aiSum.period} AI 브리핑`,
         tag: `<span class="summary-tag ${cls}">${label}</span>`,
-        body: aiSum.summary,
+        body: colorized,
         isAI: true,
         date: aiSum.date
       };
@@ -1157,22 +1167,19 @@ function renderDashboard(container){
     const expPieTitleEl = document.getElementById('expPieTitle');
     if(expPieTitleEl) expPieTitleEl.textContent = pieLabel+' 지출 구성';
 
-    // 3. Expense Treemap
+    // 3. Expense Donut
     if(pieItems.length){
       const el=document.getElementById('chExpPie');
       if(el) initChart(el,{
-        tooltip:{...ecTooltip,trigger:'item',formatter:p=>{const pct=pieTotal?(p.value/pieTotal*100).toFixed(1):'0';return `<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${pct}%)`;}},
+        tooltip:{...ecTooltip,trigger:'item',formatter:p=>`<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${p.percent}%)`},
+        legend:{...ecLegend,orient:'vertical',right:8,top:'middle',data:pieItems.map(e=>e.name),selectedMode:true},
         series:[{
-          type:'treemap',
-          width:'100%',height:'100%',
-          roam:false,nodeClick:false,
-          breadcrumb:{show:false},
-          data:pieItems.map((e,i)=>({name:e.name,value:e.val,itemStyle:{color:expColors[i%expColors.length],borderColor:'rgba(7,11,20,0.6)',borderWidth:2}})),
-          label:{show:true,color:'#e2eaf3',fontFamily:'Manrope,Noto Sans KR,sans-serif',fontSize:12,fontWeight:600,formatter:p=>{const pct=pieTotal?(p.value/pieTotal*100).toFixed(1):'0';return `${p.name}\n${fmtWon(p.value)} (${pct}%)`;}},
-          upperLabel:{show:false},
-          emphasis:{itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.4)'},label:{fontSize:13}},
-          levels:[{itemStyle:{borderColor:'rgba(7,11,20,0.8)',borderWidth:3,gapWidth:3},upperLabel:{show:false}}],
-          animationDuration:600,animationEasing:'cubicOut'
+          type:'pie',radius:['45%','72%'],center:['38%','50%'],
+          data:pieItems.map((e,i)=>({name:e.name,value:e.val,itemStyle:{color:expColors[i%expColors.length]}})),
+          label:{show:false},emphasis:{label:{show:true,color:'#e2eaf3',fontSize:13,fontWeight:600,fontFamily:'Manrope,sans-serif',formatter:p=>`${p.name}\n${fmtWon(p.value)}`},itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'}},
+          labelLine:{show:false},
+          itemStyle:{borderColor:'transparent',borderWidth:0},
+          animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*60
         }]
       });
     }
