@@ -1165,9 +1165,9 @@ function renderDashboard(container){
       const el=document.getElementById('chExpPie');
       if(el) initChart(el,{
         tooltip:{...ecTooltip,trigger:'item',formatter:p=>`<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${p.percent}%)`},
-        legend:{...ecLegend,orient:'vertical',right:8,top:'middle',data:pieItems.map(e=>e.name),selectedMode:true},
+        legend:{...ecLegend,orient:'horizontal',bottom:4,type:'scroll',data:pieItems.map(e=>e.name),selectedMode:true},
         series:[{
-          type:'pie',radius:['45%','72%'],center:['38%','50%'],
+          type:'pie',radius:['40%','68%'],center:['50%','42%'],
           data:pieItems.map((e,i)=>({name:e.name,value:e.val,itemStyle:{color:expColors[i%expColors.length]}})),
           label:{show:false},emphasis:{label:{show:true,color:'#e2eaf3',fontSize:13,fontWeight:600,fontFamily:'Manrope,sans-serif',formatter:p=>`${p.name}\n${fmtWon(p.value)}`},itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'}},
           labelLine:{show:false},
