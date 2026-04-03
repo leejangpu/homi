@@ -1163,18 +1163,26 @@ function renderDashboard(container){
     // 3. Expense Donut
     if(pieItems.length){
       const el=document.getElementById('chExpPie');
-      if(el) initChart(el,{
-        tooltip:{...ecTooltip,trigger:'item',formatter:p=>`<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${p.percent}%)`},
-        legend:{...ecLegend,orient:'horizontal',bottom:4,type:'scroll',data:pieItems.map(e=>e.name),selectedMode:true},
-        series:[{
-          type:'pie',radius:['40%','68%'],center:['50%','42%'],
-          data:pieItems.map((e,i)=>({name:e.name,value:e.val,itemStyle:{color:expColors[i%expColors.length]}})),
-          label:{show:false},emphasis:{label:{show:true,color:'#e2eaf3',fontSize:13,fontWeight:600,fontFamily:'Manrope,sans-serif',formatter:p=>`${p.name}\n${fmtWon(p.value)}`},itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'}},
-          labelLine:{show:false},
-          itemStyle:{borderColor:'transparent',borderWidth:0},
-          animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*60
-        }]
-      });
+      if(el){
+        const expChart=initChart(el,{
+          tooltip:{...ecTooltip,trigger:'item',formatter:p=>`<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${p.percent}%)`},
+          legend:{...ecLegend,orient:'horizontal',bottom:4,type:'scroll',data:pieItems.map(e=>e.name),selectedMode:true},
+          graphic:[{type:'text',left:'center',top:'38%',style:{text:fmtWon(pieTotal),fill:'#e2eaf3',fontSize:16,fontWeight:700,fontFamily:'Manrope,sans-serif',textAlign:'center'}},{type:'text',left:'center',top:'46%',style:{text:'합계',fill:'#7a8ba0',fontSize:11,fontFamily:'Manrope,sans-serif',textAlign:'center'}}],
+          series:[{
+            type:'pie',radius:['40%','68%'],center:['50%','42%'],
+            data:pieItems.map((e,i)=>({name:e.name,value:e.val,itemStyle:{color:expColors[i%expColors.length]}})),
+            label:{show:false},emphasis:{label:{show:true,color:'#e2eaf3',fontSize:13,fontWeight:600,fontFamily:'Manrope,sans-serif',formatter:p=>`${p.name}\n${fmtWon(p.value)}`},itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'}},
+            labelLine:{show:false},
+            itemStyle:{borderColor:'transparent',borderWidth:0},
+            animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*60
+          }]
+        });
+        expChart.on('legendselectchanged',function(params){
+          const sel=params.selected;let t=0;
+          pieItems.forEach(e=>{if(sel[e.name])t+=e.val;});
+          expChart.setOption({graphic:[{style:{text:fmtWon(t)}}]});
+        });
+      }
     }
 
     // 4. Monthly Expense Stacked Bar
@@ -1220,18 +1228,26 @@ function renderDashboard(container){
 
     // 5. Asset Donut
     {const el=document.getElementById('chAssetPie');
-      if(el) initChart(el,{
-        tooltip:{...ecTooltip,trigger:'item',formatter:p=>`<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${p.percent}%)`},
-        legend:{...ecLegend,bottom:4,type:'scroll',data:pieData.map(a=>a.name),selectedMode:true},
-        series:[{
-          type:'pie',radius:['42%','70%'],center:['50%','45%'],
-          data:pieData.map((a,i)=>({name:a.name,value:a.value,itemStyle:{color:pieColors[i%pieColors.length]}})),
-          label:{show:false},emphasis:{label:{show:true,color:'#e2eaf3',fontSize:12,fontWeight:600,fontFamily:'Manrope,sans-serif',formatter:p=>`${p.name}\n${fmtWon(p.value)}`},itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'}},
-          labelLine:{show:false},
-          itemStyle:{borderColor:'transparent',borderWidth:0},
-          animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*50
-        }]
-      });
+      if(el){
+        const assetChart=initChart(el,{
+          tooltip:{...ecTooltip,trigger:'item',formatter:p=>`<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${p.percent}%)`},
+          legend:{...ecLegend,bottom:4,type:'scroll',data:pieData.map(a=>a.name),selectedMode:true},
+          graphic:[{type:'text',left:'center',top:'40%',style:{text:fmtWon(pieTotal2),fill:'#e2eaf3',fontSize:16,fontWeight:700,fontFamily:'Manrope,sans-serif',textAlign:'center'}},{type:'text',left:'center',top:'48%',style:{text:'합계',fill:'#7a8ba0',fontSize:11,fontFamily:'Manrope,sans-serif',textAlign:'center'}}],
+          series:[{
+            type:'pie',radius:['42%','70%'],center:['50%','45%'],
+            data:pieData.map((a,i)=>({name:a.name,value:a.value,itemStyle:{color:pieColors[i%pieColors.length]}})),
+            label:{show:false},emphasis:{label:{show:true,color:'#e2eaf3',fontSize:12,fontWeight:600,fontFamily:'Manrope,sans-serif',formatter:p=>`${p.name}\n${fmtWon(p.value)}`},itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'}},
+            labelLine:{show:false},
+            itemStyle:{borderColor:'transparent',borderWidth:0},
+            animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*50
+          }]
+        });
+        assetChart.on('legendselectchanged',function(params){
+          const sel=params.selected;let t=0;
+          pieData.forEach(a=>{if(sel[a.name])t+=a.value;});
+          assetChart.setOption({graphic:[{style:{text:fmtWon(t)}}]});
+        });
+      }
     }
 
     // 6. Debt Donut
@@ -1241,18 +1257,26 @@ function renderDashboard(container){
       const debtTotal = debtData.reduce((s,a)=>s+Math.abs(a.value),0);
       const debtColors=['#fb7185','#fb923c','#fbbf24','#f472b6'];
       const el=document.getElementById('chDebtPie');
-      if(el) initChart(el,{
-        tooltip:{...ecTooltip,trigger:'item',formatter:p=>`<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${p.percent}%)`},
-        legend:{...ecLegend,bottom:4,type:'scroll',data:debtData.map(a=>a.name),selectedMode:true},
-        series:[{
-          type:'pie',radius:['42%','70%'],center:['50%','45%'],
-          data:debtData.map((a,i)=>({name:a.name,value:Math.abs(a.value),itemStyle:{color:debtColors[i%debtColors.length]}})),
-          label:{show:false},emphasis:{label:{show:true,color:'#e2eaf3',fontSize:12,fontWeight:600,fontFamily:'Manrope,sans-serif',formatter:p=>`${p.name}\n${fmtWon(p.value)}`},itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'}},
-          labelLine:{show:false},
-          itemStyle:{borderColor:'transparent',borderWidth:0},
-          animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*50
-        }]
-      });
+      if(el){
+        const debtChart=initChart(el,{
+          tooltip:{...ecTooltip,trigger:'item',formatter:p=>`<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${p.percent}%)`},
+          legend:{...ecLegend,bottom:4,type:'scroll',data:debtData.map(a=>a.name),selectedMode:true},
+          graphic:[{type:'text',left:'center',top:'40%',style:{text:fmtWon(debtTotal),fill:'#e2eaf3',fontSize:16,fontWeight:700,fontFamily:'Manrope,sans-serif',textAlign:'center'}},{type:'text',left:'center',top:'48%',style:{text:'합계',fill:'#7a8ba0',fontSize:11,fontFamily:'Manrope,sans-serif',textAlign:'center'}}],
+          series:[{
+            type:'pie',radius:['42%','70%'],center:['50%','45%'],
+            data:debtData.map((a,i)=>({name:a.name,value:Math.abs(a.value),itemStyle:{color:debtColors[i%debtColors.length]}})),
+            label:{show:false},emphasis:{label:{show:true,color:'#e2eaf3',fontSize:12,fontWeight:600,fontFamily:'Manrope,sans-serif',formatter:p=>`${p.name}\n${fmtWon(p.value)}`},itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'}},
+            labelLine:{show:false},
+            itemStyle:{borderColor:'transparent',borderWidth:0},
+            animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*50
+          }]
+        });
+        debtChart.on('legendselectchanged',function(params){
+          const sel=params.selected;let t=0;
+          debtData.forEach(a=>{if(sel[a.name])t+=Math.abs(a.value);});
+          debtChart.setOption({graphic:[{style:{text:fmtWon(t)}}]});
+        });
+      }
     }
   }
 
