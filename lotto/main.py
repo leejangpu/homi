@@ -138,15 +138,6 @@ def run(dry_run: bool = False, auto: bool = False, numbers: str | None = None) -
                 else:
                     logger.warning("구매 결과 확인 필요 - 스크린샷을 확인하세요")
 
-                # 구매 후 지난 회차 당첨 내역 확인 (당첨만)
-                try:
-                    history = get_purchase_history(page)
-                    winners = [h for h in history if h["result"] == "당첨"]
-                    if winners:
-                        message = format_history_message(winners)
-                        send_telegram(message)
-                except Exception as e:
-                    logger.warning("당첨 내역 조회 실패: %s", e)
 
             except Exception as e:
                 handle_purchase_error(page, e)
@@ -197,14 +188,13 @@ def check_history() -> None:
                 save_session(context)
 
             history = get_purchase_history(page)
-            winners = [h for h in history if h["result"] == "당첨"]
-            if winners:
-                message = format_history_message(winners)
+            if history:
+                message = format_history_message(history)
                 print(message)
                 send_telegram(message)
             else:
-                logger.info("당첨 내역 없음")
-                print("당첨 내역이 없습니다.")
+                logger.info("조회된 내역 없음")
+                send_telegram("📋 로또 내역 조회 결과: 최근 구매 내역이 없습니다.")
 
         except Exception as e:
             logger.error("내역 조회 오류: %s", e, exc_info=True)
