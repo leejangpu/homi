@@ -12,7 +12,7 @@
     },
     "TQQQ": {
       "splitCount": 40,
-      "targetProfit": 0.10
+      "targetProfit": 0.1
     }
   },
   "autoRestart": true,
