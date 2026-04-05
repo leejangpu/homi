@@ -1,0 +1,63 @@
+name: Infinite Buy - Market Open
+
+on:
+  schedule:
+    - cron: '0 15 * * 1-5'  # 00:00 KST (15:00 UTC)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  submit-orders:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: infinite-buy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install --silent
+
+      - name: Submit orders
+        id: run
+        run: |
+          # .env 파일에서 환경변수 로드
+          if [ -f .env ]; then
+            set -a && source .env && set +a
+          fi
+          echo "▶ Starting main-open.ts at $(date '+%Y-%m-%d %H:%M:%S KST')"
+          npx tsx src/main-open.ts 2>&1 | tee /tmp/open-output.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "▶ Finished with exit code: $EXIT_CODE"
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit $EXIT_CODE
+
+      - name: Commit state changes
+        run: |
+          git config user.name "infinite-buy-bot"
+          git config user.email "bot@infinite-buy.local"
+          git add state/ logs/ history/ config.json
+          if git diff --staged --quiet; then
+            echo "▶ No changes to commit"
+          else
+            git commit -m "infinite-buy: open orders $(date '+%Y-%m-%d')"
+            git pull --rebase
+            git push
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Infinite Buy — Market Open" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date (KST):** $(date '+%Y-%m-%d %H:%M')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Exit Code:** ${{ steps.run.outputs.exit_code || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/open-output.log ]; then
+            echo "<details><summary>Script Output</summary>" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat /tmp/open-output.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          fi

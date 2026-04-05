@@ -28,6 +28,10 @@ server/token.json
 server/.env
 server/bot.log
 
+# infinite-buy
+infinite-buy/.env
+infinite-buy/node_modules/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
