@@ -1,9 +1,9 @@
 name: 로또 자동 구매
 
 on:
-  schedule:
-    # 매주 월요일 10:00 KST (01:00 UTC)
-    - cron: '0 1 * * 1'
+  # schedule:
+  #   # 매주 월요일 10:00 KST (01:00 UTC) — 로컬 launchd로 전환
+  #   - cron: '0 1 * * 1'
   workflow_dispatch:
 
 jobs:
