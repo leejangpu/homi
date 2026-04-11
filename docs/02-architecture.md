@@ -11,8 +11,6 @@ homi/
 ├── lotto/              # 로또 자동구매 (Python, 로컬 launchd)
 ├── infinite-buy/       # 무한매수법 자동매매 (TypeScript, GitHub Actions)
 ├── 가계부/              # 카드 명세서 파싱 결과 CSV (GitHub API로 커밋)
-├── src/                # Next.js 프론트엔드 (미사용, 개발 중단 상태)
-├── functions/          # Firebase Cloud Functions (DEPRECATED, 미사용)
 ├── .github/workflows/  # GitHub Actions 워크플로우
 └── docs/               # 문서
 ```
@@ -99,13 +97,6 @@ python main.py --dry-run    # 로그인 테스트
 - `infinite-buy-close.yml` — 평일 07:00 KST (정규장 마감)
 - `infinite-buy-toggle.yml` — 수동 on/off 토글
 
-## 5. 미사용/DEPRECATED
-
-| 디렉토리 | 상태 | 비고 |
-|----------|------|------|
-| `src/` (Next.js) | 미사용 | Firebase Auth 의존, 실제 기능 없음, 개발 중단 |
-| `functions/` | DEPRECATED | Firebase Cloud Functions 웹훅 → server/ 폴링으로 대체 |
-
 ## GitHub Actions 워크플로우 현황
 
 | 워크플로우 | 스케줄 | 상태 |
@@ -119,7 +110,7 @@ python main.py --dry-run    # 로그인 테스트
 ## 기술 스택
 
 - **Backend**: Node.js 20 (server, infinite-buy), Python 3.11 (lotto)
-- **Frontend**: 순수 HTML/JS (financial), ~~Next.js 15 (미사용)~~
+- **Frontend**: 순수 HTML/JS (financial)
 - **API 연동**: Telegram Bot, Gemini AI, KIS 증권, Google Sheets, GitHub
 - **자동화**: macOS launchd (로또), GitHub Actions self-hosted runner (무한매수법)
 - **데이터 저장**: CSV/JSON 파일 (git 관리)

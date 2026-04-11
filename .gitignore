@@ -1,22 +1,16 @@
 # dependencies
 node_modules
 
-# next
-.next
-out
-
 # logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+*.log
 
 # env
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+
+# next.js (removed but may exist locally)
+.next
+next-env.d.ts
 
 # misc
 .DS_Store
@@ -28,10 +22,16 @@ server/token.json
 server/.env
 server/bot.log
 
+# lotto
+lotto/.env
+lotto/.venv/
+lotto/logs/
+lotto/screenshots/
+
 # infinite-buy
 infinite-buy/.env
 infinite-buy/node_modules/
+infinite-buy/state/
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
