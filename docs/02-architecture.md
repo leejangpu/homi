@@ -1,45 +1,126 @@
-# Architecture
+# Architecture (현행)
 
-## 1. 기술 스택
-- Frontend: Next.js (App Router) + TypeScript
-- 인증: Firebase Authentication
-- 서버 로직: Cloud Functions for Firebase
-- 데이터 저장: git 기반 파일 관리 (JSON/CSV)
+> 최종 업데이트: 2026-04-11
 
-## 2. 상위 구조
-1. 클라이언트(Next.js)
-- 로그인/대시보드/모듈 UI
+## 프로젝트 구조
 
-2. Firebase Auth
-- 사용자 식별 (UID 기반)
+```
+homi/
+├── financial/          # 가계부 대시보드 (GitHub Pages 정적 사이트)
+├── server/             # 텔레그램 봇 서버 (Node.js 로컬 폴링)
+├── lotto/              # 로또 자동구매 (Python, 로컬 launchd)
+├── infinite-buy/       # 무한매수법 자동매매 (TypeScript, GitHub Actions)
+├── 가계부/              # 카드 명세서 파싱 결과 CSV (GitHub API로 커밋)
+├── src/                # Next.js 프론트엔드 (미사용, 개발 중단 상태)
+├── functions/          # Firebase Cloud Functions (DEPRECATED, 미사용)
+├── .github/workflows/  # GitHub Actions 워크플로우
+└── docs/               # 문서
+```
 
-3. Cloud Functions
-- Telegram + Gemini 연동
-- AI 액션 게이트웨이
+## 1. financial/ — 가계부 대시보드
 
-4. 데이터 저장소
-- git 리포지토리 내 파일 기반 관리
+**배포**: GitHub Pages 정적 사이트 (`https://leejangpu.github.io/homi/financial/`)
 
-## 3. 권한 모델
-- 기본 단위: `space` (개인 또는 공유)
-- 각 모듈은 반드시 하나의 `space`에 소속
-- 사용자 권한:
-  - `owner`: 공간 및 모듈 전체 관리
-  - `editor`: 데이터 읽기/쓰기
-  - `viewer`: 읽기 전용
+| 파일 | 역할 |
+|------|------|
+| `index.html` | 자체 포함 SPA (ECharts + jSpreadsheet) |
+| `2025.csv`, `2026.csv` | 연간 수입/지출/자산 데이터 |
+| `summary.json` | AI 브리핑 (월별 요약) |
+| `expense_detail.json` | 가맹점별 상세 지출 내역 |
 
-## 4. 멀티 인스턴스 모듈 전략
-- 모듈은 타입 + 인스턴스로 구분
-  - 예: `ledger` 타입 모듈 3개 생성 가능
-- 각 인스턴스는 별도 설정과 별도 데이터를 가진다.
+- 클라이언트에서 CSV를 fetch → JavaScript로 파싱 → 차트/테이블 렌더링
+- 탭 구성: 대시보드, 소득, 저축, 지출, 자산
+- 인증: `sessionStorage` 기반 간단 패스워드
 
-## 5. 데이터 흐름
-1. 사용자가 모듈에 데이터 입력
-2. 데이터를 파일로 저장 (git 관리)
-3. 통계/집계는 데이터 파일 기반으로 생성
-4. UI는 데이터 파일을 읽어 차트/리포트 표시
+## 2. server/ — 텔레그램 봇 서버
 
-## 6. AI 확장 포인트
-- Function endpoint: `aiCommand`
-- 입력: 자연어 명령 + 사용자 컨텍스트
-- 원칙: AI도 기존 권한 모델을 우회하지 못함
+**실행**: 로컬에서 `cd server && npm start`
+
+| 파일 | 역할 |
+|------|------|
+| `index.js` | 메인 봇 로직 (getUpdates 폴링, Gemini 연동) |
+| `auth.js` | Google OAuth2 (Sheets 읽기용) |
+| `.env` | TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, GITHUB_TOKEN 등 |
+
+**핵심 기능**:
+- Telegram getUpdates 폴링 (30초 timeout)
+- 카드 명세서(XLSX) 수신 → Gemini AI 파싱 → GitHub API로 `가계부/` CSV 커밋
+- Google Sheets 연동 (호미 가계부, 재무재표)
+- 대화 히스토리 (메모리 기반, 1시간 TTL)
+
+**데이터 흐름**:
+```
+Telegram XLSX 수신 → Gemini 파싱 → GitHub CSV 커밋 → financial/index.html에서 표시
+```
+
+## 3. lotto/ — 로또 자동구매
+
+**실행**: 로컬 macOS launchd
+
+| 파일 | 역할 |
+|------|------|
+| `main.py` | 메인 (Playwright 브라우저 자동화) |
+| `run.sh` | 구매 래퍼 (launchd에서 호출) |
+| `check.sh` | 당첨확인 래퍼 |
+| `modules/` | auth, purchase, history, telegram 등 |
+| `.env` | 로또 사이트 계정, 텔레그램 알림 설정 |
+
+**실행 모드**:
+```bash
+python main.py              # 랜덤번호 5게임 구매
+python main.py --auto       # 사이트 자동선택
+python main.py --check      # 당첨 내역 조회
+python main.py --dry-run    # 로그인 테스트
+```
+
+**스케줄**:
+- `com.homi.lotto-purchase.plist` — 매주 월요일 10:00 KST
+- `com.homi.lotto-check.plist` — 매주 토요일 22:00 KST
+- plist 위치: `~/Library/LaunchAgents/`
+
+## 4. infinite-buy/ — 무한매수법 자동매매
+
+**실행**: GitHub Actions (self-hosted runner)
+
+| 파일 | 역할 |
+|------|------|
+| `src/main-open.ts` | 장 오픈 시 LOC/LIMIT 주문 제출 |
+| `src/main-close.ts` | 장 마감 시 체결 확인 & 사이클 동기화 |
+| `src/calculator.ts` | 분할매수/매도 계산 (전반전/후반전/쿼터모드) |
+| `src/kisApi.ts` | 한국투자증권 OpenAPI 연동 |
+| `config.json` | 종목, 분할수, 목표수익률 설정 |
+| `state/` | 사이클 상태 JSON (per ticker) |
+| `.env` | KIS API 키, 텔레그램 알림 |
+
+**현재 상태**: `config.json`에서 `enabled: false` (정지 중)
+
+**스케줄**:
+- `infinite-buy-open.yml` — 평일 00:00 KST (정규장 개장)
+- `infinite-buy-close.yml` — 평일 07:00 KST (정규장 마감)
+- `infinite-buy-toggle.yml` — 수동 on/off 토글
+
+## 5. 미사용/DEPRECATED
+
+| 디렉토리 | 상태 | 비고 |
+|----------|------|------|
+| `src/` (Next.js) | 미사용 | Firebase Auth 의존, 실제 기능 없음, 개발 중단 |
+| `functions/` | DEPRECATED | Firebase Cloud Functions 웹훅 → server/ 폴링으로 대체 |
+
+## GitHub Actions 워크플로우 현황
+
+| 워크플로우 | 스케줄 | 상태 |
+|-----------|--------|------|
+| `lotto-purchase.yml` | ~~월요일 10:00 KST~~ | **비활성** (로컬 launchd로 전환) |
+| `lotto-check.yml` | ~~토요일 22:00 KST~~ | **비활성** (로컬 launchd로 전환) |
+| `infinite-buy-open.yml` | 평일 00:00 KST | 활성 (config.enabled=false로 정지 중) |
+| `infinite-buy-close.yml` | 평일 07:00 KST | 활성 |
+| `infinite-buy-toggle.yml` | 수동 | 활성 |
+
+## 기술 스택
+
+- **Backend**: Node.js 20 (server, infinite-buy), Python 3.11 (lotto)
+- **Frontend**: 순수 HTML/JS (financial), ~~Next.js 15 (미사용)~~
+- **API 연동**: Telegram Bot, Gemini AI, KIS 증권, Google Sheets, GitHub
+- **자동화**: macOS launchd (로또), GitHub Actions self-hosted runner (무한매수법)
+- **데이터 저장**: CSV/JSON 파일 (git 관리)
+- **배포**: GitHub Pages (financial), 로컬 실행 (server, lotto)

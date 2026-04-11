@@ -8,24 +8,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-Homi는 가족용 퍼스널 웹앱입니다. 세 가지 주요 서브시스템으로 구성됩니다:
+Homi는 가족용 퍼스널 자동화 프로젝트입니다. 네 가지 주요 서브시스템으로 구성됩니다:
 
-1. **Next.js 프론트엔드** (`src/`) — React 19 + TypeScript, Firebase Auth 기반 Google 로그인
+1. **가계부 대시보드** (`financial/`) — GitHub Pages 정적 사이트, 순수 HTML/JS (ECharts + jSpreadsheet)
 2. **텔레그램 봇 서버** (`server/`) — Node.js 폴링 방식, Gemini AI 연동, 카드 명세서(xlsx) 파싱 → GitHub CSV 저장
-3. **로또 자동구매** (`lotto/`) — Python + Playwright 브라우저 자동화, cron 스케줄
+3. **로또 자동구매** (`lotto/`) — Python + Playwright 브라우저 자동화, macOS launchd 스케줄
+4. **무한매수법 자동매매** (`infinite-buy/`) — TypeScript, 한국투자증권 API, GitHub Actions self-hosted runner
 
-`functions/` 디렉토리는 Firebase Cloud Functions 기반 웹훅 구현으로 **deprecated** 상태입니다. 현재 운영은 `server/`에서 로컬 폴링 방식으로 동작합니다.
+> **DEPRECATED**: `src/` (Next.js), `functions/` (Firebase Cloud Functions) — 미사용, 개발 중단 상태
+
+> **상세 아키텍처**: `docs/02-architecture.md` 참고
 
 ## 주요 명령어
-
-### Next.js 프론트엔드
-```bash
-npm install              # 의존성 설치
-npm run dev              # 개발 서버 (port 3100)
-npm run build            # 프로덕션 빌드
-npm run lint             # ESLint
-npm run typecheck        # TypeScript 타입 검사
-```
 
 ### 텔레그램 봇 서버
 ```bash
@@ -38,21 +32,34 @@ cd server && npm start    # 서버 실행 (node index.js)
 ```bash
 cd lotto
 source .venv/bin/activate
-python main.py                    # 기본 실행 (자동 번호)
-python main.py --manual 1,2,3,4,5,6  # 수동 번호 지정
+python main.py              # 랜덤번호 5게임 구매
+python main.py --auto       # 사이트 자동선택
+python main.py --check      # 당첨 내역 조회
+python main.py --dry-run    # 로그인 테스트
 ```
 환경 변수: `lotto/.env` (로또 사이트 계정, 텔레그램 알림)
+스케줄: macOS launchd (`~/Library/LaunchAgents/com.homi.lotto-*.plist`)
+
+### 무한매수법 자동매매
+```bash
+cd infinite-buy && npm install
+npx tsx src/main-open.ts    # 장 오픈 시 주문
+npx tsx src/main-close.ts   # 장 마감 시 체결 확인
+```
+환경 변수: `infinite-buy/.env` (KIS API 키, 텔레그램 알림)
+스케줄: GitHub Actions (`infinite-buy-open.yml`, `infinite-buy-close.yml`)
 
 ## 아키텍처 핵심
 
-- **텔레그램 봇 메시지 흐름**: Telegram getUpdates(폴링) → `server/index.js` handleMessage() → xlsx 감지 시 Gemini로 파싱 후 GitHub CSV 저장 / 일반 메시지는 Gemini 대화 응답
-- **가계부 데이터**: 카드 명세서 xlsx → Gemini AI가 JSON으로 파싱 (날짜, 카테고리, 금액 등) → `가계부/` 디렉토리에 CSV로 GitHub API를 통해 커밋
-- **대화 히스토리**: 메모리 기반, 1시간 TTL
-- **인증**: 프론트엔드는 Firebase Auth (`src/lib/auth-context.tsx`), 서버는 Google OAuth2 (`server/auth.js`)
+- **가계부 웹**: GitHub Pages (`https://leejangpu.github.io/homi/financial/`) — `financial/index.html`이 CSV를 fetch하여 차트/테이블 렌더링
+- **텔레그램 봇 흐름**: Telegram getUpdates(폴링) → `server/index.js` → xlsx 감지 시 Gemini 파싱 → GitHub CSV 커밋 / 일반 메시지는 Gemini 대화 응답
+- **가계부 데이터**: 카드 명세서 xlsx → Gemini AI 파싱 → `가계부/` CSV로 GitHub API 커밋 → `financial/index.html`에서 표시
+- **데이터 저장**: CSV/JSON 파일 (git 관리), 별도 DB 없음
 
-## 기술 스택 참고
+## 기술 스택
 
-- TypeScript 경로 별칭: `@/*` → `./src/*`
 - Node.js 20, Python 3.11
 - 패키지 매니저: npm (Node), pip + venv (Python)
+- 자동화: macOS launchd (로또), GitHub Actions self-hosted runner (무한매수법)
+- 배포: GitHub Pages (financial), 로컬 실행 (server, lotto)
 - 테스트 프레임워크 미설정
