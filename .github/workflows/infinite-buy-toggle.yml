@@ -25,7 +25,11 @@ jobs:
       - name: Toggle enabled state
         run: |
           CONFIG="infinite-buy/config.json"
-          CURRENT=$(jq -r '.enabled' "$CONFIG")
+          if grep -q '"enabled": true' "$CONFIG"; then
+            CURRENT=true
+          else
+            CURRENT=false
+          fi
           echo "▶ Current enabled: $CURRENT"
           echo "▶ Requested action: ${{ github.event.inputs.action }}"
 
@@ -37,7 +41,7 @@ jobs:
               ;;
           esac
 
-          jq ".enabled = $NEW" "$CONFIG" > tmp.json && mv tmp.json "$CONFIG"
+          sed -i '' "s/\"enabled\": $CURRENT/\"enabled\": $NEW/" "$CONFIG"
           echo "▶ Changed enabled: $CURRENT → $NEW"
           echo "PREV=$CURRENT" >> $GITHUB_ENV
           echo "NEXT=$NEW" >> $GITHUB_ENV
