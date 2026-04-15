@@ -1,8 +1,8 @@
 name: Infinite Buy - Market Close
 
 on:
-  schedule:
-    - cron: '0 22 * * 1-5'  # 07:00 KST (22:00 UTC)
+  # schedule:
+  #   - cron: '0 22 * * 1-5'  # 07:00 KST (22:00 UTC) — 로컬 launchd로 전환
   workflow_dispatch: {}
 
 permissions:
