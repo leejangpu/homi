@@ -107,7 +107,10 @@ function calculateTValue(
   const rawT = totalInvested / buyPerRound;
 
   // 소수점 둘째자리에서 올림 (버전 무관)
-  const tValue = Math.ceil(rawT * 100) / 100;
+  // 부동소수점 오차 보정: epsilon(1e-9) 범위 내로 정수에 가까우면 반올림, 아니면 올림
+  const scaled = rawT * 100;
+  const rounded = Math.round(scaled);
+  const tValue = (Math.abs(scaled - rounded) < 1e-9 ? rounded : Math.ceil(scaled)) / 100;
 
   return Math.min(tValue, splitCount);
 }

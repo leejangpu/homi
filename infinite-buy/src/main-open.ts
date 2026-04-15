@@ -241,7 +241,12 @@ async function processTickerOrders(
       return;
     }
 
-    const principal = principalResult.newCyclePrincipalMap.get(ticker) || (accountCashForTicker(principalResult, ticker));
+    const principal = principalResult.newCyclePrincipalMap.get(ticker);
+    if (!principal || principal <= 0) {
+      console.error(`[Open]   → 새 사이클 원금 계산 실패: ${ticker} (principal=${principal})`);
+      await notifyError(`${ticker} 새 사이클`, `원금 계산 실패 (principal=${principal})`);
+      return;
+    }
     const buyPerRound = principal / splitCount;
     const cycleNumber = getNextCycleNumber(ticker);
 
@@ -438,10 +443,6 @@ async function processTickerOrders(
   } else {
     console.log(`[Open]     보유 수량 0 → 매도 주문 스킵`);
   }
-}
-
-function accountCashForTicker(principalResult: any, ticker: string): number {
-  return principalResult.updatedAllocatedFunds.get(ticker) || 0;
 }
 
 function delay(ms: number): Promise<void> {

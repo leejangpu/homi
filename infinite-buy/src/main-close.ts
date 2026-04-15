@@ -256,14 +256,22 @@ async function syncTicker(
     if (quarterMode.isActive && hasBuyExec) {
       // 쿼터모드 매수 체결 → round 증가
       const newRound = (quarterMode.round || 0) + 1;
-      cycleData.quarterMode = { ...quarterMode, round: newRound };
-      console.log(`[Close]   → 쿼터모드 round ${quarterMode.round} → ${newRound}`);
+      if (newRound > 10) {
+        // 쿼터모드 10회 완료 → 리셋 (다음 open에서 MOC 매도로 자금 확보)
+        cycleData.quarterMode = { ...quarterMode, round: newRound, isActive: false };
+        console.log(`[Close]   → 쿼터모드 10회 완료, 리셋 (round=${newRound})`);
+      } else {
+        cycleData.quarterMode = { ...quarterMode, round: newRound };
+        console.log(`[Close]   → 쿼터모드 round ${quarterMode.round} → ${newRound}`);
+      }
     }
   }
 
-  // 사이클 완료 감지
-  if (cycleData.status === 'active' && totalQuantity === 0 && (cycleData.totalInvested || 0) > 0) {
-    console.log(`[Close]   → 사이클 #${cycleData.cycleNumber} 완료 감지! (qty=0, 이전 invested>0)`);
+  // 사이클 완료 감지: 기존 조건 OR (당일 매도 체결 있고 보유 0)
+  const hadPriorInvestment = (cycleData.totalInvested || 0) > 0;
+  const hadTodaySell = todaySellAmt > 0;
+  if (cycleData.status === 'active' && totalQuantity === 0 && (hadPriorInvestment || hadTodaySell)) {
+    console.log(`[Close]   → 사이클 #${cycleData.cycleNumber} 완료 감지! (qty=0, 이전 invested>0 또는 당일 매도 있음)`);
 
     const history: CycleHistory = {
       ticker,
