@@ -3,7 +3,14 @@
  * 원본: server/src/lib/kisApi.ts
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
 const BASE_URL = 'https://openapi.koreainvestment.com:9443';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const TOKEN_CACHE_PATH = path.resolve(__dirname, '..', 'state', 'token.json');
 
 // ==================== 타입 ====================
 
@@ -109,9 +116,25 @@ export interface ReservationOrderResponse {
 
 export class KisApiClient {
   /**
-   * 접근 토큰 발급 (매 실행마다 새로 발급, 캐싱 없음)
+   * 접근 토큰 발급 (파일 캐싱, 만료 1시간 전 갱신)
    */
   async getAccessToken(appKey: string, appSecret: string): Promise<string> {
+    // 캐시 파일 확인
+    if (fs.existsSync(TOKEN_CACHE_PATH)) {
+      try {
+        const cached = JSON.parse(fs.readFileSync(TOKEN_CACHE_PATH, 'utf-8'));
+        if (cached.access_token && cached.expires_at) {
+          const now = Math.floor(Date.now() / 1000);
+          if (now < cached.expires_at) {
+            console.log(`[KIS] 캐시된 토큰 사용 (만료: ${new Date(cached.expires_at * 1000).toISOString()})`);
+            return cached.access_token;
+          }
+        }
+      } catch {
+        // 캐시 파싱 실패 시 새로 발급
+      }
+    }
+
     const response = await fetch(`${BASE_URL}/oauth2/tokenP`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -128,6 +151,14 @@ export class KisApiClient {
     }
 
     const data: TokenResponse = await response.json();
+    const now = Math.floor(Date.now() / 1000);
+    const expires_at = now + data.expires_in - 3600;
+
+    // 캐시 디렉토리 생성 및 저장
+    fs.mkdirSync(path.dirname(TOKEN_CACHE_PATH), { recursive: true });
+    fs.writeFileSync(TOKEN_CACHE_PATH, JSON.stringify({ access_token: data.access_token, expires_at }, null, 2), 'utf-8');
+
+    console.log(`[KIS] 새 토큰 발급 완료 (만료: ${new Date(expires_at * 1000).toISOString()})`);
     return data.access_token;
   }
 

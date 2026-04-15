@@ -31,6 +31,7 @@ lotto/screenshots/
 # infinite-buy
 infinite-buy/.env
 infinite-buy/node_modules/
+infinite-buy/state/token.json
 
 # typescript
 *.tsbuildinfo
