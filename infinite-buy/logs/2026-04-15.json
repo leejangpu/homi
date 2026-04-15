@@ -1,0 +1,58 @@
+[
+  {
+    "timestamp": "2026-04-15T14:04:32.465Z",
+    "ticker": "SOXL",
+    "action": "CYCLE_START",
+    "details": {
+      "cycleNumber": 1,
+      "principal": 13123,
+      "buyPerRound": 437.43333333333334,
+      "splitCount": 30,
+      "targetProfit": 0.12,
+      "strategyVersion": "v2.2"
+    }
+  },
+  {
+    "timestamp": "2026-04-15T14:04:32.516Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "type": "FIRST_BUY",
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 88.77,
+      "quantity": 5,
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030911099"
+    }
+  },
+  {
+    "timestamp": "2026-04-15T14:04:33.335Z",
+    "ticker": "TQQQ",
+    "action": "CYCLE_START",
+    "details": {
+      "cycleNumber": 1,
+      "principal": 13123,
+      "buyPerRound": 328.075,
+      "splitCount": 40,
+      "targetProfit": 0.1,
+      "strategyVersion": "v2.2"
+    }
+  },
+  {
+    "timestamp": "2026-04-15T14:04:33.378Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "type": "FIRST_BUY",
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 56.55,
+      "quantity": 6,
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030911113"
+    }
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "ticker": "SOXL",
+  "status": "active",
+  "cycleNumber": 1,
+  "strategyVersion": "v2.2",
+  "splitCount": 30,
+  "targetProfit": 0.12,
+  "starDecreaseRate": 0.008,
+  "principal": 13123,
+  "buyPerRound": 437.43333333333334,
+  "totalQuantity": 0,
+  "avgPrice": 0,
+  "totalInvested": 0,
+  "remainingCash": 13123,
+  "totalBuyAmount": 0,
+  "totalSellAmount": 0,
+  "totalRealizedProfit": 0,
+  "startedAt": "2026-04-15T14:04:32.461Z",
+  "updatedAt": "2026-04-15T14:04:32.462Z"
+}

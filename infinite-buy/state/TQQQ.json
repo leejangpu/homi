@@ -1,0 +1,20 @@
+{
+  "ticker": "TQQQ",
+  "status": "active",
+  "cycleNumber": 1,
+  "strategyVersion": "v2.2",
+  "splitCount": 40,
+  "targetProfit": 0.1,
+  "starDecreaseRate": 0.005,
+  "principal": 13123,
+  "buyPerRound": 328.075,
+  "totalQuantity": 0,
+  "avgPrice": 0,
+  "totalInvested": 0,
+  "remainingCash": 13123,
+  "totalBuyAmount": 0,
+  "totalSellAmount": 0,
+  "totalRealizedProfit": 0,
+  "startedAt": "2026-04-15T14:04:33.334Z",
+  "updatedAt": "2026-04-15T14:04:33.334Z"
+}
