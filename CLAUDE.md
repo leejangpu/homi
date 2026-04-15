@@ -54,6 +54,12 @@ npx tsx src/main-close.ts   # 장 마감 시 체결 확인
 - **가계부 데이터**: 카드 명세서 xlsx → Gemini AI 파싱 → `가계부/` CSV로 GitHub API 커밋 → `financial/index.html`에서 표시
 - **데이터 저장**: CSV/JSON 파일 (git 관리), 별도 DB 없음
 
+## 작업 방식
+
+- **분석/추론/계획**: Opus(메인 에이전트)가 직접 수행
+- **코딩/수정 작업**: 서브에이전트(Sonnet)에 위임하여 병렬 처리
+- 코드 수정이 필요한 경우, 명확한 지시와 함께 Sonnet 서브에이전트를 생성하여 실행
+
 ## 기술 스택
 
 - Node.js 20, Python 3.11
