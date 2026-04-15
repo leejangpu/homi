@@ -24,9 +24,11 @@ import {
 import { notifyError } from './telegram.js';
 import { isUSMarketClosed, getETDateISO, nowISO, fmtUSD } from './utils.js';
 
+const DRY_RUN = process.argv.includes('--dry-run');
+
 async function main() {
   console.log('========================================');
-  console.log('[Open] 무한매수법 Market Open 시작');
+  console.log(`[Open] 무한매수법 Market Open 시작${DRY_RUN ? ' (DRY RUN)' : ''}`);
   console.log('========================================');
 
   // Step 1. Config
@@ -34,14 +36,17 @@ async function main() {
   const config = readConfig();
   console.log(`[Open]   enabled=${config.enabled}, tickers=[${config.tickers.join(', ')}], strategy=${config.strategyVersion}`);
   console.log(`[Open]   autoRestart=${config.autoRestart}, equalSplit=${config.equalSplit}`);
-  if (!config.enabled) {
+  if (!config.enabled && !DRY_RUN) {
     console.log('[Open]   → Disabled. Exiting.');
     return;
+  }
+  if (DRY_RUN && !config.enabled) {
+    console.log('[Open]   → Disabled이지만 DRY RUN 모드로 계속 진행');
   }
 
   // Step 2. 휴장일
   console.log('\n[Open] Step 2/7: 휴장일 체크');
-  if (isUSMarketClosed()) {
+  if (isUSMarketClosed() && !DRY_RUN) {
     console.log('[Open]   → US market closed (holiday/weekend). Skipping.');
     return;
   }
@@ -269,14 +274,17 @@ async function processTickerOrders(
       totalBuyAmount: 0, totalSellAmount: 0, totalRealizedProfit: 0,
       startedAt: nowISO(), updatedAt: nowISO(),
     };
-    writeCycleState(ticker, newState);
+    if (!DRY_RUN) {
+      writeCycleState(ticker, newState);
+      console.log(`[Open]     state 저장 완료`);
+      appendLog(today, {
+        timestamp: nowISO(), ticker, action: 'CYCLE_START',
+        details: { cycleNumber, principal, buyPerRound, splitCount, targetProfit, strategyVersion: sv },
+      });
+    } else {
+      console.log(`[Open]     [DRY RUN] state 저장 스킵`);
+    }
     cycleData = newState;
-    console.log(`[Open]     state 저장 완료`);
-
-    appendLog(today, {
-      timestamp: nowISO(), ticker, action: 'CYCLE_START',
-      details: { cycleNumber, principal, buyPerRound, splitCount, targetProfit, strategyVersion: sv },
-    });
 
     // 최초 매수: LOC +5%
     const locPrice = Math.round(currentPrice * 1.05 * 100) / 100;
@@ -287,6 +295,10 @@ async function processTickerOrders(
     }
 
     console.log(`[Open]     최초 매수 주문: LOC @ ${fmtUSD(locPrice)} x ${quantity}주 = ${fmtUSD(locPrice * quantity)}`);
+    if (DRY_RUN) {
+      console.log(`[Open]     [DRY RUN] 주문 제출 스킵`);
+      return;
+    }
     const result = await kis.submitOrder(appKey, appSecret, accessToken, accountNo, {
       ticker, side: 'BUY', orderType: 'LOC', price: locPrice, quantity,
     });
@@ -386,8 +398,12 @@ async function processTickerOrders(
       console.log(`[Open]     매수 스킵 (qty=0): ${order.label}`);
       continue;
     }
+    console.log(`[Open]     매수 제출: ${order.label} — ${order.orderType} @ ${fmtUSD(order.price)} x ${order.quantity}주`);
+    if (DRY_RUN) {
+      console.log(`[Open]     [DRY RUN] 주문 제출 스킵`);
+      continue;
+    }
     try {
-      console.log(`[Open]     매수 제출: ${order.label} — ${order.orderType} @ ${fmtUSD(order.price)} x ${order.quantity}주`);
       const result = await kis.submitOrder(appKey, appSecret, accessToken, accountNo, {
         ticker, side: 'BUY', orderType: order.orderType as 'LOC' | 'LIMIT',
         price: order.price, quantity: order.quantity,
@@ -417,8 +433,12 @@ async function processTickerOrders(
         console.log(`[Open]     매도 스킵 (qty=0): ${order.label}`);
         continue;
       }
+      console.log(`[Open]     매도 제출: ${order.label} — ${order.orderType} @ ${order.price > 0 ? fmtUSD(order.price) : 'MARKET'} x ${order.quantity}주`);
+      if (DRY_RUN) {
+        console.log(`[Open]     [DRY RUN] 주문 제출 스킵`);
+        continue;
+      }
       try {
-        console.log(`[Open]     매도 제출: ${order.label} — ${order.orderType} @ ${order.price > 0 ? fmtUSD(order.price) : 'MARKET'} x ${order.quantity}주`);
         const result = await kis.submitOrder(appKey, appSecret, accessToken, accountNo, {
           ticker, side: 'SELL', orderType: order.orderType as 'LOC' | 'LIMIT' | 'MOC',
           price: order.price, quantity: order.quantity,
