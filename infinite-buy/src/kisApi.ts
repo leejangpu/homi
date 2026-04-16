@@ -200,7 +200,13 @@ export class KisApiClient {
       if (i > 0) await delay(300);
       try {
         const result = await fetchOne(exchanges[i]);
-        if (Array.isArray(result.output1)) mergedOutput1.push(...result.output1);
+        if (Array.isArray(result.output1)) {
+          for (const item of result.output1) {
+            if (!mergedOutput1.some(x => x.ovrs_pdno === item.ovrs_pdno)) {
+              mergedOutput1.push(item);
+            }
+          }
+        }
         if (!output2?.length && Array.isArray(result.output2) && result.output2.length > 0) {
           output2 = result.output2;
         }
