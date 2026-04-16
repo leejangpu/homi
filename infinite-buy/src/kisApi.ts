@@ -9,6 +9,13 @@ import { fileURLToPath } from 'url';
 
 const BASE_URL = 'https://openapi.koreainvestment.com:9443';
 
+// 주문/잔고용 (4자리) → 시세조회용 (3자리)
+const QUOTE_EXCHANGE_MAP: Record<string, string> = {
+  NASD: 'NAS',
+  AMEX: 'AMS',
+  NYSE: 'NYS',
+};
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TOKEN_CACHE_PATH = path.resolve(__dirname, '..', 'state', 'token.json');
 
@@ -163,13 +170,13 @@ export class KisApiClient {
   }
 
   /**
-   * 해외주식 잔고 조회 (NASD + AMEX + NYSE 병합)
+   * 해외주식 잔고 조회 (지정된 거래소 목록 병합)
    */
   async getBalance(
-    appKey: string, appSecret: string, accessToken: string, accountNo: string
+    appKey: string, appSecret: string, accessToken: string, accountNo: string,
+    exchanges: string[]
   ): Promise<BalanceResponse> {
     const [accountPrefix, accountSuffix] = accountNo.split('-');
-    const exchanges = ['NASD', 'AMEX', 'NYSE'];
 
     const fetchOne = async (exchange: string): Promise<BalanceResponse> => {
       const response = await fetch(
@@ -250,12 +257,12 @@ export class KisApiClient {
    * 해외주식 현재가 조회
    */
   async getCurrentPrice(
-    appKey: string, appSecret: string, accessToken: string, ticker: string
+    appKey: string, appSecret: string, accessToken: string, ticker: string, exchange: string
   ): Promise<number> {
-    const exchange = KisApiClient.getExchangeCodeForQuote(ticker);
+    const quoteExchange = QUOTE_EXCHANGE_MAP[exchange] ?? exchange;
     const response = await fetch(
       `${BASE_URL}/uapi/overseas-price/v1/quotations/price?` +
-        new URLSearchParams({ AUTH: '', EXCD: exchange, SYMB: ticker }),
+        new URLSearchParams({ AUTH: '', EXCD: quoteExchange, SYMB: ticker }),
       {
         method: 'GET',
         headers: {
@@ -284,6 +291,7 @@ export class KisApiClient {
       orderType: 'LOC' | 'LIMIT' | 'MOC' | 'MOO';
       price: number;
       quantity: number;
+      exchange: string;
     }
   ): Promise<OrderResponse> {
     const [accountPrefix, accountSuffix] = accountNo.split('-');
@@ -292,7 +300,7 @@ export class KisApiClient {
       'MOO': '31', 'MOC': '33', 'LOC': '34',
     };
     const orderTypeCode = orderTypeMap[params.orderType] || '00';
-    const exchangeCode = KisApiClient.getExchangeCode(params.ticker);
+    const exchangeCode = params.exchange;
 
     const maxRetries = 3;
     let lastError: Error | null = null;
@@ -372,10 +380,10 @@ export class KisApiClient {
    */
   async submitReservationOrder(
     appKey: string, appSecret: string, accessToken: string, accountNo: string,
-    params: { ticker: string; side: 'SELL'; quantity: number; orderType: 'MOO' }
+    params: { ticker: string; side: 'SELL'; quantity: number; orderType: 'MOO'; exchange: string }
   ): Promise<ReservationOrderResponse> {
     const [accountPrefix, accountSuffix] = accountNo.split('-');
-    const exchangeCode = KisApiClient.getExchangeCode(params.ticker);
+    const exchangeCode = params.exchange;
 
     const response = await fetch(`${BASE_URL}/uapi/overseas-stock/v1/trading/order-resv`, {
       method: 'POST',
@@ -398,17 +406,6 @@ export class KisApiClient {
     return response.json();
   }
 
-  // ==================== Static helpers ====================
-
-  static getExchangeCode(ticker: string): string {
-    const amexETFs = ['SOXL', 'SOXS', 'SPXL', 'SPXS', 'LABU', 'LABD', 'TNA', 'TZA', 'NUGT', 'DUST'];
-    return amexETFs.includes(ticker.toUpperCase()) ? 'AMEX' : 'NASD';
-  }
-
-  static getExchangeCodeForQuote(ticker: string): string {
-    const amexETFs = ['SOXL', 'SOXS', 'SPXL', 'SPXS', 'LABU', 'LABD', 'TNA', 'TZA', 'NUGT', 'DUST'];
-    return amexETFs.includes(ticker.toUpperCase()) ? 'AMS' : 'NAS';
-  }
 }
 
 function delay(ms: number): Promise<void> {

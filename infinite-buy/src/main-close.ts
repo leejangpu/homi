@@ -113,8 +113,9 @@ async function main() {
   console.log('\n[Close] Step 5/6: 현재 잔고 조회');
   let balanceData;
   try {
+    const exchanges = Array.from(new Set(config.tickers.map(t => config.tickerConfigs[t].exchange)));
     console.log('[Close]   잔고 API 호출 중...');
-    balanceData = await kis.getBalance(appKey, appSecret, accessToken, accountNo);
+    balanceData = await kis.getBalance(appKey, appSecret, accessToken, accountNo, exchanges);
     console.log('[Close]   → 잔고 조회 완료');
   } catch (err) {
     console.error('[Close]   → 잔고 조회 실패:', err);
@@ -352,9 +353,10 @@ async function syncTicker(
       // 목표가 이상인데 아직 보유 중 → MOO 예약매도 (전체 수량)
       try {
         console.log(`[Close]   → 목표가 도달! MOO 예약매도 제출: ${totalQuantity}주`);
+        const exchange = config.tickerConfigs[ticker].exchange;
         const result = await kis.submitReservationOrder(
           appKey, appSecret, accessToken, accountNo,
-          { ticker, side: 'SELL', quantity: totalQuantity, orderType: 'MOO' }
+          { ticker, side: 'SELL', quantity: totalQuantity, orderType: 'MOO', exchange }
         );
         const success = result.rt_cd === '0';
         console.log(`[Close]   → MOO 예약 ${success ? '✓ 성공' : '✗ 실패'}: ${result.msg1}`);

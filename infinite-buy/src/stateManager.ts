@@ -20,6 +20,7 @@ export interface Config {
   tickerConfigs: Record<string, {
     splitCount: number;
     targetProfit: number;
+    exchange: 'NASD' | 'AMEX' | 'NYSE';
   }>;
   autoRestart: boolean;
   equalSplit: boolean;

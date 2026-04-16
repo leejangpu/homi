@@ -84,8 +84,9 @@ async function main() {
   let accountCash = 0;
   let balanceData;
   try {
+    const exchanges = Array.from(new Set(config.tickers.map(t => config.tickerConfigs[t].exchange)));
     console.log('[Open]   잔고 API 호출 중...');
-    balanceData = await kis.getBalance(appKey, appSecret, accessToken, accountNo);
+    balanceData = await kis.getBalance(appKey, appSecret, accessToken, accountNo, exchanges);
     await delay(300);
 
     console.log('[Open]   매수가능금액 API 호출 중...');
@@ -235,6 +236,7 @@ async function processTickerOrders(
 
   const splitCount = tickerConfig.splitCount;
   const targetProfit = tickerConfig.targetProfit;
+  const exchange = tickerConfig.exchange;
   const starDecreaseRate = calculateDecreaseRate(targetProfit, splitCount);
   console.log(`[Open]   설정: split=${splitCount}, target=${(targetProfit * 100).toFixed(1)}%, decrease=${(starDecreaseRate * 100).toFixed(3)}%`);
 
@@ -260,7 +262,7 @@ async function processTickerOrders(
 
     // 현재가 조회
     console.log(`[Open]     현재가 조회 중...`);
-    const currentPrice = await kis.getCurrentPrice(appKey, appSecret, accessToken, ticker);
+    const currentPrice = await kis.getCurrentPrice(appKey, appSecret, accessToken, ticker, exchange);
     console.log(`[Open]     현재가: ${fmtUSD(currentPrice)}`);
     await delay(300);
 
@@ -300,7 +302,7 @@ async function processTickerOrders(
       return;
     }
     const result = await kis.submitOrder(appKey, appSecret, accessToken, accountNo, {
-      ticker, side: 'BUY', orderType: 'LOC', price: locPrice, quantity,
+      ticker, side: 'BUY', orderType: 'LOC', price: locPrice, quantity, exchange,
     });
 
     const success = result.rt_cd === '0';
@@ -332,7 +334,7 @@ async function processTickerOrders(
 
   // 현재가 조회
   console.log(`[Open]     현재가 조회 중...`);
-  const currentPrice = await kis.getCurrentPrice(appKey, appSecret, accessToken, ticker);
+  const currentPrice = await kis.getCurrentPrice(appKey, appSecret, accessToken, ticker, exchange);
   console.log(`[Open]     현재가: ${fmtUSD(currentPrice)}`);
   await delay(300);
 
@@ -406,7 +408,7 @@ async function processTickerOrders(
     try {
       const result = await kis.submitOrder(appKey, appSecret, accessToken, accountNo, {
         ticker, side: 'BUY', orderType: order.orderType as 'LOC' | 'LIMIT',
-        price: order.price, quantity: order.quantity,
+        price: order.price, quantity: order.quantity, exchange,
       });
       const success = result.rt_cd === '0';
       console.log(`[Open]     → ${success ? '✓ 성공' : '✗ 실패'} ${result.msg1}${success ? ` (주문번호: ${result.output?.ODNO})` : ''}`);
@@ -441,7 +443,7 @@ async function processTickerOrders(
       try {
         const result = await kis.submitOrder(appKey, appSecret, accessToken, accountNo, {
           ticker, side: 'SELL', orderType: order.orderType as 'LOC' | 'LIMIT' | 'MOC',
-          price: order.price, quantity: order.quantity,
+          price: order.price, quantity: order.quantity, exchange,
         });
         const success = result.rt_cd === '0';
         console.log(`[Open]     → ${success ? '✓ 성공' : '✗ 실패'} ${result.msg1}${success ? ` (주문번호: ${result.output?.ODNO})` : ''}`);

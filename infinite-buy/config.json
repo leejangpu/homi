@@ -8,11 +8,13 @@
   "tickerConfigs": {
     "SOXL": {
       "splitCount": 30,
-      "targetProfit": 0.12
+      "targetProfit": 0.12,
+      "exchange": "AMEX"
     },
     "TQQQ": {
       "splitCount": 40,
-      "targetProfit": 0.1
+      "targetProfit": 0.1,
+      "exchange": "NASD"
     }
   },
   "autoRestart": true,
