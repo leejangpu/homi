@@ -19,7 +19,12 @@ from modules.auth import login_with_retry, save_session, is_logged_in, COOKIE_PA
 from modules.number_generator import generate_lotto_numbers
 from modules.purchase import purchase_lotto_auto, purchase_lotto_manual, handle_purchase_error
 from modules.telegram import send_purchase_result, send_purchase_auto_result, send_error_alert, send_telegram
-from modules.history import get_purchase_history, format_history_message
+from modules.history import (
+    get_purchase_history,
+    format_history_message,
+    save_purchase_to_history,
+    update_result_in_history,
+)
 
 # .env 파일 로드 (스크립트 디렉토리 기준)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -133,8 +138,20 @@ def run(dry_run: bool = False, auto: bool = False, numbers: str | None = None) -
                     # 텔레그램 알림
                     if purchased_games:
                         send_purchase_result(purchased_games, len(purchased_games) * 1000, balance)
+                        # history.json 저장
+                        save_purchase_to_history(
+                            tickets=purchased_games,
+                            mode="auto" if auto else "random",
+                            total_amount=len(purchased_games) * 1000,
+                        )
                     else:
                         send_purchase_auto_result(ticket_count, balance)
+                        # 자동선택: 번호 미확인이므로 빈 tickets로 저장
+                        save_purchase_to_history(
+                            tickets=[],
+                            mode="auto",
+                            total_amount=ticket_count * 1000,
+                        )
                 else:
                     logger.warning("구매 결과 확인 필요 - 스크린샷을 확인하세요")
 
@@ -189,6 +206,8 @@ def check_history() -> None:
 
             history = get_purchase_history(page)
             if history:
+                # history.json 결과 업데이트
+                update_result_in_history(history)
                 message = format_history_message(history)
                 print(message)
                 send_telegram(message)

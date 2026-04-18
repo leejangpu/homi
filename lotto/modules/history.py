@@ -1,11 +1,251 @@
-"""구매/당첨 내역 조회 모듈."""
+"""구매/당첨 내역 조회 및 JSON 히스토리 관리 모듈."""
 
+import json
 import logging
+import os
+import subprocess
+from datetime import datetime, timedelta
 from playwright.sync_api import Page
 
 logger = logging.getLogger("lotto")
 
 HISTORY_URL = "https://www.dhlottery.co.kr/mypage/mylotteryledger"
+
+# history.json 경로 (lotto/ 디렉토리)
+SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HISTORY_JSON_PATH = os.path.join(SCRIPT_DIR, "history.json")
+
+
+# ─────────────────────────────────────────────
+# history.json 읽기/쓰기
+# ─────────────────────────────────────────────
+
+def _load_history() -> dict:
+    """history.json을 읽어 반환. 파일이 없으면 빈 구조를 반환."""
+    if os.path.exists(HISTORY_JSON_PATH):
+        try:
+            with open(HISTORY_JSON_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning("history.json 읽기 실패: %s", e)
+    return {"purchases": [], "stats": {"totalSpent": 0, "totalWon": 0, "totalRounds": 0}}
+
+
+def _save_history(data: dict) -> None:
+    """history.json에 데이터를 저장."""
+    try:
+        with open(HISTORY_JSON_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        logger.info("history.json 저장 완료")
+    except Exception as e:
+        logger.warning("history.json 저장 실패: %s", e)
+
+
+def _recalc_stats(data: dict) -> None:
+    """purchases 목록을 기반으로 stats를 재계산."""
+    total_spent = sum(p.get("totalAmount", 0) for p in data["purchases"])
+    total_won = sum(p.get("winnings", 0) for p in data["purchases"])
+    total_rounds = len(data["purchases"])
+    data["stats"] = {
+        "totalSpent": total_spent,
+        "totalWon": total_won,
+        "totalRounds": total_rounds,
+    }
+
+
+def _git_push_history() -> None:
+    """history.json을 git add → commit → push."""
+    try:
+        subprocess.run(
+            ["git", "add", "history.json"],
+            cwd=SCRIPT_DIR,
+            check=True,
+            capture_output=True,
+        )
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            cwd=SCRIPT_DIR,
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            logger.info("history.json: 변경 사항 없음, git commit 생략")
+            return
+        subprocess.run(
+            ["git", "commit", "-m", "로또 히스토리 업데이트"],
+            cwd=SCRIPT_DIR,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "push"],
+            cwd=SCRIPT_DIR,
+            check=True,
+            capture_output=True,
+        )
+        logger.info("history.json git push 완료")
+    except subprocess.CalledProcessError as e:
+        logger.warning("history.json git push 실패: %s", e)
+
+
+# ─────────────────────────────────────────────
+# 구매 시 호출
+# ─────────────────────────────────────────────
+
+def _get_draw_date(buy_date_str: str) -> str:
+    """구매일 기준으로 추첨일(토요일)을 계산한다.
+
+    - 월~토 구매: 그 주 토요일
+    - 일요일 구매: 다음 주 토요일 (당일 추첨 없음)
+    """
+    try:
+        buy_date = datetime.strptime(buy_date_str, "%Y-%m-%d")
+        weekday = buy_date.weekday()
+        if weekday == 6:
+            # 일요일이면 다음 주 토요일 (+6일)
+            days_to_saturday = 6
+        else:
+            days_to_saturday = 5 - weekday
+        draw_date = buy_date + timedelta(days=days_to_saturday)
+        return draw_date.strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
+def _get_lotto_round_for_date(buy_date_str: str) -> int:
+    """구매일 기준으로 해당 회차를 추정한다.
+
+    기준: 2026-04-11(토) = 1219회 추첨.
+    구매일에서 추첨 토요일을 구한 뒤 기준 주 대비 delta로 회차를 계산.
+    """
+    base_saturday = datetime(2026, 4, 11)  # 1219회 추첨일 (토요일)
+    base_round = 1219
+    try:
+        draw_date_str = _get_draw_date(buy_date_str)
+        if not draw_date_str:
+            return 0
+        draw_date = datetime.strptime(draw_date_str, "%Y-%m-%d")
+        delta_weeks = (draw_date - base_saturday).days // 7
+        return base_round + delta_weeks
+    except Exception:
+        return 0
+
+
+def save_purchase_to_history(
+    tickets: list[list[int]],
+    mode: str,
+    total_amount: int,
+    round_no: int = 0,
+) -> None:
+    """구매 완료 후 history.json에 구매 내역을 추가한다.
+
+    Args:
+        tickets: 구매한 번호 목록. 자동선택이면 빈 리스트.
+        mode: "random" | "auto" | "manual"
+        total_amount: 총 구매 금액 (원)
+        round_no: 회차 번호 (0이면 날짜로 추정)
+    """
+    try:
+        data = _load_history()
+        buy_date = datetime.now().strftime("%Y-%m-%d")
+
+        if round_no == 0:
+            round_no = _get_lotto_round_for_date(buy_date)
+
+        draw_date = _get_draw_date(buy_date)
+
+        ticket_objs = [{"numbers": sorted(nums), "mode": mode} for nums in tickets]
+
+        # 동일 회차가 이미 있으면 덮어쓰지 않고 스킵
+        existing_rounds = [p["round"] for p in data["purchases"]]
+        if round_no in existing_rounds:
+            logger.info("회차 %d 구매 내역이 이미 존재합니다. 스킵.", round_no)
+            return
+
+        entry = {
+            "round": round_no,
+            "buyDate": buy_date,
+            "drawDate": draw_date,
+            "tickets": ticket_objs,
+            "totalAmount": total_amount,
+            "result": "pending",
+            "winnings": 0,
+            "winDetail": "",
+        }
+
+        data["purchases"].append(entry)
+        _recalc_stats(data)
+        _save_history(data)
+        _git_push_history()
+        logger.info("구매 내역 history.json 저장 완료 (회차: %d)", round_no)
+    except Exception as e:
+        logger.warning("save_purchase_to_history 오류 (무시): %s", e)
+
+
+# ─────────────────────────────────────────────
+# 당첨 확인 시 호출
+# ─────────────────────────────────────────────
+
+def update_result_in_history(site_history: list[dict]) -> None:
+    """사이트에서 가져온 내역으로 history.json의 결과를 업데이트한다.
+
+    Args:
+        site_history: get_purchase_history()의 반환값
+    """
+    try:
+        data = _load_history()
+        changed = False
+
+        for site_entry in site_history:
+            try:
+                site_round = int(site_entry.get("round", 0))
+            except (ValueError, TypeError):
+                continue
+
+            site_result = site_entry.get("result", "미확인")
+            amount_str = site_entry.get("amount", "0")
+
+            # 금액 파싱 ("5,000 원" → 5000)
+            winnings = 0
+            try:
+                cleaned = amount_str.replace(",", "").replace("원", "").strip()
+                if cleaned and cleaned != "-":
+                    winnings = int(cleaned)
+            except (ValueError, TypeError):
+                winnings = 0
+
+            # 결과 매핑
+            if site_result == "당첨":
+                win_detail = f"당첨 ({winnings:,}원)" if winnings > 0 else "당첨"
+            elif site_result == "낙첨":
+                win_detail = "낙첨"
+                winnings = 0
+            elif site_result == "미추첨":
+                win_detail = "미추첨"
+            else:
+                win_detail = site_result
+
+            # purchases에서 해당 회차 찾아 업데이트
+            for purchase in data["purchases"]:
+                if purchase["round"] == site_round:
+                    if purchase["result"] != site_result or purchase["winnings"] != winnings:
+                        purchase["result"] = site_result
+                        purchase["winnings"] = winnings
+                        purchase["winDetail"] = win_detail
+                        changed = True
+                        logger.info(
+                            "회차 %d 결과 업데이트: %s (당첨금: %d원)",
+                            site_round, site_result, winnings,
+                        )
+                    break
+
+        if changed:
+            _recalc_stats(data)
+            _save_history(data)
+            _git_push_history()
+        else:
+            logger.info("history.json 업데이트 없음 (변경사항 없음)")
+    except Exception as e:
+        logger.warning("update_result_in_history 오류 (무시): %s", e)
 
 
 def get_purchase_history(page: Page) -> list[dict]:

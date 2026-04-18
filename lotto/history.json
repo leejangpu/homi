@@ -1,0 +1,83 @@
+{
+  "purchases": [
+    {
+      "round": 1215,
+      "buyDate": "2026-03-08",
+      "drawDate": "2026-03-14",
+      "tickets": [
+        {"numbers": [14, 16, 23, 30, 33, 43], "mode": "random"},
+        {"numbers": [2, 5, 8, 18, 20, 45], "mode": "random"},
+        {"numbers": [1, 10, 12, 13, 20, 45], "mode": "random"},
+        {"numbers": [3, 5, 10, 11, 19, 38], "mode": "random"},
+        {"numbers": [4, 7, 12, 14, 31, 41], "mode": "random"}
+      ],
+      "totalAmount": 5000,
+      "result": "낙첨",
+      "winnings": 0,
+      "winDetail": "낙첨"
+    },
+    {
+      "round": 1216,
+      "buyDate": "2026-03-16",
+      "drawDate": "2026-03-21",
+      "tickets": [
+        {"numbers": [10, 12, 24, 37, 40, 45], "mode": "random"},
+        {"numbers": [10, 20, 22, 37, 39, 44], "mode": "random"},
+        {"numbers": [5, 22, 26, 30, 39, 44], "mode": "random"},
+        {"numbers": [1, 5, 13, 29, 39, 42], "mode": "random"},
+        {"numbers": [10, 11, 12, 16, 31, 33], "mode": "random"}
+      ],
+      "totalAmount": 5000,
+      "result": "낙첨",
+      "winnings": 0,
+      "winDetail": "낙첨"
+    },
+    {
+      "round": 1217,
+      "buyDate": "2026-03-23",
+      "drawDate": "2026-03-28",
+      "tickets": [
+        {"numbers": [1, 2, 6, 22, 28, 32], "mode": "random"},
+        {"numbers": [1, 5, 6, 9, 11, 36], "mode": "random"},
+        {"numbers": [2, 6, 18, 20, 25, 43], "mode": "random"},
+        {"numbers": [5, 15, 18, 30, 36, 45], "mode": "random"},
+        {"numbers": [8, 15, 19, 22, 25, 29], "mode": "random"}
+      ],
+      "totalAmount": 5000,
+      "result": "낙첨",
+      "winnings": 0,
+      "winDetail": "낙첨"
+    },
+    {
+      "round": 1218,
+      "buyDate": "2026-03-31",
+      "drawDate": "2026-04-04",
+      "tickets": [
+        {"numbers": [13, 21, 24, 30, 32, 37], "mode": "random"},
+        {"numbers": [2, 5, 20, 21, 30, 31], "mode": "random"},
+        {"numbers": [7, 14, 15, 23, 30, 41], "mode": "random"},
+        {"numbers": [4, 5, 6, 17, 32, 41], "mode": "random"},
+        {"numbers": [3, 5, 9, 18, 22, 40], "mode": "random"}
+      ],
+      "totalAmount": 5000,
+      "result": "낙첨",
+      "winnings": 0,
+      "winDetail": "낙첨"
+    },
+    {
+      "round": 1219,
+      "buyDate": "2026-04-11",
+      "drawDate": "2026-04-11",
+      "tickets": [],
+      "totalAmount": 5000,
+      "result": "당첨",
+      "winnings": 5000,
+      "winDetail": "5등 당첨"
+    }
+  ],
+  "stats": {
+    "totalSpent": 25000,
+    "totalWon": 5000,
+    "totalRounds": 5
+  }
+}
