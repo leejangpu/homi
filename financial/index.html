@@ -467,6 +467,176 @@
     .card-value{font-size:19px;}
   }
 
+  /* ── DRAWER ── */
+  .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:none;}
+  .drawer-overlay.open{display:block;}
+  .drawer{
+    position:fixed;left:0;top:0;bottom:0;width:260px;
+    background:rgba(10,15,28,0.98);
+    border-right:1px solid var(--border);
+    z-index:1001;
+    transform:translateX(-100%);
+    transition:transform .3s cubic-bezier(.23,1,.32,1);
+    display:flex;flex-direction:column;
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+  }
+  .drawer.open{transform:translateX(0);}
+  .drawer-header{
+    padding:20px 24px 16px;
+    border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:12px;
+  }
+  .drawer-logo{
+    width:32px;height:32px;
+    background:linear-gradient(135deg,var(--primary),var(--gold));
+    border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:800;color:#070b14;
+    box-shadow:0 0 16px rgba(45,212,191,0.2);
+    flex-shrink:0;
+  }
+  .drawer-title{font-size:15px;font-weight:800;color:var(--text);letter-spacing:-.3px;}
+  .drawer-sub{font-size:10px;color:var(--text-muted);margin-top:1px;letter-spacing:.3px;}
+  .drawer-nav{padding:12px 12px;flex:1;}
+  .drawer-item{
+    display:flex;align-items:center;gap:14px;
+    padding:13px 14px;
+    border-radius:10px;
+    cursor:pointer;
+    color:var(--text-muted);
+    font-size:14px;font-weight:600;
+    transition:all .15s;
+    margin-bottom:4px;
+    border:1px solid transparent;
+  }
+  .drawer-item:hover{background:var(--bg-hover);color:var(--text);}
+  .drawer-item.active{
+    background:rgba(45,212,191,0.1);
+    border-color:rgba(45,212,191,0.2);
+    color:var(--primary);
+  }
+  .drawer-item-icon{font-size:18px;width:28px;text-align:center;}
+  .drawer-footer{
+    padding:16px 24px;
+    border-top:1px solid var(--border);
+    font-size:10px;color:var(--text-dim);
+    letter-spacing:.3px;
+  }
+  /* Hamburger button */
+  .hamburger-btn{
+    width:36px;height:36px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:transparent;
+    color:var(--text-muted);
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;
+    transition:all .15s;
+    margin-right:12px;
+    flex-shrink:0;
+  }
+  .hamburger-btn:hover{background:var(--bg-hover);color:var(--text);border-color:rgba(45,212,191,0.3);}
+
+  /* App containers */
+  #lotto-app,#infinite-buy-app{padding:20px var(--pad) 48px;position:relative;z-index:1;}
+
+  /* ── LOTTO ── */
+  .lotto-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+  .lotto-round-card{
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    margin-bottom:12px;
+    transition:all .2s;
+  }
+  .lotto-round-card:hover{border-color:rgba(45,212,191,0.2);transform:translateY(-1px);box-shadow:0 8px 32px rgba(0,0,0,.3);}
+  .lotto-round-header{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;
+    flex-wrap:wrap;gap:8px;
+  }
+  .lotto-round-title{font-size:15px;font-weight:700;color:var(--text);}
+  .lotto-round-badge{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:4px 10px;border-radius:6px;
+    font-size:12px;font-weight:700;
+  }
+  .lotto-round-badge.win{background:rgba(52,211,153,0.12);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
+  .lotto-round-badge.lose{background:rgba(122,139,160,0.08);color:var(--text-dim);border:1px solid var(--border);}
+  .lotto-round-badge.pending{background:rgba(251,191,36,0.1);color:var(--amber);border:1px solid rgba(251,191,36,0.2);}
+  .lotto-winnings{font-size:13px;color:var(--green);font-weight:600;margin-bottom:12px;}
+  .lotto-tickets{display:flex;flex-direction:column;gap:8px;}
+  .lotto-ticket{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .lotto-ball{
+    width:30px;height:30px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;
+    flex-shrink:0;
+  }
+  .lotto-ball.y{background:#f5c800;color:#333;}
+  .lotto-ball.b{background:#2168c8;color:#fff;}
+  .lotto-ball.r{background:#e03f3f;color:#fff;}
+  .lotto-ball.g{background:#6d6d6d;color:#fff;}
+  .lotto-ball.gr{background:#1a9e5d;color:#fff;}
+
+  /* ── INFINITE BUY ── */
+  .ib-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .ib-card{
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    transition:all .2s;
+    position:relative;overflow:hidden;
+  }
+  .ib-card:hover{border-color:rgba(45,212,191,0.2);box-shadow:0 8px 32px rgba(0,0,0,.3);}
+  .ib-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .ib-ticker{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.5px;}
+  .ib-phase-badge{
+    padding:4px 10px;border-radius:6px;
+    font-size:11px;font-weight:700;letter-spacing:.3px;
+  }
+  .ib-phase-badge.first{background:rgba(52,211,153,0.12);color:var(--green);border:1px solid rgba(52,211,153,0.25);}
+  .ib-phase-badge.second{background:rgba(251,191,36,0.1);color:var(--amber);border:1px solid rgba(251,191,36,0.25);}
+  .ib-phase-badge.quarter{background:rgba(251,113,133,0.1);color:var(--red);border:1px solid rgba(251,113,133,0.25);}
+  .ib-progress-wrap{
+    position:relative;height:8px;
+    background:rgba(255,255,255,0.06);
+    border-radius:4px;overflow:hidden;
+    margin:6px 0 4px;
+  }
+  .ib-progress-fill{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.23,1,.32,1);}
+  .ib-progress-fill.first{background:linear-gradient(90deg,#34d399,#2dd4bf);}
+  .ib-progress-fill.second{background:linear-gradient(90deg,#fbbf24,#f59e0b);}
+  .ib-progress-fill.quarter{background:linear-gradient(90deg,#fb7185,#f43f5e);}
+  .ib-progress-fill.invest{background:linear-gradient(90deg,var(--primary),var(--gold));}
+  .ib-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .ib-label{font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+  .ib-value{font-family:var(--font-num);font-size:13px;font-weight:600;color:var(--text);}
+  .ib-value.pos{color:var(--green);}
+  .ib-value.neg{color:var(--red);}
+  .ib-divider{height:1px;background:var(--border);margin:14px 0;}
+  .ib-star{font-size:15px;font-weight:700;color:var(--amber);}
+  .ib-price-row{
+    display:grid;grid-template-columns:1fr 1fr;gap:12px;
+    margin-bottom:12px;
+  }
+  .ib-price-item{background:rgba(255,255,255,0.03);border-radius:8px;padding:10px 12px;}
+  .ib-price-item .ib-label{margin-bottom:4px;}
+  .ib-price-item .ib-value{font-size:14px;}
+
+  @media(max-width:768px){
+    .lotto-stats{grid-template-columns:1fr;}
+    .ib-grid{grid-template-columns:1fr;}
+    #lotto-app,#infinite-buy-app{padding:14px var(--pad) 32px;}
+  }
+  @media(max-width:480px){
+    .lotto-stats{grid-template-columns:repeat(3,1fr);}
+  }
+
   /* ── LOCK SCREEN ── */
   #lockScreen{
     position:fixed;inset:0;
@@ -622,17 +792,53 @@
   </div>
 </div>
 
+<!-- Drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <div class="drawer-logo">H</div>
+    <div>
+      <div class="drawer-title">HOMI</div>
+      <div class="drawer-sub">HOME AUTOMATION</div>
+    </div>
+  </div>
+  <div class="drawer-nav">
+    <div class="drawer-item active" id="nav-financial" onclick="switchApp('financial')">
+      <span class="drawer-item-icon">📊</span>가계부
+    </div>
+    <div class="drawer-item" id="nav-lotto" onclick="switchApp('lotto')">
+      <span class="drawer-item-icon">🎱</span>로또
+    </div>
+    <div class="drawer-item" id="nav-infinite-buy" onclick="switchApp('infinite-buy')">
+      <span class="drawer-item-icon">📈</span>무한매수법
+    </div>
+  </div>
+  <div class="drawer-footer">HOMI · Home Automation</div>
+</div>
+
 <div id="appWrap" style="display:none">
 <div class="header">
+  <button class="hamburger-btn" onclick="openDrawer()" title="메뉴">☰</button>
   <div class="logo">
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
 </div>
-<div class="year-tabs" id="yearTabs"></div>
-<div class="section-tabs" id="sectionTabs"></div>
-<div class="cell-tooltip" id="cellTooltip"></div>
-<div class="content" id="content"></div>
+
+<!-- 가계부 앱 -->
+<div id="financial-app">
+  <div class="year-tabs" id="yearTabs"></div>
+  <div class="section-tabs" id="sectionTabs"></div>
+  <div class="cell-tooltip" id="cellTooltip"></div>
+  <div class="content" id="content"></div>
+</div>
+
+<!-- 로또 앱 -->
+<div id="lotto-app" style="display:none"></div>
+
+<!-- 무한매수법 앱 -->
+<div id="infinite-buy-app" style="display:none"></div>
+
 </div><!-- /appWrap -->
 
 <script src="https://cdn.jsdelivr.net/npm/jsuites@5/dist/jsuites.min.js"></script>
@@ -658,6 +864,253 @@ function checkPw(){
 if(sessionStorage.getItem('auth')==='1'){
   document.getElementById('lockScreen').style.display='none';
   document.getElementById('appWrap').style.display='';
+}
+
+// ===== Drawer & App State =====
+let activeApp = 'financial'; // 'financial' | 'lotto' | 'infinite-buy'
+
+function openDrawer(){
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+function switchApp(app){
+  activeApp = app;
+  closeDrawer();
+  // Update nav active state
+  ['financial','lotto','infinite-buy'].forEach(a=>{
+    const el = document.getElementById('nav-'+a);
+    if(el) el.classList.toggle('active', a===app);
+  });
+  // Show/hide app containers
+  document.getElementById('financial-app').style.display = app==='financial' ? '' : 'none';
+  document.getElementById('lotto-app').style.display = app==='lotto' ? '' : 'none';
+  document.getElementById('infinite-buy-app').style.display = app==='infinite-buy' ? '' : 'none';
+  // Render the selected app
+  if(app==='lotto') renderLotto();
+  else if(app==='infinite-buy') renderInfiniteBuy();
+}
+
+// ===== Lotto Render =====
+function lottoColor(n){
+  if(n<=10) return 'y';
+  if(n<=20) return 'b';
+  if(n<=30) return 'r';
+  if(n<=40) return 'g';
+  return 'gr';
+}
+function lottoBall(n){
+  return `<span class="lotto-ball ${lottoColor(n)}">${n}</span>`;
+}
+
+async function renderLotto(){
+  const container = document.getElementById('lotto-app');
+  container.innerHTML = '<p style="color:var(--text-muted);padding:20px">로또 데이터 불러오는 중...</p>';
+  try{
+    const res = await fetch('../lotto/history.json?t='+Date.now());
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    const purchases = (data.purchases||[]).slice().reverse(); // 최신순
+    const stats = data.stats || {};
+    const totalSpent = stats.totalSpent || purchases.reduce((s,p)=>s+(p.totalAmount||0),0);
+    const totalWon = stats.totalWon || purchases.reduce((s,p)=>s+(p.winnings||0),0);
+    const roi = totalSpent ? ((totalWon-totalSpent)/totalSpent*100) : 0;
+    const roiColor = roi >= 0 ? 'var(--green)' : 'var(--red)';
+
+    let html = `
+    <div class="lotto-stats">
+      <div class="dash-card">
+        <div class="card-label"><span class="card-icon" style="background:var(--red-bg);color:var(--red)">💸</span>총 투자</div>
+        <div class="card-value" style="color:var(--text);font-size:18px">${totalSpent.toLocaleString('ko-KR')}원</div>
+      </div>
+      <div class="dash-card">
+        <div class="card-label"><span class="card-icon" style="background:var(--green-bg);color:var(--green)">🏆</span>총 당첨</div>
+        <div class="card-value" style="color:var(--green);font-size:18px">${totalWon.toLocaleString('ko-KR')}원</div>
+      </div>
+      <div class="dash-card">
+        <div class="card-label"><span class="card-icon" style="background:var(--amber-bg);color:var(--amber)">📉</span>수익률</div>
+        <div class="card-value" style="color:${roiColor};font-size:18px">${roi>=0?'+':''}${roi.toFixed(1)}%</div>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.6px;text-transform:uppercase;margin-bottom:12px">구매 이력 (${purchases.length}회)</div>`;
+
+    purchases.forEach(p => {
+      const isWin = p.result === '당첨';
+      const isPending = !p.result || p.result === '미추첨' || p.result === '';
+      let badgeCls = 'lose', badgeIcon = '❌', badgeText = '낙첨';
+      if(isWin){ badgeCls='win'; badgeIcon='🎉'; badgeText=p.winDetail||'당첨'; }
+      else if(isPending){ badgeCls='pending'; badgeIcon='⏳'; badgeText='미추첨'; }
+
+      const tickets = p.tickets||[];
+      const ticketsHtml = tickets.map(t => {
+        const nums = (t.numbers||[]).map(lottoBall).join('');
+        return `<div class="lotto-ticket">${nums}</div>`;
+      }).join('');
+
+      html += `
+      <div class="lotto-round-card">
+        <div class="lotto-round-header">
+          <div class="lotto-round-title">${p.round}회 <span style="font-size:12px;color:var(--text-muted);font-weight:500">${p.buyDate ? '('+p.buyDate+')' : ''}</span></div>
+          <div class="lotto-round-badge ${badgeCls}">${badgeIcon} ${badgeText}</div>
+        </div>
+        ${isWin && p.winnings ? `<div class="lotto-winnings">당첨금: ${p.winnings.toLocaleString('ko-KR')}원</div>` : ''}
+        <div class="lotto-tickets">
+          ${ticketsHtml || '<span style="color:var(--text-dim);font-size:12px">번호 없음</span>'}
+        </div>
+      </div>`;
+    });
+
+    container.innerHTML = html;
+  } catch(e){
+    container.innerHTML = `<p style="color:var(--text-muted);padding:20px">로또 데이터를 불러올 수 없습니다.<br><small style="color:var(--text-dim)">${e.message}</small></p>`;
+  }
+}
+
+// ===== Infinite Buy Render =====
+function calcTValue(state){
+  if(!state.buyPerRound || state.buyPerRound<=0) return 0;
+  const raw = state.totalInvested / state.buyPerRound;
+  return Math.min(Math.ceil(raw*100)/100, state.splitCount);
+}
+
+function getPhase(state){
+  const t = calcTValue(state);
+  if(state.quarterMode && state.quarterMode.isActive) return 'QUARTER_MODE';
+  if(state.strategyVersion==='v2.2' && (t > state.splitCount-1 || (state.remainingCash!=null && state.remainingCash < state.buyPerRound))){
+    return 'QUARTER_MODE';
+  }
+  return t < state.splitCount/2 ? 'FIRST_HALF' : 'SECOND_HALF';
+}
+
+function calcStarPercent(state){
+  const t = calcTValue(state);
+  return (state.targetProfit||0) - ((state.starDecreaseRate||0)*t);
+}
+
+function ibProgressBar(pct, phase){
+  const cls = phase==='QUARTER_MODE' ? 'quarter' : phase==='SECOND_HALF' ? 'second' : 'first';
+  const w = Math.min(100, Math.max(0, pct));
+  return `<div class="ib-progress-wrap"><div class="ib-progress-fill ${cls}" style="width:${w}%"></div></div>`;
+}
+
+function ibInvestBar(invested, principal){
+  const pct = principal>0 ? Math.min(100,(invested/principal)*100) : 0;
+  return `<div class="ib-progress-wrap"><div class="ib-progress-fill invest" style="width:${pct.toFixed(1)}%"></div></div>`;
+}
+
+async function renderInfiniteBuy(){
+  const container = document.getElementById('infinite-buy-app');
+  container.innerHTML = '<p style="color:var(--text-muted);padding:20px">무한매수법 데이터 불러오는 중...</p>';
+  try{
+    const cfgRes = await fetch('../infinite-buy/config.json?t='+Date.now());
+    if(!cfgRes.ok) throw new Error('config 로드 실패');
+    const config = await cfgRes.json();
+    const tickers = config.tickers || [];
+    const states = {};
+    for(const ticker of tickers){
+      try{
+        const r = await fetch(`../infinite-buy/state/${ticker}.json?t=${Date.now()}`);
+        if(r.ok) states[ticker] = await r.json();
+      }catch(e){}
+    }
+
+    if(!Object.keys(states).length){
+      container.innerHTML = '<p style="color:var(--text-muted);padding:20px">종목 데이터를 찾을 수 없습니다.</p>';
+      return;
+    }
+
+    let html = `<div class="ib-grid">`;
+
+    for(const [ticker, state] of Object.entries(states)){
+      const t = calcTValue(state);
+      const phase = getPhase(state);
+      const starPct = calcStarPercent(state);
+      const tPct = state.splitCount > 0 ? (t / state.splitCount)*100 : 0;
+      const investPct = state.principal > 0 ? (state.totalInvested / state.principal)*100 : 0;
+      const unrealizedPnl = state.totalQuantity > 0
+        ? (state.avgPrice > 0 ? (state.avgPrice - state.avgPrice) * state.totalQuantity : 0)
+        : 0; // avgPrice = current in this data
+      // 미실현 손익: totalBuyAmount - totalInvested 기반 (data에 현재가 없으므로 0 표시)
+      const realizedProfit = state.totalRealizedProfit || 0;
+
+      const phaseLabel = phase==='QUARTER_MODE' ? '쿼터모드' : phase==='SECOND_HALF' ? '후반전' : '전반전';
+      const phaseCls = phase==='QUARTER_MODE' ? 'quarter' : phase==='SECOND_HALF' ? 'second' : 'first';
+      const progressCls = phase==='QUARTER_MODE' ? 'quarter' : phase==='SECOND_HALF' ? 'second' : 'first';
+
+      const startDate = state.startedAt ? state.startedAt.split('T')[0] : '-';
+      const updatedDate = state.updatedAt ? state.updatedAt.split('T')[0] : '-';
+
+      const targetProfitPct = ((state.targetProfit||0)*100).toFixed(0);
+      const starPctVal = (starPct*100).toFixed(2);
+
+      html += `
+      <div class="ib-card">
+        <div class="ib-card-header">
+          <div class="ib-ticker">${ticker}</div>
+          <div class="ib-phase-badge ${phaseCls}">${phaseLabel} 모드</div>
+        </div>
+
+        <div class="ib-label" style="margin-bottom:4px">T-value: <strong style="color:var(--text)">${t.toFixed(2)}</strong> / ${state.splitCount}</div>
+        ${ibProgressBar(tPct, phase)}
+        <div style="text-align:right;font-size:10px;color:var(--text-dim);margin-bottom:14px">${tPct.toFixed(1)}%</div>
+
+        <div class="ib-row">
+          <div>
+            <div class="ib-label">★%</div>
+            <div class="ib-star">+${starPctVal}%</div>
+          </div>
+          <div style="text-align:right">
+            <div class="ib-label">목표수익률</div>
+            <div class="ib-value">${targetProfitPct}%</div>
+          </div>
+        </div>
+
+        <div class="ib-divider"></div>
+
+        <div class="ib-price-row">
+          <div class="ib-price-item">
+            <div class="ib-label">평단가</div>
+            <div class="ib-value">$${state.avgPrice ? state.avgPrice.toFixed(2) : '-'}</div>
+          </div>
+          <div class="ib-price-item">
+            <div class="ib-label">보유수량</div>
+            <div class="ib-value">${state.totalQuantity||0}주</div>
+          </div>
+        </div>
+
+        <div class="ib-row">
+          <div class="ib-label">투자금</div>
+          <div class="ib-value">$${(state.totalInvested||0).toFixed(2)} / $${(state.principal||0).toLocaleString()}</div>
+        </div>
+        ${ibInvestBar(state.totalInvested||0, state.principal||1)}
+        <div style="text-align:right;font-size:10px;color:var(--text-dim);margin-bottom:14px">${investPct.toFixed(1)}%</div>
+
+        <div class="ib-row">
+          <div class="ib-label">실현손익</div>
+          <div class="ib-value ${realizedProfit >= 0 ? 'pos' : 'neg'}">
+            ${realizedProfit >= 0 ? '+' : ''}$${realizedProfit.toFixed(2)}
+          </div>
+        </div>
+
+        <div class="ib-divider"></div>
+
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim)">
+          <span>사이클 #${state.cycleNumber||1}</span>
+          <span>시작일: ${startDate}</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:right">업데이트: ${updatedDate}</div>
+      </div>`;
+    }
+
+    html += `</div>`;
+    container.innerHTML = html;
+  } catch(e){
+    container.innerHTML = `<p style="color:var(--text-muted);padding:20px">무한매수법 데이터를 불러올 수 없습니다.<br><small style="color:var(--text-dim)">${e.message}</small></p>`;
+  }
 }
 
 // ===== State =====

@@ -44,6 +44,9 @@ export interface CycleState {
   totalSellAmount: number;
   totalRealizedProfit: number;
   quarterMode?: QuarterModeState;
+  currentPrice?: number;        // 현재 시장가 (close 시점)
+  unrealizedPnl?: number;       // 미실현 손익 금액
+  unrealizedPnlRate?: number;   // 미실현 손익률
   startedAt: string;
   updatedAt: string;
   completedAt?: string;

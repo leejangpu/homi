@@ -219,6 +219,11 @@ async function syncTicker(
         totalBuyAmount: newTotalBuy, totalSellAmount: newTotalSell,
         totalRealizedProfit, updatedAt: nowISO(),
       };
+      if (currentPrice > 0 && totalQuantity > 0) {
+        updatedState.currentPrice = currentPrice;
+        updatedState.unrealizedPnl = (currentPrice - avgPrice) * totalQuantity;
+        updatedState.unrealizedPnlRate = avgPrice > 0 ? (currentPrice - avgPrice) / avgPrice : 0;
+      }
       writeCycleState(ticker, updatedState);
       appendLog(today, {
         timestamp: nowISO(), ticker, action: 'SYNC',
@@ -332,6 +337,11 @@ async function syncTicker(
     totalBuyAmount: newTotalBuy, totalSellAmount: newTotalSell,
     totalRealizedProfit, updatedAt: nowISO(),
   };
+  if (currentPrice > 0 && totalQuantity > 0) {
+    updatedState.currentPrice = currentPrice;
+    updatedState.unrealizedPnl = (currentPrice - avgPrice) * totalQuantity;
+    updatedState.unrealizedPnlRate = avgPrice > 0 ? (currentPrice - avgPrice) / avgPrice : 0;
+  }
   writeCycleState(ticker, updatedState);
   console.log(`[Close]   state 동기화 완료: remainingCash=${fmtUSD(remainingCash)}`);
 
