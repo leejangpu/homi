@@ -372,6 +372,24 @@
   .jexcel td.cell-total{background:rgba(45,212,191,0.05)!important;color:var(--primary-light)!important;font-weight:700!important;}
   .jexcel td input, .jexcel td textarea, .jexcel_editor { color: var(--text) !important; background: rgba(12,18,30,0.95) !important; }
 
+  .cell-tooltip{
+    position:fixed;z-index:1000;
+    background:rgba(15,20,35,0.95);border:1px solid rgba(45,212,191,0.3);
+    border-radius:10px;padding:10px 14px;
+    font-family:var(--font-ui);font-size:12px;color:var(--text);
+    pointer-events:none;
+    box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    backdrop-filter:blur(12px);
+    display:none;
+    min-width:120px;
+  }
+  .cell-tooltip .tt-label{color:var(--text-muted);font-size:11px;margin-bottom:4px;}
+  .cell-tooltip .tt-value{font-family:var(--font-num);font-weight:600;font-size:13px;}
+  .cell-tooltip .tt-value.up{color:var(--green);}
+  .cell-tooltip .tt-value.down{color:var(--red);}
+  .cell-tooltip .tt-value.flat{color:var(--text-dim);}
+  .cell-tooltip .tt-divider{height:1px;background:var(--border);margin:6px 0;}
+
   ::-webkit-scrollbar{width:5px;height:5px;}
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px;}
@@ -572,6 +590,7 @@
 </div>
 <div class="year-tabs" id="yearTabs"></div>
 <div class="section-tabs" id="sectionTabs"></div>
+<div class="cell-tooltip" id="cellTooltip"></div>
 <div class="content" id="content"></div>
 </div><!-- /appWrap -->
 
@@ -675,7 +694,11 @@ function splitSections(year){
     if(mode==='income'){incRows.push(r);if(isT)mode='';}
     else if(mode==='savings'){savRows.push(r);if(isT)mode='';}
     else if(mode==='expense'){expRows.push(r);if(isT||c1.includes('잔액')||c1==='저축합계'||c1==='지출합계'){}}
-    else if(mode==='asset'){astRows.push(r);}
+    else if(mode==='asset'){
+      // % 행 제외: col1 비어있고 월 데이터에 ▲/▼/% 포함
+      const isPercentRow=!c1 && data[r].slice(monthStart).some(v=>/[▲▼]|^\d+\.\d+%$/.test(String(v||'').trim()));
+      if(!isPercentRow) astRows.push(r);
+    }
     else{if(c1==='저축합계'||c1==='지출합계')expRows.push(r);}
   }
   const extract=(rows)=>{if(!rows.length)return[];const res=[data[headerRow]];rows.forEach(r=>res.push(data[r]));return res;};
@@ -1392,7 +1415,7 @@ function renderSpreadsheet(container,key){
       </table></div>
     </div>`;
   }
-  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>${irregularHtml}`;
+  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">&#9729; GitHub 저장</button><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>${irregularHtml}`;
   const nc=sData[0].length;
   const cols=[];for(let i=0;i<nc;i++)cols.push({type:'text',width:i===0?30:i<=2?110:i===3?60:95});
   jexcelInstance=jspreadsheet(document.getElementById('spreadsheet'),{
@@ -1400,12 +1423,13 @@ function renderSpreadsheet(container,key){
     tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
-    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(autoCalcPercent,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}},
-    oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(autoCalcPercent,100);},
-    ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(autoCalcPercent,100);}
+    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}},
+    oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);},
+    ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);},
+    onselection:(instance,x1,y1,x2,y2)=>{showCellTooltip(x1,y1);},
+    onblur:()=>{hideCellTooltip();}
   });
   setTimeout(applyCellStyles,100);
-  setTimeout(autoCalcPercent,200);
 }
 
 function applyCellStyles(){
@@ -1436,53 +1460,160 @@ function applyCellStyles(){
         else if(c===3) td.classList.add('cell-owner');
       }
 
-      // % 행 스타일링 (▲/▼ 기호로 시작하는 셀)
-      if(c>=4){
-        const cellVal=String(row[c]||'').trim();
-        if(cellVal.startsWith('▲')) td.style.color='var(--green)';
-        else if(cellVal.startsWith('▼')) td.style.color='var(--red)';
-        else if(cellVal.match(/^0\.0%$/)) td.style.color='var(--text-dim)';
-        else td.style.color='';
-      }
     }
   }
 }
-function autoCalcPercent(){
-  if(!jexcelInstance)return;
-  const data=jexcelInstance.getData();
-  for(let r=1;r<data.length-1;r++){
-    const row=data[r];
-    const nextRow=data[r+1];
-    // 값 행 판별: 월 데이터 열(4 이상)에 ₩가 포함된 값이 있는지
-    let isValueRow=false;
-    for(let c=4;c<row.length;c++){
-      if(String(row[c]||'').includes('₩')){isValueRow=true;break;}
-    }
-    if(!isValueRow)continue;
-    // 다음 행이 % 행인지: col1이 비어있으면 % 행으로 간주
-    const nc1=(nextRow[1]||'').trim();
-    const isPercentRow=!nc1;
-    if(!isPercentRow)continue;
+function showCellTooltip(x, y) {
+  const tip = document.getElementById('cellTooltip');
+  if (!tip || !jexcelInstance) { hideCellTooltip(); return; }
 
-    // 각 월 열에 대해 % 계산
-    for(let c=4;c<row.length;c++){
-      const cur=parseNum(row[c]);
-      const prev=(c>4)?parseNum(row[c-1]):0;
-      if(cur!==0 && prev!==0){
-        const change=(cur-prev)/Math.abs(prev)*100;
-        let display;
-        if(Math.abs(change)<0.05) display='0.0%';
-        else if(change>0) display='▲ '+change.toFixed(1)+'%';
-        else display='▼ '+Math.abs(change).toFixed(1)+'%';
-        jexcelInstance.setValueFromCoords(c,r+1,display,true);
-      } else if(cur===0 && prev!==0){
-        jexcelInstance.setValueFromCoords(c,r+1,'▼ 100.0%',true);
-      } else {
-        if(c>4) jexcelInstance.setValueFromCoords(c,r+1,'',true);
+  const data = jexcelInstance.getData();
+  if (y < 0 || y >= data.length || x < 4) { hideCellTooltip(); return; }
+
+  const val = parseNum(data[y][x]);
+  if (val === 0) { hideCellTooltip(); return; }
+
+  // MoM: 이전 월 열 (x-1, 같은 행)
+  let momHtml = '';
+  if (x > 4) {
+    const prev = parseNum(data[y][x - 1]);
+    if (prev !== 0) {
+      const pct = (val - prev) / Math.abs(prev) * 100;
+      const cls = pct > 0.01 ? 'up' : pct < -0.01 ? 'down' : 'flat';
+      const sign = pct > 0 ? '+' : '';
+      momHtml = `<div class="tt-label">MoM 전월대비</div><div class="tt-value ${cls}">${sign}${pct.toFixed(1)}%</div>`;
+    }
+  }
+
+  // YoY: 같은 월, 전년도 데이터
+  let yoyHtml = '';
+  const sec = sections[activeYear];
+  if (sec && sec.months) {
+    const monthIdx = x - 4; // 0-based month index in displayed data
+    if (monthIdx >= 0 && monthIdx < sec.months.length) {
+      const monthNum = monthNumFromLabel(sec.months[monthIdx].label);
+      const prevYear = String(parseInt(activeYear) - 1);
+      const prevSec = sections[prevYear];
+      if (prevSec && prevSec[activeSection]) {
+        // Find matching month column in previous year
+        const prevMonthIdx = prevSec.months.findIndex(m => monthNumFromLabel(m.label) === monthNum);
+        if (prevMonthIdx >= 0) {
+          // Find matching row by item name (col1+col2+col3)
+          const curRow = data[y];
+          const itemKey = (curRow[1]||'')+'|'+(curRow[2]||'')+'|'+(curRow[3]||'');
+          const prevData = prevSec[activeSection].data;
+          for (let pr = 1; pr < prevData.length; pr++) {
+            const prevItemKey = (prevData[pr][1]||'')+'|'+(prevData[pr][2]||'')+'|'+(prevData[pr][3]||'');
+            if (prevItemKey === itemKey) {
+              const prevVal = parseNum(prevData[pr][prevMonthIdx + 4]);
+              if (prevVal !== 0) {
+                const pct = (val - prevVal) / Math.abs(prevVal) * 100;
+                const cls = pct > 0.01 ? 'up' : pct < -0.01 ? 'down' : 'flat';
+                const sign = pct > 0 ? '+' : '';
+                yoyHtml = `<div class="tt-divider"></div><div class="tt-label">YoY 전년동월</div><div class="tt-value ${cls}">${sign}${pct.toFixed(1)}%</div>`;
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (!momHtml && !yoyHtml) { hideCellTooltip(); return; }
+
+  tip.innerHTML = momHtml + yoyHtml;
+
+  // Position near the cell
+  const cell = jexcelInstance.getCell([x, y]);
+  if (!cell) { hideCellTooltip(); return; }
+  const rect = cell.getBoundingClientRect();
+  tip.style.display = 'block';
+  tip.style.left = (rect.right + 8) + 'px';
+  tip.style.top = (rect.top - 10) + 'px';
+
+  // Ensure tooltip stays within viewport
+  const tipRect = tip.getBoundingClientRect();
+  if (tipRect.right > window.innerWidth) {
+    tip.style.left = (rect.left - tipRect.width - 8) + 'px';
+  }
+  if (tipRect.bottom > window.innerHeight) {
+    tip.style.top = (window.innerHeight - tipRect.height - 10) + 'px';
+  }
+}
+
+function hideCellTooltip() {
+  const tip = document.getElementById('cellTooltip');
+  if (tip) tip.style.display = 'none';
+}
+
+function syncSectionsToRaw(year){
+  const sec=sections[year];
+  if(!sec)return;
+  const raw=rawSheets[year];
+  for(const key of['income','savings','expense','asset']){
+    const s=sec[key];
+    if(!s||!s.rows||!s.data)continue;
+    for(let i=1;i<s.data.length;i++){
+      const origRow=s.rows[i-1];
+      if(origRow!==undefined&&raw[origRow]){
+        raw[origRow]=[...s.data[i]];
       }
     }
   }
 }
+
+async function saveToGitHub(){
+  const token=localStorage.getItem('gh_token');
+  if(!token){
+    const t=prompt('GitHub Personal Access Token을 입력하세요 (repo 권한 필요):');
+    if(!t)return;
+    localStorage.setItem('gh_token',t);
+  }
+  const ghToken=localStorage.getItem('gh_token');
+  showSS('저장 중...');
+
+  try{
+    syncSectionsToRaw(activeYear);
+    const csv=toCSV(rawSheets[activeYear]);
+    const filePath=`financial/${activeYear}.csv`;
+
+    // Get current file SHA
+    const getRes=await fetch(`https://api.github.com/repos/leejangpu/homi/contents/${filePath}`,{
+      headers:{'Authorization':`token ${ghToken}`,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(!getRes.ok){
+      if(getRes.status===401){localStorage.removeItem('gh_token');showSS('인증 실패 — 토큰을 다시 입력하세요');return;}
+      throw new Error('파일 조회 실패: '+getRes.status);
+    }
+    const fileInfo=await getRes.json();
+
+    // Update file
+    const content=btoa(unescape(encodeURIComponent('\uFEFF'+csv)));
+    const putRes=await fetch(`https://api.github.com/repos/leejangpu/homi/contents/${filePath}`,{
+      method:'PUT',
+      headers:{'Authorization':`token ${ghToken}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+      body:JSON.stringify({
+        message:`가계부 ${activeYear} 업데이트`,
+        content:content,
+        sha:fileInfo.sha
+      })
+    });
+    if(!putRes.ok){
+      if(putRes.status===401){localStorage.removeItem('gh_token');showSS('인증 실패');return;}
+      throw new Error('저장 실패: '+putRes.status);
+    }
+
+    // Re-parse the saved data to update sections (MoM/YoY 재계산)
+    splitSections(activeYear);
+    renderView();
+    showSS('GitHub 저장 완료 ✓');
+  }catch(e){
+    console.error(e);
+    showSS('저장 실패: '+e.message);
+  }
+}
+
 function sheetInsertRow(){if(jexcelInstance)jexcelInstance.insertRow();showSS('행 추가됨');}
 function sheetUndo(){if(jexcelInstance)jexcelInstance.undo();showSS('되돌림');}
 function sheetDownload(){
