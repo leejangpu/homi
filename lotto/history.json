@@ -73,11 +73,27 @@
       "result": "당첨",
       "winnings": 5000,
       "winDetail": "5등 당첨"
+    },
+    {
+      "round": 1220,
+      "buyDate": "2026-04-15",
+      "drawDate": "2026-04-18",
+      "tickets": [
+        {"numbers": [4, 12, 20, 35, 37, 40], "mode": "random"},
+        {"numbers": [5, 11, 14, 32, 35, 44], "mode": "random"},
+        {"numbers": [10, 29, 30, 34, 36, 45], "mode": "random"},
+        {"numbers": [2, 7, 16, 17, 27, 42], "mode": "random"},
+        {"numbers": [5, 6, 19, 29, 35, 37], "mode": "random"}
+      ],
+      "totalAmount": 5000,
+      "result": "미추첨",
+      "winnings": 0,
+      "winDetail": "미추첨"
     }
   ],
   "stats": {
-    "totalSpent": 25000,
+    "totalSpent": 30000,
     "totalWon": 5000,
-    "totalRounds": 5
+    "totalRounds": 6
   }
 }
