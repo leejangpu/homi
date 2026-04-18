@@ -296,9 +296,7 @@
     display:flex;align-items:center;gap:8px;flex-wrap:wrap;
     text-transform:uppercase;letter-spacing:.6px;
   }
-  .regen-btn{background:none;border:1px solid rgba(255,255,255,0.12);color:var(--text-dim);cursor:pointer;font-size:14px;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-left:auto;}
-  .regen-btn:hover{background:rgba(255,255,255,0.08);color:var(--primary);border-color:var(--primary);}
-  .summary-banner .summary-body{font-size:13px;color:var(--text);line-height:1.75;font-weight:400;}
+.summary-banner .summary-body{font-size:13px;color:var(--text);line-height:1.75;font-weight:400;}
   .summary-banner .summary-body .highlight{color:var(--green);font-weight:700;}
   .summary-banner .summary-body .warn{color:var(--amber);font-weight:700;}
   .summary-banner .summary-body .down{color:var(--red);font-weight:700;}
@@ -1175,7 +1173,6 @@ function renderDashboard(container){
     <div class="summary-title">
       <span class="ai-badge">AI</span>
       ${summary.tag}${summary.title}${summary.date ? `<span style="margin-left:auto;font-size:10px;color:var(--text-dim);font-weight:500;text-transform:none;letter-spacing:0">${summary.date}</span>` : ''}
-      <button class="regen-btn" onclick="regenerateReport()" title="현재 데이터 기반으로 리포트 재생성">&#x21bb;</button>
     </div>
     <div class="summary-body">${summary.body}</div>
   </div>` : '';
@@ -1562,33 +1559,6 @@ function renderDashboard(container){
 function setAssetView(mode){assetViewMode=mode;renderView();}
 
 function selectMonth(i){selectedMonthIdx=i;renderView();}
-async function regenerateReport(){
-  const sec=sections[activeYear];
-  if(!sec||!sec.months) return;
-  const si=selectedMonthIdx>=0?selectedMonthIdx:getDefaultMonthIdx(sec.months);
-  const mn=monthNumFromLabel(sec.months[si].label);
-  const btn=document.querySelector('.regen-btn');
-  if(btn){btn.disabled=true;btn.innerHTML='⏳';btn.style.opacity='0.5';}
-  try{
-    const res=await fetch('http://localhost:3200/api/report/generate',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({year:activeYear,month:mn})
-    });
-    const data=await res.json();
-    if(!res.ok) throw new Error(data.error||'서버 오류');
-    // summary.json 갱신 반영
-    if(data.summary){
-      if(!aiSummaries[activeYear]) aiSummaries[activeYear]={};
-      aiSummaries[activeYear][String(mn).padStart(2,'0')]=data.summary;
-    }
-    renderView();
-  }catch(e){
-    alert('리포트 생성 실패: '+e.message+'\n\n서버(localhost:3200)가 실행 중인지 확인하세요.');
-  }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='&#x21bb;';btn.style.opacity='';}
-  }
-}
 
 window.addEventListener('resize',()=>{chartInstances.forEach(c=>{try{c.resize();}catch(e){}});});
 

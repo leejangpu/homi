@@ -8,23 +8,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-Homi는 가족용 퍼스널 자동화 프로젝트입니다. 네 가지 주요 서브시스템으로 구성됩니다:
+Homi는 가족용 퍼스널 자동화 프로젝트입니다. 세 가지 주요 서브시스템으로 구성됩니다:
 
 1. **가계부 대시보드** (`financial/`) — GitHub Pages 정적 사이트, 순수 HTML/JS (ECharts + jSpreadsheet)
-2. **텔레그램 봇 서버** (`server/`) — Node.js 폴링 방식, Claude CLI 연동, 카드 명세서(xlsx) 파싱 → 로컬 JSON 저장
-3. **로또 자동구매** (`lotto/`) — Python + Playwright 브라우저 자동화, macOS launchd 스케줄
-4. **무한매수법 자동매매** (`infinite-buy/`) — TypeScript, 한국투자증권 API, GitHub Actions self-hosted runner
+2. **로또 자동구매** (`lotto/`) — Python + Playwright 브라우저 자동화, macOS launchd 스케줄
+3. **무한매수법 자동매매** (`infinite-buy/`) — TypeScript, 한국투자증권 API, GitHub Actions self-hosted runner
 
 > **상세 아키텍처**: `docs/02-architecture.md` 참고
 
 ## 주요 명령어
 
-### 텔레그램 봇 서버
+### 가계부 AI 리포트 생성
 ```bash
-cd server && npm install  # 의존성 설치
-cd server && npm start    # 서버 실행 (node index.js)
+cd financial && ./generate-report.sh 2026 4  # 특정 월 리포트 생성
+cd financial && ./generate-report.sh          # 현재 월 리포트 생성
 ```
-환경 변수: `server/.env` (텔레그램 봇 토큰)
+스케줄: GitHub Actions (`financial-report.yml`, 매달 1일 자동 실행)
 
 ### 로또 자동구매
 ```bash
@@ -50,10 +49,9 @@ npx tsx src/main-close.ts   # 장 마감 시 체결 확인
 ## 아키텍처 핵심
 
 - **가계부 웹**: GitHub Pages (`https://leejangpu.github.io/homi/financial/`) — `financial/index.html`이 CSV를 fetch하여 차트/테이블 렌더링
-- **텔레그램 봇 흐름**: Telegram getUpdates(폴링) → `server/index.js` → xlsx 감지 시 Claude CLI 파싱 → 로컬 JSON 저장 / 일반 메시지는 Claude CLI 대화 응답
-- **가계부 데이터**: 카드 명세서 xlsx → Claude CLI 파싱 → `financial/expense_detail.json` 저장 → `financial/index.html`에서 표시
-- **AI 리포트**: `financial/summary.json`에 월별 AI 브리핑 저장, Claude CLI sonnet으로 생성
-- **데이터 저장**: CSV/JSON 파일 (git 관리), 별도 DB 없음
+- **AI 리포트**: `financial/generate-report.sh` → Claude CLI sonnet → `financial/summary.json` 업데이트 → git push
+- **가계부 데이터**: CSV/JSON 파일 (git 관리), 별도 DB 없음
+- **텔레그램 대화**: Claude Code 텔레그램 플러그인으로 직접 대화 (별도 봇 서버 없음)
 
 ## 작업 방식
 
@@ -65,6 +63,6 @@ npx tsx src/main-close.ts   # 장 마감 시 체결 확인
 
 - Node.js 20, Python 3.11
 - 패키지 매니저: npm (Node), pip + venv (Python)
-- 자동화: macOS launchd (로또), GitHub Actions self-hosted runner (무한매수법)
-- 배포: GitHub Pages (financial), 로컬 실행 (server, lotto)
+- 자동화: macOS launchd (로또), GitHub Actions self-hosted runner (무한매수법, 리포트)
+- 배포: GitHub Pages (financial), 로컬 실행 (lotto)
 - 테스트 프레임워크 미설정

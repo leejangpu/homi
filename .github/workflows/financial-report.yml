@@ -1,0 +1,43 @@
+name: Financial Report - Monthly AI Briefing
+
+on:
+  schedule:
+    - cron: '0 15 1 * *'  # 매달 1일 00:00 KST (15:00 UTC)
+  workflow_dispatch:
+    inputs:
+      year:
+        description: '연도 (기본: 현재)'
+        required: false
+      month:
+        description: '월 (기본: 현재)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  generate-report:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: financial
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate AI report
+        run: |
+          YEAR="${{ github.event.inputs.year || '' }}"
+          MONTH="${{ github.event.inputs.month || '' }}"
+
+          if [ -n "$YEAR" ] && [ -n "$MONTH" ]; then
+            ./generate-report.sh "$YEAR" "$MONTH"
+          else
+            ./generate-report.sh
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Financial Report — Monthly AI Briefing" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date (KST):** $(date '+%Y-%m-%d %H:%M')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
