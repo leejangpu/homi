@@ -833,19 +833,90 @@ function renderView(){
   else renderSpreadsheet(el,activeSection);
 }
 
+// ===== Retirement Coaching Generator =====
+function generateRetirementCoaching(sec, months, curIdx, prevIdx) {
+  const assetGroups = sec.asset.groups || [];
+  const _totalPos = assetGroups.filter(a=>a.value>0).reduce((s,a)=>s+a.value,0);
+  const _totalDebt = assetGroups.filter(a=>a.value<0).reduce((s,a)=>s+a.value,0);
+  const _netAsset = _totalPos + _totalDebt;
+
+  if (_netAsset <= 0) return '';
+
+  const parts = [];
+  const GOAL = 1500000000, GOAL_START = 2026, GOAL_END = 2036;
+  const remaining = GOAL - _netAsset;
+  const remainYears = Math.max(1, GOAL_END - THIS_YEAR);
+  const needPerYear = remaining > 0 ? remaining / remainYears : 0;
+  const goalPct = (_netAsset / GOAL * 100).toFixed(1);
+
+  const housingVal = assetGroups.filter(a=>a.name && a.name.includes('부동산')).reduce((s,a)=>s+a.value,0);
+  const liquidAssets = _netAsset - housingVal;
+
+  parts.push(`<br><span class="highlight">── 은퇴 플랜 코칭 ──</span>`);
+  parts.push(`순자산 ${fmtWon(_netAsset)} (목표 15억의 ${goalPct}%).`);
+
+  if (housingVal > 0) {
+    parts.push(`부동산(${fmtWon(housingVal)}) 제외 유동자산은 <span class="highlight">${fmtWon(liquidAssets)}</span>이며, 실질적으로 근로소득과 금융소득으로 채워야 할 금액입니다.`);
+  }
+
+  const savCur = (curIdx >= 0 && sec.savings.total) ? parseNum(sec.savings.total[months[curIdx].col]) : 0;
+  const incCur = (curIdx >= 0 && sec.income.total) ? parseNum(sec.income.total[months[curIdx].col]) : 0;
+  const expCur = (curIdx >= 0 && sec.expense.total) ? parseNum(sec.expense.total[months[curIdx].col]) : 0;
+
+  if (needPerYear > 0) {
+    parts.push(`남은 ${remainYears}년간 연 <span class="warn">${fmtWon(needPerYear)}</span> 순자산 증가가 필요합니다.`);
+
+    const annualSavings = savCur * 12;
+    if (annualSavings > 0) {
+      const coverage = (annualSavings / needPerYear * 100);
+      if (coverage < 50) {
+        parts.push(`<span class="down">현재 월 저축(${fmtWon(savCur)}, 연 ${fmtWon(annualSavings)})은 필요 금액의 ${coverage.toFixed(0)}%에 불과합니다. 저축 확대와 투자 수익률 개선이 시급합니다.</span>`);
+      } else if (coverage < 80) {
+        parts.push(`<span class="warn">현재 월 저축(${fmtWon(savCur)}, 연 ${fmtWon(annualSavings)})은 필요 금액의 ${coverage.toFixed(0)}% 수준입니다. 추가 소득원 확보나 지출 절감을 검토하세요.</span>`);
+      } else {
+        parts.push(`현재 월 저축(${fmtWon(savCur)}, 연 ${fmtWon(annualSavings)})으로 필요 금액의 ${coverage.toFixed(0)}%를 커버합니다.`);
+      }
+    }
+  }
+
+  if (incCur > 0 && expCur > 0) {
+    const expRatio = (expCur / incCur * 100);
+    if (expRatio > 50) {
+      parts.push(`<span class="warn">소득 대비 지출 비율 ${expRatio.toFixed(0)}% — 은퇴 가속화를 위해 40% 이하로 낮추는 것이 이상적입니다.</span>`);
+    } else {
+      parts.push(`소득 대비 지출 비율 ${expRatio.toFixed(0)}%로 양호합니다.`);
+    }
+  }
+
+  const suggestions = [];
+  if (savCur > 0 && savCur * 12 < needPerYear) suggestions.push('배당주 월 납입액 추가 확대');
+  if (expCur > 0 && incCur > 0 && expCur / incCur > 0.5) suggestions.push('변동지출(외식/쇼핑/여가) 절감');
+  suggestions.push('금융소득(배당/이자) 재투자 극대화');
+  if (suggestions.length) {
+    parts.push(`<span class="highlight">개선 방향:</span> ${suggestions.join(' · ')}`);
+  }
+
+  return ' ' + parts.join(' ');
+}
+
 // ===== Monthly Summary Generator =====
 function generateMonthlySummary(sec, months) {
   const day = TODAY.getDate();
   let curIdx, prevIdx, curLabel, prevLabel;
-  const defaultIdx = getDefaultMonthIdx(months);
 
-  // Determine comparison months: >=26 this vs last, <26 last vs prev
-  if (day >= 26) {
-    curIdx = defaultIdx;
+  if (selectedMonthIdx >= 0) {
+    curIdx = selectedMonthIdx;
     prevIdx = curIdx - 1;
   } else {
-    curIdx = defaultIdx > 0 ? defaultIdx - 1 : defaultIdx;
-    prevIdx = curIdx - 1;
+    const defaultIdx = getDefaultMonthIdx(months);
+    // Determine comparison months: >=26 this vs last, <26 last vs prev
+    if (day >= 26) {
+      curIdx = defaultIdx;
+      prevIdx = curIdx - 1;
+    } else {
+      curIdx = defaultIdx > 0 ? defaultIdx - 1 : defaultIdx;
+      prevIdx = curIdx - 1;
+    }
   }
 
   // Check for AI-generated summary (per-month, based on comparison month)
@@ -858,27 +929,56 @@ function generateMonthlySummary(sec, months) {
       const trendLabel = { up: '개선', down: '주의', neutral: '보합' };
       const cls = trendMap[aiSum.trend] || 'tag-neutral';
       const label = trendLabel[aiSum.trend] || '보합';
-      // summary.json already contains HTML markup from the scheduled agent
+      let body = aiSum.summary;
+      // 은퇴 플랜 코칭이 아직 없으면 동적 생성하여 추가
+      if (!body.includes('은퇴 플랜 코칭')) {
+        body += generateRetirementCoaching(sec, months, curIdx, prevIdx);
+      }
       return {
         title: `${aiSum.period} AI 브리핑`,
         tag: `<span class="summary-tag ${cls}">${label}</span>`,
-        body: aiSum.summary,
+        body: body,
         isAI: true,
         date: aiSum.date
       };
     }
   }
 
-  if (prevIdx < 0 || curIdx < 0 || curIdx >= months.length) return null;
+  if (curIdx < 0 || curIdx >= months.length) return null;
+
+  // 전년도 12월 비교 지원
+  let usePrevYear = false;
+  let prevYearLastMonth = null;
+  let prevYearSec = null;
+  if (prevIdx < 0) {
+    const prevYear = String(parseInt(activeYear) - 1);
+    const pSec = sections[prevYear];
+    if (pSec && pSec.months && pSec.months.length) {
+      prevYearLastMonth = pSec.months[pSec.months.length - 1];
+      prevYearSec = pSec;
+      usePrevYear = true;
+    } else {
+      return null;
+    }
+  }
+
   curLabel = months[curIdx].label.replace(/^\d{4}-0?/, '').replace(/^0/, '') + '월';
-  prevLabel = months[prevIdx].label.replace(/^\d{4}-0?/, '').replace(/^0/, '') + '월';
+  prevLabel = usePrevYear
+    ? prevYearLastMonth.label.replace(/^\d{4}-0?/, '').replace(/^0/, '') + '월'
+    : months[prevIdx].label.replace(/^\d{4}-0?/, '').replace(/^0/, '') + '월';
 
   const gv = (total) => total ? parseNum(total[months[curIdx].col]) : 0;
-  const gvP = (total) => total ? parseNum(total[months[prevIdx].col]) : 0;
+  const gvP = (total, sectionKey) => {
+    if (usePrevYear && sectionKey && prevYearSec[sectionKey]) {
+      const prevTotal = prevYearSec[sectionKey].total;
+      return prevTotal ? parseNum(prevTotal[prevYearLastMonth.col]) : 0;
+    }
+    return total ? parseNum(total[months[prevIdx].col]) : 0;
+  };
 
-  const incCur = gv(sec.income.total), incPrev = gvP(sec.income.total);
-  const savCur = gv(sec.savings.total), savPrev = gvP(sec.savings.total);
-  const expCur = gv(sec.expense.total), expPrev = gvP(sec.expense.total);
+  const incCur = gv(sec.income.total), incPrev = gvP(sec.income.total, 'income');
+  const savCur = gv(sec.savings.total), savPrev = gvP(sec.savings.total, 'savings');
+  const expCur = gv(sec.expense.total), expPrev = gvP(sec.expense.total, 'expense');
 
   // Check if we have enough data
   if (!incCur && !incPrev && !expCur && !expPrev) return null;
@@ -894,36 +994,40 @@ function generateMonthlySummary(sec, months) {
   const data = rawSheets[activeYear];
   const expRows = sec.expense.rows || [];
   const expChanges = [];
-  expRows.forEach(r => {
-    const c1 = (data[r][1]||'').trim();
-    const c2 = (data[r][2]||'').trim();
-    if (c1==='계'||c1==='합계'||c1.includes('잔액')||!c1) return;
-    const name = c2 || c1;
-    const cur = parseNum(data[r][months[curIdx].col]);
-    const prev = parseNum(data[r][months[prevIdx].col]);
-    if (cur || prev) {
-      const diff = cur - prev;
-      expChanges.push({ name, cur, prev, diff, pct: prev ? (diff/Math.abs(prev)*100) : (cur ? 100 : 0) });
-    }
-  });
+  if (!usePrevYear) {
+    expRows.forEach(r => {
+      const c1 = (data[r][1]||'').trim();
+      const c2 = (data[r][2]||'').trim();
+      if (c1==='계'||c1==='합계'||c1.includes('잔액')||!c1) return;
+      const name = c2 || c1;
+      const cur = parseNum(data[r][months[curIdx].col]);
+      const prev = parseNum(data[r][months[prevIdx].col]);
+      if (cur || prev) {
+        const diff = cur - prev;
+        expChanges.push({ name, cur, prev, diff, pct: prev ? (diff/Math.abs(prev)*100) : (cur ? 100 : 0) });
+      }
+    });
+  }
   expChanges.sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff));
 
   // Find biggest income changes
   const incRows = sec.income.rows || [];
   const incChanges = [];
-  incRows.forEach(r => {
-    const c1 = (data[r][1]||'').trim();
-    const c2 = (data[r][2]||'').trim();
-    const c3 = (data[r][3]||'').trim();
-    if (c1==='계'||c1==='합계'||!c1) return;
-    const name = (c2||c1) + (c3 ? `(${c3})` : '');
-    const cur = parseNum(data[r][months[curIdx].col]);
-    const prev = parseNum(data[r][months[prevIdx].col]);
-    if (cur || prev) {
-      const diff = cur - prev;
-      incChanges.push({ name, cur, prev, diff });
-    }
-  });
+  if (!usePrevYear) {
+    incRows.forEach(r => {
+      const c1 = (data[r][1]||'').trim();
+      const c2 = (data[r][2]||'').trim();
+      const c3 = (data[r][3]||'').trim();
+      if (c1==='계'||c1==='합계'||!c1) return;
+      const name = (c2||c1) + (c3 ? `(${c3})` : '');
+      const cur = parseNum(data[r][months[curIdx].col]);
+      const prev = parseNum(data[r][months[prevIdx].col]);
+      if (cur || prev) {
+        const diff = cur - prev;
+        incChanges.push({ name, cur, prev, diff });
+      }
+    });
+  }
   incChanges.sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff));
 
   // Build commentary
@@ -995,64 +1099,9 @@ function generateMonthlySummary(sec, months) {
   }
 
   // ── 은퇴 플랜 코칭 ──
-  const assetGroups = sec.asset.groups || [];
-  const _totalPos = assetGroups.filter(a=>a.value>0).reduce((s,a)=>s+a.value,0);
-  const _totalDebt = assetGroups.filter(a=>a.value<0).reduce((s,a)=>s+a.value,0);
-  const _netAsset = _totalPos + _totalDebt;
-
-  if (_netAsset > 0) {
-    const GOAL = 1500000000, GOAL_START = 2026, GOAL_END = 2036;
-    const remaining = GOAL - _netAsset;
-    const remainYears = Math.max(1, GOAL_END - THIS_YEAR);
-    const needPerYear = remaining > 0 ? remaining / remainYears : 0;
-    const goalPct = (_netAsset / GOAL * 100).toFixed(1);
-
-    // 부동산 제외 유동자산 계산
-    const housingVal = assetGroups.filter(a=>a.name && a.name.includes('부동산')).reduce((s,a)=>s+a.value,0);
-    const liquidAssets = _netAsset - housingVal;
-
-    parts.push(`<br><span class="highlight">── 은퇴 플랜 코칭 ──</span>`);
-    parts.push(`순자산 ${fmtWon(_netAsset)} (목표 15억의 ${goalPct}%).`);
-
-    if (housingVal > 0) {
-      parts.push(`부동산(${fmtWon(housingVal)}) 제외 유동자산은 <span class="highlight">${fmtWon(liquidAssets)}</span>이며, 실질적으로 근로소득과 금융소득으로 채워야 할 금액입니다.`);
-    }
-
-    if (needPerYear > 0) {
-      parts.push(`남은 ${remainYears}년간 연 <span class="warn">${fmtWon(needPerYear)}</span> 순자산 증가가 필요합니다.`);
-
-      // 현재 저축 속도 평가
-      const annualSavings = savCur * 12;
-      if (annualSavings > 0) {
-        const coverage = (annualSavings / needPerYear * 100);
-        if (coverage < 50) {
-          parts.push(`<span class="down">현재 월 저축(${fmtWon(savCur)}, 연 ${fmtWon(annualSavings)})은 필요 금액의 ${coverage.toFixed(0)}%에 불과합니다. 저축 확대와 투자 수익률 개선이 시급합니다.</span>`);
-        } else if (coverage < 80) {
-          parts.push(`<span class="warn">현재 월 저축(${fmtWon(savCur)}, 연 ${fmtWon(annualSavings)})은 필요 금액의 ${coverage.toFixed(0)}% 수준입니다. 추가 소득원 확보나 지출 절감을 검토하세요.</span>`);
-        } else {
-          parts.push(`현재 월 저축(${fmtWon(savCur)}, 연 ${fmtWon(annualSavings)})으로 필요 금액의 ${coverage.toFixed(0)}%를 커버합니다.`);
-        }
-      }
-    }
-
-    // 소득 대비 지출 비율
-    if (incCur > 0 && expCur > 0) {
-      const expRatio = (expCur / incCur * 100);
-      if (expRatio > 50) {
-        parts.push(`<span class="warn">소득 대비 지출 비율 ${expRatio.toFixed(0)}% — 은퇴 가속화를 위해 40% 이하로 낮추는 것이 이상적입니다.</span>`);
-      } else {
-        parts.push(`소득 대비 지출 비율 ${expRatio.toFixed(0)}%로 양호합니다.`);
-      }
-    }
-
-    // 주요 개선 제안
-    const suggestions = [];
-    if (savCur > 0 && savCur * 12 < needPerYear) suggestions.push('배당주 월 납입액 추가 확대');
-    if (expCur > 0 && incCur > 0 && expCur / incCur > 0.5) suggestions.push('변동지출(외식/쇼핑/여가) 절감');
-    suggestions.push('금융소득(배당/이자) 재투자 극대화');
-    if (suggestions.length) {
-      parts.push(`<span class="highlight">개선 방향:</span> ${suggestions.join(' · ')}`);
-    }
+  const retirementCoaching = generateRetirementCoaching(sec, months, curIdx, prevIdx);
+  if (retirementCoaching) {
+    parts.push(retirementCoaching.trim());
   }
 
   // Title tag
@@ -1079,8 +1128,22 @@ function renderDashboard(container){
   // Determine selected month
   if(selectedMonthIdx<0) selectedMonthIdx=getDefaultMonthIdx(months);
   const si=selectedMonthIdx;
-  const pi=Math.max(0,si-1);
-  const calcChg=(v)=>v[pi]?((v[si]-v[pi])/Math.abs(v[pi])*100):null;
+  let prevInc=0, prevSav=0, prevExp=0;
+  if (si > 0) {
+    const pi = si - 1;
+    prevInc = incV[pi]; prevSav = savV[pi]; prevExp = expV[pi];
+  } else {
+    // 1월: 전년도 12월과 비교
+    const prevYear = String(parseInt(activeYear) - 1);
+    const prevSec = sections[prevYear];
+    if (prevSec && prevSec.months && prevSec.months.length) {
+      const lastMonth = prevSec.months[prevSec.months.length - 1];
+      prevInc = prevSec.income && prevSec.income.total ? parseNum(prevSec.income.total[lastMonth.col]) : 0;
+      prevSav = prevSec.savings && prevSec.savings.total ? parseNum(prevSec.savings.total[lastMonth.col]) : 0;
+      prevExp = prevSec.expense && prevSec.expense.total ? parseNum(prevSec.expense.total[lastMonth.col]) : 0;
+    }
+  }
+  const calcChg2=(cur,prev)=>prev?((cur-prev)/Math.abs(prev)*100):null;
   const chgHtml=(v)=>{if(v===null)return'';const d=v>=0?'up':'down';const a=v>=0?'&#9650;':'&#9660;';return`<div class="card-change ${d}">${a} ${Math.abs(v).toFixed(1)}% vs 전월</div>`;};
 
   // Asset totals (자산총액, 부채총액, 순자산)
@@ -1170,17 +1233,17 @@ function renderDashboard(container){
     <div class="dash-card">
       <div class="card-label"><span class="card-icon" style="background:var(--green-bg);color:var(--green)">&#8593;</span>소득</div>
       <div class="card-value" style="color:var(--green)">${fmtWon(incV[si])}</div>
-      ${chgHtml(calcChg(incV))}
+      ${chgHtml(calcChg2(incV[si],prevInc))}
     </div>
     <div class="dash-card">
       <div class="card-label"><span class="card-icon" style="background:var(--blue-bg);color:var(--blue)">&#9776;</span>저축</div>
       <div class="card-value" style="color:var(--blue)">${fmtWon(savV[si])}</div>
-      ${chgHtml(calcChg(savV))}
+      ${chgHtml(calcChg2(savV[si],prevSav))}
     </div>
     <div class="dash-card">
       <div class="card-label"><span class="card-icon" style="background:var(--amber-bg);color:var(--amber)">&#8595;</span>지출</div>
       <div class="card-value" style="color:var(--amber)">${fmtWon(expV[si])}</div>
-      ${chgHtml(calcChg(expV))}
+      ${chgHtml(calcChg2(expV[si],prevExp))}
     </div>
     <div class="dash-card">
       <div class="card-label"><span class="card-icon" style="background:var(--cyan-bg);color:var(--cyan)">&#9650;</span>자산 총액</div>
@@ -1615,7 +1678,7 @@ function showCellTooltip(x, y) {
   const val = parseNum(data[y][x]);
   if (val === 0) { hideCellTooltip(); return; }
 
-  // MoM: 이전 월 열 (x-1, 같은 행)
+  // MoM: 이전 월 열 (x-1, 같은 행), 1월(x=4)은 전년도 12월과 비교
   let momHtml = '';
   if (x > 4) {
     const prev = parseNum(data[y][x - 1]);
@@ -1624,6 +1687,31 @@ function showCellTooltip(x, y) {
       const cls = pct > 0.01 ? 'up' : pct < -0.01 ? 'down' : 'flat';
       const sign = pct > 0 ? '+' : '';
       momHtml = `<div class="tt-label">MoM 전월대비</div><div class="tt-value ${cls}">${sign}${pct.toFixed(1)}%</div>`;
+    }
+  } else if (x === 4) {
+    // 첫 번째 월: 전년도 마지막 월과 비교
+    const prevYear = String(parseInt(activeYear) - 1);
+    const prevSec = sections[prevYear];
+    if (prevSec && prevSec[activeSection]) {
+      const prevData = prevSec[activeSection].data;
+      if (prevData && prevSec.months && prevSec.months.length) {
+        const lastMonthCol = prevSec.months[prevSec.months.length - 1].col;
+        const curRow = data[y];
+        const itemKey = (curRow[1]||'')+'|'+(curRow[2]||'')+'|'+(curRow[3]||'');
+        for (let pr = 0; pr < prevData.length; pr++) {
+          const prevItemKey = (prevData[pr][1]||'')+'|'+(prevData[pr][2]||'')+'|'+(prevData[pr][3]||'');
+          if (prevItemKey === itemKey) {
+            const prev = parseNum(prevData[pr][lastMonthCol]);
+            if (prev !== 0) {
+              const pct = (val - prev) / Math.abs(prev) * 100;
+              const cls = pct > 0.01 ? 'up' : pct < -0.01 ? 'down' : 'flat';
+              const sign = pct > 0 ? '+' : '';
+              momHtml = `<div class="tt-label">MoM 전월대비</div><div class="tt-value ${cls}">${sign}${pct.toFixed(1)}%</div>`;
+            }
+            break;
+          }
+        }
+      }
     }
   }
 
