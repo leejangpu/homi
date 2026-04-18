@@ -1023,49 +1023,69 @@ async function renderInfiniteBuy(){
       return;
     }
 
+    // 사이클 히스토리 로드
+    const histories = {};
+    for(const ticker of tickers){
+      try{
+        const histFiles = [];
+        for(let c=1;c<=20;c++){
+          const fn = `${ticker}-cycle-${String(c).padStart(3,'0')}.json`;
+          try{
+            const r = await fetch(`../infinite-buy/history/${fn}?t=${Date.now()}`);
+            if(r.ok) histFiles.push(await r.json());
+          }catch(e){}
+        }
+        if(histFiles.length) histories[ticker] = histFiles;
+      }catch(e){}
+    }
+
     let html = `<div class="ib-grid">`;
 
     for(const [ticker, state] of Object.entries(states)){
+      if(state.status === 'completed') continue; // 완료된 사이클은 아래 히스토리에서 표시
       const t = calcTValue(state);
       const phase = getPhase(state);
-      const starPct = calcStarPercent(state);
       const tPct = state.splitCount > 0 ? (t / state.splitCount)*100 : 0;
       const investPct = state.principal > 0 ? (state.totalInvested / state.principal)*100 : 0;
-      const unrealizedPnl = state.totalQuantity > 0
-        ? (state.avgPrice > 0 ? (state.avgPrice - state.avgPrice) * state.totalQuantity : 0)
-        : 0; // avgPrice = current in this data
-      // 미실현 손익: totalBuyAmount - totalInvested 기반 (data에 현재가 없으므로 0 표시)
-      const realizedProfit = state.totalRealizedProfit || 0;
 
       const phaseLabel = phase==='QUARTER_MODE' ? '쿼터모드' : phase==='SECOND_HALF' ? '후반전' : '전반전';
       const phaseCls = phase==='QUARTER_MODE' ? 'quarter' : phase==='SECOND_HALF' ? 'second' : 'first';
-      const progressCls = phase==='QUARTER_MODE' ? 'quarter' : phase==='SECOND_HALF' ? 'second' : 'first';
 
       const startDate = state.startedAt ? state.startedAt.split('T')[0] : '-';
       const updatedDate = state.updatedAt ? state.updatedAt.split('T')[0] : '-';
-
       const targetProfitPct = ((state.targetProfit||0)*100).toFixed(0);
-      const starPctVal = (starPct*100).toFixed(2);
+
+      // 미실현 손익 (현재가 기반)
+      const curPrice = state.currentPrice || 0;
+      const avgPrice = state.avgPrice || 0;
+      const qty = state.totalQuantity || 0;
+      const hasPrice = curPrice > 0 && qty > 0;
+      const pnlRate = hasPrice && avgPrice > 0 ? ((curPrice - avgPrice) / avgPrice * 100) : null;
+      const pnlAmt = hasPrice ? (curPrice - avgPrice) * qty : null;
 
       html += `
       <div class="ib-card">
         <div class="ib-card-header">
           <div class="ib-ticker">${ticker}</div>
-          <div class="ib-phase-badge ${phaseCls}">${phaseLabel} 모드</div>
+          <div class="ib-phase-badge ${phaseCls}">${phaseLabel}</div>
         </div>
 
         <div class="ib-label" style="margin-bottom:4px">T-value: <strong style="color:var(--text)">${t.toFixed(2)}</strong> / ${state.splitCount}</div>
         ${ibProgressBar(tPct, phase)}
         <div style="text-align:right;font-size:10px;color:var(--text-dim);margin-bottom:14px">${tPct.toFixed(1)}%</div>
 
-        <div class="ib-row">
-          <div>
-            <div class="ib-label">★%</div>
-            <div class="ib-star">+${starPctVal}%</div>
+        <div class="ib-price-row">
+          <div class="ib-price-item">
+            <div class="ib-label">평단가</div>
+            <div class="ib-value">$${avgPrice ? avgPrice.toFixed(2) : '-'}</div>
           </div>
-          <div style="text-align:right">
-            <div class="ib-label">목표수익률</div>
-            <div class="ib-value">${targetProfitPct}%</div>
+          <div class="ib-price-item">
+            <div class="ib-label">현재가</div>
+            <div class="ib-value">${curPrice ? '$'+curPrice.toFixed(2) : '-'}</div>
+          </div>
+          <div class="ib-price-item">
+            <div class="ib-label">수익률</div>
+            <div class="ib-value ${pnlRate!==null?(pnlRate>=0?'pos':'neg'):''}">${pnlRate!==null ? (pnlRate>=0?'+':'')+pnlRate.toFixed(2)+'%' : '-'}</div>
           </div>
         </div>
 
@@ -1073,40 +1093,59 @@ async function renderInfiniteBuy(){
 
         <div class="ib-price-row">
           <div class="ib-price-item">
-            <div class="ib-label">평단가</div>
-            <div class="ib-value">$${state.avgPrice ? state.avgPrice.toFixed(2) : '-'}</div>
+            <div class="ib-label">보유수량</div>
+            <div class="ib-value">${qty}주</div>
           </div>
           <div class="ib-price-item">
-            <div class="ib-label">보유수량</div>
-            <div class="ib-value">${state.totalQuantity||0}주</div>
+            <div class="ib-label">투자금</div>
+            <div class="ib-value">$${(state.totalInvested||0).toFixed(0)}</div>
+          </div>
+          <div class="ib-price-item">
+            <div class="ib-label">목표수익률</div>
+            <div class="ib-value">${targetProfitPct}%</div>
           </div>
         </div>
 
-        <div class="ib-row">
-          <div class="ib-label">투자금</div>
-          <div class="ib-value">$${(state.totalInvested||0).toFixed(2)} / $${(state.principal||0).toLocaleString()}</div>
-        </div>
         ${ibInvestBar(state.totalInvested||0, state.principal||1)}
-        <div style="text-align:right;font-size:10px;color:var(--text-dim);margin-bottom:14px">${investPct.toFixed(1)}%</div>
-
-        <div class="ib-row">
-          <div class="ib-label">실현손익</div>
-          <div class="ib-value ${realizedProfit >= 0 ? 'pos' : 'neg'}">
-            ${realizedProfit >= 0 ? '+' : ''}$${realizedProfit.toFixed(2)}
-          </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:14px">
+          <span>$${(state.totalInvested||0).toFixed(0)} / $${(state.principal||0).toLocaleString()}</span>
+          <span>${investPct.toFixed(1)}%</span>
         </div>
-
-        <div class="ib-divider"></div>
 
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim)">
           <span>사이클 #${state.cycleNumber||1}</span>
-          <span>시작일: ${startDate}</span>
+          <span>${startDate} ~ ${updatedDate}</span>
         </div>
-        <div style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:right">업데이트: ${updatedDate}</div>
       </div>`;
     }
 
     html += `</div>`;
+
+    // 사이클 히스토리
+    const allHist = Object.entries(histories).flatMap(([t,arr])=>arr.map(h=>({...h,ticker:h.ticker||t})));
+    if(allHist.length){
+      allHist.sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+      html += `<h3 style="margin:24px 0 12px;color:var(--text);font-size:14px">완료된 사이클</h3>`;
+      html += `<div style="display:flex;flex-direction:column;gap:8px">`;
+      for(const h of allHist){
+        const rate = ((h.finalProfitRate||0)*100).toFixed(1);
+        const profit = h.totalRealizedProfit||0;
+        const cls = profit >= 0 ? 'pos' : 'neg';
+        html += `<div class="ib-card" style="padding:12px 16px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>${h.ticker}</strong> <span style="color:var(--text-dim);font-size:12px">사이클 #${h.cycleNumber}</span>
+            </div>
+            <div class="ib-value ${cls}" style="font-size:14px">${profit>=0?'+':''}$${profit.toFixed(2)} (${profit>=0?'+':''}${rate}%)</div>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">
+            ${(h.startedAt||'').split('T')[0]} ~ ${(h.completedAt||'').split('T')[0]} · 원금 $${(h.principal||0).toLocaleString()}
+          </div>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
     container.innerHTML = html;
   } catch(e){
     container.innerHTML = `<p style="color:var(--text-muted);padding:20px">무한매수법 데이터를 불러올 수 없습니다.<br><small style="color:var(--text-dim)">${e.message}</small></p>`;
