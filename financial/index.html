@@ -296,6 +296,8 @@
     display:flex;align-items:center;gap:8px;flex-wrap:wrap;
     text-transform:uppercase;letter-spacing:.6px;
   }
+  .regen-btn{background:none;border:1px solid rgba(255,255,255,0.12);color:var(--text-dim);cursor:pointer;font-size:14px;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-left:auto;}
+  .regen-btn:hover{background:rgba(255,255,255,0.08);color:var(--primary);border-color:var(--primary);}
   .summary-banner .summary-body{font-size:13px;color:var(--text);line-height:1.75;font-weight:400;}
   .summary-banner .summary-body .highlight{color:var(--green);font-weight:700;}
   .summary-banner .summary-body .warn{color:var(--amber);font-weight:700;}
@@ -665,6 +667,7 @@ const rawSheets={};
 const sections={};
 let activeYear=null, activeSection='dashboard', selectedMonthIdx=-1;
 let assetViewMode='group'; // 'group' or 'detail'
+let forceRegenReport=false;
 let activeFilter='all';
 let jexcelInstance=null;
 let chartInstances=[];
@@ -921,7 +924,7 @@ function generateMonthlySummary(sec, months) {
 
   // Check for AI-generated summary (per-month, based on comparison month)
   const yearSummaries = aiSummaries[activeYear];
-  if (yearSummaries && curIdx >= 0 && curIdx < months.length) {
+  if (!forceRegenReport && yearSummaries && curIdx >= 0 && curIdx < months.length) {
     const mn = String(monthNumFromLabel(months[curIdx].label)).padStart(2, '0');
     const aiSum = yearSummaries[mn];
     if (aiSum && aiSum.summary) {
@@ -1173,6 +1176,7 @@ function renderDashboard(container){
     <div class="summary-title">
       <span class="ai-badge">AI</span>
       ${summary.tag}${summary.title}${summary.date ? `<span style="margin-left:auto;font-size:10px;color:var(--text-dim);font-weight:500;text-transform:none;letter-spacing:0">${summary.date}</span>` : ''}
+      <button class="regen-btn" onclick="regenerateReport()" title="현재 데이터 기반으로 리포트 재생성">&#x21bb;</button>
     </div>
     <div class="summary-body">${summary.body}</div>
   </div>` : '';
@@ -1558,7 +1562,8 @@ function renderDashboard(container){
 
 function setAssetView(mode){assetViewMode=mode;renderView();}
 
-function selectMonth(i){selectedMonthIdx=i;renderView();}
+function selectMonth(i){selectedMonthIdx=i;forceRegenReport=false;renderView();}
+function regenerateReport(){forceRegenReport=true;renderView();}
 
 window.addEventListener('resize',()=>{chartInstances.forEach(c=>{try{c.resize();}catch(e){}});});
 
