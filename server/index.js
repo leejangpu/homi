@@ -1,13 +1,12 @@
 require("dotenv").config({ path: require("path").resolve(__dirname, ".env") });
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const { execSync, execFileSync } = require("child_process");
 const XLSX = require("xlsx");
 const express = require("express");
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
 const TELEGRAM_CONTENT_LIMIT = 4096;
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const DEFAULT_MAX_IMAGE_COUNT = 3;
 const DEFAULT_MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MAX_XLSX_BYTES = 10 * 1024 * 1024;
@@ -165,26 +164,6 @@ async function downloadTelegramFile(botToken, fileId, maxBytes) {
   return Buffer.from(await fileResponse.arrayBuffer());
 }
 
-async function downloadTelegramImagePart(botToken, image, maxImageBytes) {
-  if (image.declaredSize && image.declaredSize > maxImageBytes) return null;
-  const file = await telegramApiRequest(botToken, "getFile", { file_id: image.fileId });
-  if (!file?.file_path) return null;
-  if (typeof file.file_size === "number" && file.file_size > maxImageBytes) return null;
-
-  const fileResponse = await fetch(`${TELEGRAM_API_BASE}/file/bot${botToken}/${file.file_path}`, { method: "GET" });
-  if (!fileResponse.ok) return null;
-
-  const contentLength = Number.parseInt(fileResponse.headers.get("content-length") || "0", 10);
-  if (Number.isFinite(contentLength) && contentLength > maxImageBytes) return null;
-
-  const raw = Buffer.from(await fileResponse.arrayBuffer());
-  if (raw.length > maxImageBytes) return null;
-
-  const headerMimeType = fileResponse.headers.get("content-type") || "";
-  const mimeType = headerMimeType.startsWith("image/") ? headerMimeType : image.mimeType || "image/jpeg";
-  return { inlineData: { mimeType, data: raw.toString("base64") } };
-}
-
 // --- xlsx → text ---
 
 function xlsxToText(buffer) {
@@ -198,48 +177,23 @@ function xlsxToText(buffer) {
   return sheets.join("\n\n").slice(0, 12000);
 }
 
-// --- Gemini API ---
+// --- Claude CLI ---
 
-async function callGemini(geminiApiKey, geminiModel, systemPrompt, userParts, history) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(geminiApiKey)}`;
-
-  // 히스토리를 Gemini contents 형식으로 변환
-  const contents = [];
-  if (Array.isArray(history)) {
-    for (const h of history) {
-      contents.push({
-        role: h.role === "user" ? "user" : "model",
-        parts: [{ text: h.text }]
-      });
-    }
-  }
-  contents.push({ role: "user", parts: userParts });
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents,
-      generationConfig: { maxOutputTokens: 16384 }
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini API failed (${response.status}): ${errorText.slice(0, 400)}`);
+function callClaude(systemPrompt, userText) {
+  const args = ["-p", "--model", "sonnet", "--bare"];
+  if (systemPrompt) {
+    args.push("--system-prompt", systemPrompt);
   }
 
-  const payload = await response.json();
-  const candidate = payload?.candidates?.[0];
-  const parts = candidate?.content?.parts;
-  let text = Array.isArray(parts)
-    ? parts.map((p) => (typeof p?.text === "string" ? p.text : "")).filter(Boolean).join("\n").trim()
-    : "";
-  if (candidate?.finishReason === "MAX_TOKENS" && text) {
-    text += "\n\n(응답이 길어 잘렸습니다. 더 자세히 알고 싶으면 다시 질문해주세요)";
-  }
-  return text;
+  const result = execFileSync("claude", args, {
+    input: userText,
+    cwd: path.resolve(__dirname, ".."),
+    encoding: "utf-8",
+    timeout: 120000,
+    maxBuffer: 2 * 1024 * 1024
+  }).trim();
+
+  return result;
 }
 
 // --- xlsx 파일 처리: 파싱 → 가계부 시트에 추가 ---
@@ -260,7 +214,7 @@ Rules:
 - Return ONLY valid JSON, no markdown, no explanation.
 - Ignore summary/total rows, only include individual transactions.`;
 
-async function handleXlsxUpload(botToken, geminiApiKey, geminiModel, message) {
+async function handleXlsxUpload(botToken, message) {
   const chatId = message.chat.id;
 
   const fileBuffer = await downloadTelegramFile(botToken, message.document.file_id, MAX_XLSX_BYTES);
@@ -271,8 +225,8 @@ async function handleXlsxUpload(botToken, geminiApiKey, geminiModel, message) {
     return;
   }
 
-  // Gemini로 파싱
-  const rawResult = await callGemini(geminiApiKey, geminiModel, XLSX_PARSE_PROMPT, [{ text: sheetText }], null);
+  // Claude로 파싱
+  const rawResult = callClaude(XLSX_PARSE_PROMPT, sheetText);
   const jsonMatch = rawResult.match(/\[[\s\S]*\]/);
   if (!jsonMatch) {
     await sendTelegramReply(botToken, chatId, "지출 내역을 파싱할 수 없습니다.", message.message_id);
@@ -408,24 +362,18 @@ function loadCsvContext() {
   return lines.join("\n");
 }
 
-async function handleTextMessage(botToken, geminiApiKey, geminiModel, message) {
+async function handleTextMessage(botToken, message) {
   const chatId = message.chat.id;
   const messageText = String(message?.text || message?.caption || "").trim();
   const maxImageCount = parsePositiveInt(process.env.TELEGRAM_MAX_IMAGE_COUNT, DEFAULT_MAX_IMAGE_COUNT);
-  const maxImageBytes = parsePositiveInt(process.env.TELEGRAM_MAX_IMAGE_BYTES, DEFAULT_MAX_IMAGE_BYTES);
   const imageInputs = buildImageInputs(message, maxImageCount);
 
   if (!messageText && imageInputs.length === 0) return;
 
-  // 이미지 다운로드
-  const imageParts = [];
-  for (const image of imageInputs) {
-    try {
-      const part = await downloadTelegramImagePart(botToken, image, maxImageBytes);
-      if (part) imageParts.push(part);
-    } catch (err) {
-      console.warn("Image download skipped", err.message);
-    }
+  // 이미지가 있으면 텍스트로 안내
+  let imageNote = "";
+  if (imageInputs.length > 0) {
+    imageNote = "\n(이미지가 첨부되었으나 텍스트 모드에서는 분석할 수 없습니다)";
   }
 
   // 가계부 데이터 로드
@@ -441,7 +389,18 @@ async function handleTextMessage(botToken, geminiApiKey, geminiModel, message) {
   const history = loadHistory(chatId);
   addToHistory(chatId, "user", messageText || "(이미지)");
 
-  const answer = await callGemini(geminiApiKey, geminiModel, SYSTEM_PROMPT, [{ text: userPrompt }, ...imageParts], history);
+  // 히스토리를 프롬프트에 포함
+  let fullPrompt = "";
+  if (history.length > 0) {
+    fullPrompt += "이전 대화:\n";
+    for (const h of history) {
+      fullPrompt += h.role === "user" ? `사용자: ${h.text}\n` : `어시스턴트: ${h.text}\n`;
+    }
+    fullPrompt += "\n";
+  }
+  fullPrompt += userPrompt + imageNote;
+
+  const answer = callClaude(SYSTEM_PROMPT, fullPrompt);
   addToHistory(chatId, "model", answer);
 
   await sendTelegramReply(botToken, chatId, answer || "응답을 생성할 수 없습니다.", message.message_id);
@@ -449,7 +408,7 @@ async function handleTextMessage(botToken, geminiApiKey, geminiModel, message) {
 
 // --- 메시지 핸들러 ---
 
-async function handleMessage(botToken, geminiApiKey, message) {
+async function handleMessage(botToken, message) {
   const chatId = message?.chat?.id;
   if (typeof chatId !== "number") return;
   if (message?.from?.is_bot) return;
@@ -457,15 +416,13 @@ async function handleMessage(botToken, geminiApiKey, message) {
   const allowedChatIds = parseAllowedChatIds(process.env.TELEGRAM_ALLOWED_CHAT_IDS ?? process.env.TELEGRAM_ALLOWED_CHAT_ID);
   if (allowedChatIds.size > 0 && !allowedChatIds.has(String(chatId))) return;
 
-  const geminiModel = (process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL).trim();
-
   try {
     await telegramApiRequest(botToken, "sendChatAction", { chat_id: chatId, action: "typing" });
 
     if (isXlsxDocument(message?.document)) {
-      await handleXlsxUpload(botToken, geminiApiKey, geminiModel, message);
+      await handleXlsxUpload(botToken, message);
     } else {
-      await handleTextMessage(botToken, geminiApiKey, geminiModel, message);
+      await handleTextMessage(botToken, message);
     }
   } catch (error) {
     console.error("Message handling failed", error);
@@ -545,7 +502,7 @@ app.post("/api/report/generate", async (req, res) => {
     console.log(`[Report] Generating AI report for ${year}-${mn} via Claude CLI...`);
     let report;
     try {
-      report = execSync(`claude -p --model sonnet`, {
+      report = execFileSync("claude", ["-p", "--model", "sonnet", "--bare"], {
         input: fullPrompt,
         cwd: path.resolve(__dirname, ".."),
         encoding: "utf-8",
@@ -626,10 +583,9 @@ app.listen(API_PORT, () => {
 
 async function poll() {
   const botToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
 
-  if (!botToken || !geminiApiKey) {
-    console.error("TELEGRAM_BOT_TOKEN or GEMINI_API_KEY missing in .env");
+  if (!botToken) {
+    console.error("TELEGRAM_BOT_TOKEN missing in .env");
     process.exit(1);
   }
 
@@ -651,7 +607,7 @@ async function poll() {
           offset = update.update_id + 1;
           const message = update.message || update.channel_post;
           if (message) {
-            handleMessage(botToken, geminiApiKey, message).catch((err) =>
+            handleMessage(botToken, message).catch((err) =>
               console.error("Unhandled error in handleMessage", err)
             );
           }
