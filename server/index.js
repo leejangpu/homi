@@ -3,7 +3,6 @@ const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
 const XLSX = require("xlsx");
-const { google } = require("googleapis");
 const express = require("express");
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
@@ -14,17 +13,12 @@ const DEFAULT_MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MAX_XLSX_BYTES = 10 * 1024 * 1024;
 const POLLING_TIMEOUT = 30;
 
-const LEDGER_SHEET_ID = "1zu3ymV9140Gx9J_LMeL7qy9mXm-aeBnl1ExXH7SrQas";
-const FINANCE_SHEET_ID = "1fI9WsgLd1oJ9h5A4L34Y7zK4pngM844sHKXeJd5qK0Y";
-
 const XLSX_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
   "application/octet-stream"
 ]);
 
-const CREDENTIALS_PATH = path.resolve(__dirname, "credentials.json");
-const TOKEN_PATH = path.resolve(__dirname, "token.json");
 const HISTORY_DIR = path.resolve(__dirname, "chat_history");
 
 // --- Chat history ---
@@ -52,40 +46,6 @@ function addToHistory(chatId, role, text) {
   entry.messages = entry.messages.slice(-MAX_HISTORY);
   entry.lastTs = Date.now();
   chatHistories.set(chatId, entry);
-}
-
-// --- Google Sheets auth ---
-
-function getSheetsClient() {
-  const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, "utf-8"));
-  const { client_id, client_secret } = credentials.installed;
-  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, "http://localhost:3210");
-  const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, "utf-8"));
-  oAuth2Client.setCredentials(tokens);
-  return google.sheets({ version: "v4", auth: oAuth2Client });
-}
-
-async function readSheet(spreadsheetId, range) {
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId, range });
-  return res.data.values || [];
-}
-
-async function appendToSheet(spreadsheetId, range, rows) {
-  const sheets = getSheetsClient();
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range,
-    valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
-    requestBody: { values: rows }
-  });
-}
-
-async function getSheetNames(spreadsheetId) {
-  const sheets = getSheetsClient();
-  const meta = await sheets.spreadsheets.get({ spreadsheetId });
-  return meta.data.sheets.map((s) => s.properties.title);
 }
 
 // --- Helpers ---
@@ -348,9 +308,37 @@ async function handleXlsxUpload(botToken, geminiApiKey, geminiModel, message) {
     return;
   }
 
-  // 현재 연도 시트에 추가
   const year = String(rows[0][0]).slice(0, 4) || new Date().getFullYear().toString();
-  await appendToSheet(LEDGER_SHEET_ID, `${year}!A:F`, rows);
+
+  // 로컬 expense_detail.json에 저장
+  const financialDir = path.resolve(__dirname, "../financial");
+  const detailPath = path.join(financialDir, "expense_detail.json");
+  let detail = {};
+  if (fs.existsSync(detailPath)) {
+    try { detail = JSON.parse(fs.readFileSync(detailPath, "utf-8")); } catch {}
+  }
+  if (!detail[year]) detail[year] = {};
+
+  // 월별로 분류하여 저장
+  for (const r of rows) {
+    const month = String(r[0]).slice(5, 7); // "2026-03" → "03"
+    if (!detail[year][month]) detail[year][month] = [];
+    detail[year][month].push({
+      날짜: r[0], 가맹점: r[1], 카테고리: r[2],
+      금액: Number(r[3]) || 0, 카드: r[4], 메모: r[5]
+    });
+  }
+
+  fs.writeFileSync(detailPath, JSON.stringify(detail, null, 2), "utf-8");
+
+  // Git commit & push
+  try {
+    execSync(`git add expense_detail.json && git commit -m "지출 상세 내역 업데이트 (${year})" && git push`, {
+      cwd: financialDir, stdio: "pipe", timeout: 30000
+    });
+  } catch (gitErr) {
+    console.error("[Expense] Git push failed:", gitErr.message);
+  }
 
   const total = rows.reduce((sum, r) => sum + (Number(r[3]) || 0), 0);
   const lines = [
@@ -371,12 +359,12 @@ async function handleXlsxUpload(botToken, geminiApiKey, geminiModel, message) {
 
 const SYSTEM_PROMPT = `You are a helpful family finance assistant for Telegram chat. Reply in Korean.
 
-You have access to two Google Spreadsheets:
+You have access to family financial data:
 
-1. "호미 가계부" - 상세 지출 내역 (컬럼: 날짜, 가맹점, 카테고리, 금액, 카드, 메모)
-2. "재무재표" - 월별 수입/지출 요약, 자산 현황, 생활비 내역 등
+1. 재무재표 CSV - 월별 수입/지출/저축 요약, 자산 현황
+2. 지출 상세 내역 - 카드 명세서 기반 가맹점별 지출 내역
 
-사용자가 지출, 가계부, 재무 관련 질문을 하면 아래 제공된 시트 데이터를 기반으로 정확하게 답변하세요.
+사용자가 지출, 가계부, 재무 관련 질문을 하면 아래 제공된 데이터를 기반으로 정확하게 답변하세요.
 재무와 무관한 일반 질문에는 평소처럼 답변하면 됩니다.
 
 응답 형식 규칙:
@@ -390,39 +378,31 @@ You have access to two Google Spreadsheets:
 - 전체 항목을 나열하지 말고, 카테고리별 합계나 상위 항목 위주로 요약하세요.
 - 사용자가 상세 내역을 요청할 때만 세부 항목을 나열하세요.`;
 
-async function loadSheetContext() {
+function loadCsvContext() {
   const lines = [];
+  const financialDir = path.resolve(__dirname, "../financial");
+  const year = new Date().getFullYear().toString();
 
-  try {
-    // 호미 가계부 - 현재 연도
-    const year = new Date().getFullYear().toString();
-    const ledgerRows = await readSheet(LEDGER_SHEET_ID, `${year}!A:F`);
-    if (ledgerRows.length > 0) {
-      // 헤더 + 최근 100건
-      const header = ledgerRows[0];
-      const recent = ledgerRows.slice(-100);
-      lines.push(`\n[호미 가계부 - ${year}년] (총 ${ledgerRows.length - 1}건, 최근 100건 표시)`);
-      lines.push(header.join(" | "));
-      for (const row of recent) {
-        lines.push(row.join(" | "));
-      }
-    }
-  } catch (err) {
-    console.warn("Failed to read ledger sheet", err.message);
+  // 재무재표 CSV
+  const csvPath = path.join(financialDir, `${year}.csv`);
+  if (fs.existsSync(csvPath)) {
+    const csvData = fs.readFileSync(csvPath, "utf-8");
+    lines.push(`\n[재무재표 - ${year}년]`);
+    lines.push(csvData);
   }
 
-  try {
-    // 재무재표 - 현재 연도 시트
-    const year = new Date().getFullYear().toString();
-    const financeRows = await readSheet(FINANCE_SHEET_ID, `${year}!A:Z`);
-    if (financeRows.length > 0) {
-      lines.push(`\n[재무재표 - ${year}년]`);
-      for (const row of financeRows) {
-        lines.push(row.join(" | "));
+  // 지출 상세 내역
+  const detailPath = path.join(financialDir, "expense_detail.json");
+  if (fs.existsSync(detailPath)) {
+    try {
+      const detail = JSON.parse(fs.readFileSync(detailPath, "utf-8"));
+      // 현재 연도 데이터만 추출
+      const yearData = detail[year];
+      if (yearData) {
+        lines.push(`\n[지출 상세 - ${year}년]`);
+        lines.push(JSON.stringify(yearData, null, 0));
       }
-    }
-  } catch (err) {
-    console.warn("Failed to read finance sheet", err.message);
+    } catch {}
   }
 
   return lines.join("\n");
@@ -448,13 +428,13 @@ async function handleTextMessage(botToken, geminiApiKey, geminiModel, message) {
     }
   }
 
-  // 시트 데이터 로드
-  const sheetContext = await loadSheetContext();
+  // 가계부 데이터 로드
+  const sheetContext = loadCsvContext();
 
   const userPrompt = [
     `User: ${getSenderName(message)}`,
     messageText ? `Message: ${messageText}` : "Message: (no text)",
-    sheetContext ? `\n--- 스프레드시트 데이터 ---${sheetContext}` : ""
+    sheetContext ? `\n--- 가계부 데이터 ---${sheetContext}` : ""
   ].filter(Boolean).join("\n");
 
   // 히스토리 로드 & 현재 메시지 추가
@@ -534,12 +514,6 @@ app.post("/api/report/generate", async (req, res) => {
       return res.status(400).json({ error: "year and month required" });
     }
 
-    const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
-    const geminiModel = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
-    if (!geminiApiKey) {
-      return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
-    }
-
     const mn = String(month).padStart(2, "0");
     const prevMn = String(parseInt(month) - 1).padStart(2, "0");
     const prevYear = parseInt(month) === 1 ? String(parseInt(year) - 1) : year;
@@ -566,11 +540,25 @@ app.post("/api/report/generate", async (req, res) => {
 
     const userPrompt = `아래는 ${year}년 가계부 CSV 데이터입니다. ${prevYear}년 ${prevMonth}월과 ${year}년 ${mn}월을 비교 분석한 월간 브리핑을 작성해줘.\n\n${csvData}`;
 
-    console.log(`[Report] Generating AI report for ${year}-${mn}...`);
-    const report = await callGemini(geminiApiKey, geminiModel, REPORT_PROMPT, [{ text: userPrompt }], null);
+    const fullPrompt = `${REPORT_PROMPT}\n\n${userPrompt}`;
+
+    console.log(`[Report] Generating AI report for ${year}-${mn} via Claude CLI...`);
+    let report;
+    try {
+      report = execSync(`claude -p --model sonnet`, {
+        input: fullPrompt,
+        cwd: path.resolve(__dirname, ".."),
+        encoding: "utf-8",
+        timeout: 120000,
+        maxBuffer: 1024 * 1024
+      }).trim();
+    } catch (cliErr) {
+      console.error("[Report] Claude CLI failed:", cliErr.message);
+      return res.status(500).json({ error: "Claude CLI failed: " + cliErr.message });
+    }
 
     if (!report) {
-      return res.status(500).json({ error: "Gemini returned empty response" });
+      return res.status(500).json({ error: "Claude CLI returned empty response" });
     }
 
     // Clean up response (remove markdown code blocks if present)
