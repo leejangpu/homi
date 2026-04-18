@@ -1106,13 +1106,7 @@ async function renderInfiniteBuy(){
           </div>
         </div>
 
-        ${ibInvestBar(state.totalInvested||0, state.principal||1)}
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:14px">
-          <span>$${(state.totalInvested||0).toFixed(0)} / $${(state.principal||0).toLocaleString()}</span>
-          <span>${investPct.toFixed(1)}%</span>
-        </div>
-
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim)">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-top:8px">
           <span>사이클 #${state.cycleNumber||1}</span>
           <span>${startDate} ~ ${updatedDate}</span>
         </div>
