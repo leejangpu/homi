@@ -667,7 +667,6 @@ const rawSheets={};
 const sections={};
 let activeYear=null, activeSection='dashboard', selectedMonthIdx=-1;
 let assetViewMode='group'; // 'group' or 'detail'
-let forceRegenReport=false;
 let activeFilter='all';
 let jexcelInstance=null;
 let chartInstances=[];
@@ -924,7 +923,7 @@ function generateMonthlySummary(sec, months) {
 
   // Check for AI-generated summary (per-month, based on comparison month)
   const yearSummaries = aiSummaries[activeYear];
-  if (!forceRegenReport && yearSummaries && curIdx >= 0 && curIdx < months.length) {
+  if (yearSummaries && curIdx >= 0 && curIdx < months.length) {
     const mn = String(monthNumFromLabel(months[curIdx].label)).padStart(2, '0');
     const aiSum = yearSummaries[mn];
     if (aiSum && aiSum.summary) {
@@ -1562,8 +1561,34 @@ function renderDashboard(container){
 
 function setAssetView(mode){assetViewMode=mode;renderView();}
 
-function selectMonth(i){selectedMonthIdx=i;forceRegenReport=false;renderView();}
-function regenerateReport(){forceRegenReport=true;renderView();}
+function selectMonth(i){selectedMonthIdx=i;renderView();}
+async function regenerateReport(){
+  const sec=sections[activeYear];
+  if(!sec||!sec.months) return;
+  const si=selectedMonthIdx>=0?selectedMonthIdx:getDefaultMonthIdx(sec.months);
+  const mn=monthNumFromLabel(sec.months[si].label);
+  const btn=document.querySelector('.regen-btn');
+  if(btn){btn.disabled=true;btn.innerHTML='⏳';btn.style.opacity='0.5';}
+  try{
+    const res=await fetch('http://localhost:3200/api/report/generate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({year:activeYear,month:mn})
+    });
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error||'서버 오류');
+    // summary.json 갱신 반영
+    if(data.summary){
+      if(!aiSummaries[activeYear]) aiSummaries[activeYear]={};
+      aiSummaries[activeYear][String(mn).padStart(2,'0')]=data.summary;
+    }
+    renderView();
+  }catch(e){
+    alert('리포트 생성 실패: '+e.message+'\n\n서버(localhost:3200)가 실행 중인지 확인하세요.');
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='&#x21bb;';btn.style.opacity='';}
+  }
+}
 
 window.addEventListener('resize',()=>{chartInstances.forEach(c=>{try{c.resize();}catch(e){}});});
 

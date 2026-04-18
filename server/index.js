@@ -1,8 +1,10 @@
 require("dotenv").config({ path: require("path").resolve(__dirname, ".env") });
 const fs = require("fs");
 const path = require("path");
+const { execSync } = require("child_process");
 const XLSX = require("xlsx");
 const { google } = require("googleapis");
+const express = require("express");
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
 const TELEGRAM_CONTENT_LIMIT = 4096;
@@ -494,6 +496,143 @@ async function handleMessage(botToken, geminiApiKey, message) {
     }
   }
 }
+
+// --- Express API server ---
+
+const app = express();
+app.use(express.json());
+
+// CORS for GitHub Pages
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+const REPORT_PROMPT = `너는 가계부 데이터를 분석하는 금융 어드바이저야. 아래 CSV 데이터를 분석해서 월간 AI 브리핑 리포트를 작성해줘.
+
+## 작성 규칙
+1. HTML 인라인 태그를 사용해서 포맷팅해줘 (순수 텍스트가 아닌 HTML span 태그 사용)
+2. 증가/긍정적인 수치: <span class="up-color">내용</span>
+3. 감소/부정적인 수치: <span class="down-color">내용</span>
+4. 경고/주의: <span class="warn">내용</span>
+5. 강조/하이라이트: <span class="highlight">내용</span>
+6. 전월 대비 소득, 저축, 지출 변화를 분석하고 원인을 파악해줘
+7. 주요 항목별 증감을 구체적 금액과 퍼센트로 표시해줘
+8. 마지막에 다음 달 주의사항이나 제안을 포함해줘
+9. 줄바꿈은 <br> 태그를 사용해줘
+10. 은퇴 플랜 코칭은 포함하지 마 (별도로 생성됨)
+11. 응답은 HTML summary 본문만 반환해. JSON이나 마크다운 코드블록으로 감싸지 마
+12. 한국어로 작성해`;
+
+app.post("/api/report/generate", async (req, res) => {
+  try {
+    const { year, month } = req.body;
+    if (!year || !month) {
+      return res.status(400).json({ error: "year and month required" });
+    }
+
+    const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+    const geminiModel = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+    if (!geminiApiKey) {
+      return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
+    }
+
+    const mn = String(month).padStart(2, "0");
+    const prevMn = String(parseInt(month) - 1).padStart(2, "0");
+    const prevYear = parseInt(month) === 1 ? String(parseInt(year) - 1) : year;
+    const prevMonth = parseInt(month) === 1 ? "12" : prevMn;
+
+    // Read CSV data
+    const financialDir = path.resolve(__dirname, "../financial");
+    const csvPath = path.join(financialDir, `${year}.csv`);
+
+    if (!fs.existsSync(csvPath)) {
+      return res.status(404).json({ error: `${year}.csv not found` });
+    }
+
+    let csvData = fs.readFileSync(csvPath, "utf-8");
+
+    // 전년도 CSV도 읽기 (1월인 경우 전년도 12월 비교 필요)
+    if (parseInt(month) === 1) {
+      const prevCsvPath = path.join(financialDir, `${prevYear}.csv`);
+      if (fs.existsSync(prevCsvPath)) {
+        const prevCsvData = fs.readFileSync(prevCsvPath, "utf-8");
+        csvData = `=== ${prevYear}년 데이터 ===\n${prevCsvData}\n\n=== ${year}년 데이터 ===\n${csvData}`;
+      }
+    }
+
+    const userPrompt = `아래는 ${year}년 가계부 CSV 데이터입니다. ${prevYear}년 ${prevMonth}월과 ${year}년 ${mn}월을 비교 분석한 월간 브리핑을 작성해줘.\n\n${csvData}`;
+
+    console.log(`[Report] Generating AI report for ${year}-${mn}...`);
+    const report = await callGemini(geminiApiKey, geminiModel, REPORT_PROMPT, [{ text: userPrompt }], null);
+
+    if (!report) {
+      return res.status(500).json({ error: "Gemini returned empty response" });
+    }
+
+    // Clean up response (remove markdown code blocks if present)
+    let cleanReport = report.trim();
+    if (cleanReport.startsWith("```html")) cleanReport = cleanReport.slice(7);
+    else if (cleanReport.startsWith("```")) cleanReport = cleanReport.slice(3);
+    if (cleanReport.endsWith("```")) cleanReport = cleanReport.slice(0, -3);
+    cleanReport = cleanReport.trim();
+
+    // Determine trend
+    const hasUp = cleanReport.includes("up-color") || cleanReport.includes("증가");
+    const hasDown = cleanReport.includes("down-color") || cleanReport.includes("감소");
+    const trend = hasUp && !hasDown ? "up" : hasDown && !hasUp ? "down" : "neutral";
+
+    // Update summary.json
+    const summaryPath = path.join(financialDir, "summary.json");
+    let summaries = {};
+    if (fs.existsSync(summaryPath)) {
+      summaries = JSON.parse(fs.readFileSync(summaryPath, "utf-8"));
+    }
+
+    if (!summaries[year]) summaries[year] = {};
+    summaries[year][mn] = {
+      date: new Date().toISOString().split("T")[0],
+      period: `${prevMonth}월 → ${mn}월`,
+      trend,
+      summary: cleanReport
+    };
+
+    fs.writeFileSync(summaryPath, JSON.stringify(summaries, null, 2), "utf-8");
+    console.log(`[Report] summary.json updated for ${year}-${mn}`);
+
+    // Git commit & push
+    try {
+      execSync(`git add summary.json && git commit -m "${year}년 ${parseInt(mn)}월 AI 브리핑 리포트 생성" && git push`, {
+        cwd: financialDir,
+        stdio: "pipe",
+        timeout: 30000
+      });
+      console.log(`[Report] Git push completed for ${year}-${mn}`);
+    } catch (gitErr) {
+      console.error("[Report] Git push failed:", gitErr.message);
+      // Still return success - the file was updated locally
+    }
+
+    res.json({
+      success: true,
+      year,
+      month: mn,
+      summary: summaries[year][mn]
+    });
+
+  } catch (err) {
+    console.error("[Report] Error generating report:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const API_PORT = parseInt(process.env.PORT || "3200", 10);
+app.listen(API_PORT, () => {
+  console.log(`API server listening on port ${API_PORT}`);
+});
 
 // --- Long polling ---
 
