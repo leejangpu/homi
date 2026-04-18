@@ -370,6 +370,7 @@
   .jexcel td.cell-subcategory{background:rgba(10,16,26,0.8)!important;color:var(--text)!important;}
   .jexcel td.cell-owner{background:rgba(10,16,26,0.8)!important;color:var(--text-muted)!important;text-align:center!important;font-size:12px!important;}
   .jexcel td.cell-total{background:rgba(45,212,191,0.05)!important;color:var(--primary-light)!important;font-weight:700!important;}
+  .jexcel td input, .jexcel td textarea, .jexcel_editor { color: var(--text) !important; background: rgba(12,18,30,0.95) !important; }
 
   ::-webkit-scrollbar{width:5px;height:5px;}
   ::-webkit-scrollbar-track{background:transparent;}
@@ -616,6 +617,7 @@ const THIS_YEAR=TODAY.getFullYear();
 function parseCSV(t){const rows=[];let c='',q=false,row=[];for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch==='"'&&t[i+1]==='"'){c+='"';i++;}else if(ch==='"')q=false;else c+=ch;}else{if(ch==='"')q=true;else if(ch===','){row.push(c);c='';}else if(ch==='\n'||(ch==='\r'&&t[i+1]==='\n')){row.push(c);c='';rows.push(row);row=[];if(ch==='\r')i++;}else c+=ch;}}if(c||row.length){row.push(c);rows.push(row);}const mx=Math.max(...rows.map(r=>r.length));rows.forEach(r=>{while(r.length<mx)r.push('');});return rows;}
 function toCSV(d){return d.map(r=>r.map(c=>{const s=String(c??'');return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');}
 function parseNum(s){if(!s)return 0;s=String(s).trim().replace(/[₩,\s]/g,'');if(!s||s==='-'||s.startsWith('#'))return 0;const n=parseFloat(s);return isNaN(n)?0:n;}
+function autoFormatAmount(val){if(!val)return val;const s=String(val).trim();if(s==='-'||s===''||s.includes('%')||s.includes('▲')||s.includes('▼'))return val;const hasWon=s.includes('₩');const cleaned=s.replace(/[₩,\s]/g,'');if(!cleaned||isNaN(cleaned))return val;const n=parseFloat(cleaned);if(isNaN(n))return val;const formatted=n.toLocaleString('ko-KR');return hasWon?'₩'+formatted:formatted;}
 function fmtNum(n){if(n===0)return'-';return n.toLocaleString('ko-KR');}
 function fmtWon(n){if(!n)return'-';const a=Math.abs(n);const sign=n<0?'-':'';if(a<10000)return sign+a.toLocaleString('ko-KR')+'원';if(a>=100000000){const eok=Math.floor(a/100000000);const man=Math.round((a%100000000)/10000);return sign+eok+'억'+(man?man.toLocaleString('ko-KR')+'만':'')+'원';}return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만원';}
 function destroyCharts(){chartInstances.forEach(c=>{try{c.dispose();}catch(e){}});chartInstances=[];}
@@ -1398,7 +1400,7 @@ function renderSpreadsheet(container,key){
     tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
-    onchange:()=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);},
+    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}},
     oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);},
     ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);}
   });
@@ -1431,6 +1433,22 @@ function applyCellStyles(){
         if(c===1) td.classList.add('cell-category');
         else if(c===2) td.classList.add('cell-subcategory');
         else if(c===3) td.classList.add('cell-owner');
+      }
+
+      // 전월 대비 변동률 (월 데이터 열, c>=4, 헤더/합계 행 제외)
+      td.removeAttribute('title');
+      td.style.borderLeft='';
+      if(c>=4 && !isHeader && !isTotal){
+        const cur=parseNum(row[c]);
+        const prev=parseNum(row[c-1]);
+        if(cur!==0 && prev!==0){
+          const change=(cur-prev)/Math.abs(prev)*100;
+          if(Math.abs(change)>=0.01){
+            const sign=change>0?'+':'';
+            td.setAttribute('title','전월대비 '+sign+change.toFixed(1)+'%');
+            td.style.borderLeft=`3px solid ${change>0?'var(--green)':'var(--red)'}`;
+          }
+        }
       }
     }
   }
