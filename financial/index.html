@@ -390,6 +390,46 @@
   .cell-tooltip .tt-value.flat{color:var(--text-dim);}
   .cell-tooltip .tt-divider{height:1px;background:var(--border);margin:6px 0;}
 
+  .gh-modal-overlay{
+    position:fixed;inset:0;z-index:2000;
+    background:rgba(0,0,0,0.7);
+    display:flex;align-items:center;justify-content:center;
+    backdrop-filter:blur(4px);
+  }
+  .gh-modal{
+    background:rgba(15,20,35,0.98);border:1px solid var(--border);
+    border-radius:16px;padding:32px;max-width:420px;width:90%;
+    box-shadow:0 24px 80px rgba(0,0,0,0.6);
+  }
+  .gh-modal h3{font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text);}
+  .gh-modal p{font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:16px;}
+  .gh-modal a{color:var(--primary);text-decoration:underline;}
+  .gh-modal input{
+    width:100%;padding:10px 12px;
+    background:rgba(255,255,255,0.06);border:1px solid var(--border);
+    border-radius:8px;color:var(--text);font-family:var(--font-num);font-size:13px;
+    outline:none;margin-bottom:12px;box-sizing:border-box;
+  }
+  .gh-modal input:focus{border-color:var(--primary);}
+  .gh-modal .btn-row{display:flex;gap:8px;justify-content:flex-end;}
+  .gh-modal .btn-row button{
+    padding:8px 20px;border-radius:8px;border:none;cursor:pointer;
+    font-family:var(--font-ui);font-size:13px;font-weight:600;
+  }
+  .gh-modal .btn-cancel{background:rgba(255,255,255,0.06);color:var(--text-muted);}
+  .gh-modal .btn-save{background:var(--primary);color:#070b14;}
+  .gh-connected{color:var(--green);font-size:11px;font-weight:600;margin-left:8px;}
+
+  .filter-bar{display:flex;gap:4px;margin-left:auto;}
+  .filter-btn{
+    padding:4px 12px;border-radius:6px;border:1px solid var(--border);
+    background:transparent;color:var(--text-muted);cursor:pointer;
+    font-family:var(--font-ui);font-size:11px;font-weight:600;
+    transition:all .2s;
+  }
+  .filter-btn:hover{background:var(--bg-hover);color:var(--text);}
+  .filter-btn.active{background:rgba(45,212,191,0.12);color:var(--primary);border-color:rgba(45,212,191,0.3);}
+
   ::-webkit-scrollbar{width:5px;height:5px;}
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px;}
@@ -624,6 +664,7 @@ const rawSheets={};
 const sections={};
 let activeYear=null, activeSection='dashboard', selectedMonthIdx=-1;
 let assetViewMode='group'; // 'group' or 'detail'
+let activeFilter='all';
 let jexcelInstance=null;
 let chartInstances=[];
 let aiSummaries={}; // loaded from summary.json
@@ -697,7 +738,17 @@ function splitSections(year){
     else if(mode==='asset'){
       // % 행 제외: col1 비어있고 월 데이터에 ▲/▼/% 포함
       const isPercentRow=!c1 && data[r].slice(monthStart).some(v=>/[▲▼]|^\d+\.\d+%$/.test(String(v||'').trim()));
-      if(!isPercentRow) astRows.push(r);
+      if(isPercentRow){
+        const c2pct=(data[r][2]||'').trim();
+        if(c2pct && astRows.length>0){
+          const prevR=astRows[astRows.length-1];
+          const prevC2=(data[prevR][2]||'').trim();
+          if(prevC2 && !prevC2.includes(c2pct)) data[prevR][2]=prevC2+' ('+c2pct+')';
+          else if(!prevC2) data[prevR][2]=c2pct;
+        }
+      } else {
+        astRows.push(r);
+      }
     }
     else{if(c1==='저축합계'||c1==='지출합계')expRows.push(r);}
   }
@@ -772,7 +823,7 @@ function renderSectionTabs(){
   document.getElementById('sectionTabs').innerHTML=tabs.map(t=>`<button class="sec-tab ${t.id===activeSection?'active':''}" onclick="switchSection('${t.id}')">${t.dot?`<span class="dot" style="background:var(--${t.dot})"></span>`:''}${t.label}</button>`).join('');
 }
 function switchYear(y){activeYear=y;activeSection='dashboard';selectedMonthIdx=-1;renderYearTabs();renderSectionTabs();renderView();}
-function switchSection(s){activeSection=s;renderSectionTabs();renderView();}
+function switchSection(s){activeSection=s;activeFilter='all';renderSectionTabs();renderView();}
 
 function renderView(){
   destroyCharts();
@@ -1415,7 +1466,7 @@ function renderSpreadsheet(container,key){
       </table></div>
     </div>`;
   }
-  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">&#9729; GitHub 저장</button><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>${irregularHtml}`;
+  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">&#9729; GitHub 저장</button><span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>${irregularHtml}`;
   const nc=sData[0].length;
   const cols=[];for(let i=0;i<nc;i++)cols.push({type:'text',width:i===0?30:i<=2?110:i===3?60:95});
   jexcelInstance=jspreadsheet(document.getElementById('spreadsheet'),{
@@ -1423,13 +1474,15 @@ function renderSpreadsheet(container,key){
     tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
-    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}},
-    oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);},
-    ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);},
+    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}},
+    oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);},
+    ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);},
     onselection:(instance,x1,y1,x2,y2)=>{showCellTooltip(x1,y1);},
     onblur:()=>{hideCellTooltip();}
   });
   setTimeout(applyCellStyles,100);
+  setTimeout(applyFilter,150);
+  updateGhStatus();
 }
 
 function applyCellStyles(){
@@ -1463,6 +1516,33 @@ function applyCellStyles(){
     }
   }
 }
+function setFilter(filter, btn){
+  activeFilter=filter;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  applyFilter();
+}
+
+function applyFilter(){
+  if(!jexcelInstance)return;
+  const data=jexcelInstance.getData();
+  const tbody=document.querySelector('#spreadsheet .jexcel tbody');
+  if(!tbody)return;
+  const rows=tbody.querySelectorAll('tr');
+  for(let i=0;i<data.length;i++){
+    if(!rows[i])continue;
+    if(activeFilter==='all'){rows[i].style.display='';continue;}
+    const owner=(data[i][3]||'').trim();
+    const col1=(data[i][1]||'').trim();
+    const isAlwaysShow=i===0||!owner||col1==='합계'||col1==='계'||col1.includes('잔액');
+    if(isAlwaysShow||owner===activeFilter){
+      rows[i].style.display='';
+    }else{
+      rows[i].style.display='none';
+    }
+  }
+}
+
 function showCellTooltip(x, y) {
   const tip = document.getElementById('cellTooltip');
   if (!tip || !jexcelInstance) { hideCellTooltip(); return; }
@@ -1564,47 +1644,76 @@ function syncSectionsToRaw(year){
 }
 
 async function saveToGitHub(){
-  const token=localStorage.getItem('gh_token');
-  if(!token){
-    const t=prompt('GitHub Personal Access Token을 입력하세요 (repo 권한 필요):');
-    if(!t)return;
-    localStorage.setItem('gh_token',t);
+  let ghToken=localStorage.getItem('gh_token');
+  if(!ghToken){
+    showGhTokenModal();
+    return;
   }
-  const ghToken=localStorage.getItem('gh_token');
-  showSS('저장 중...');
+  await doGitHubSave(ghToken);
+}
 
+function showGhTokenModal(){
+  const overlay=document.createElement('div');
+  overlay.className='gh-modal-overlay';
+  overlay.innerHTML=`<div class="gh-modal">
+    <h3>GitHub 연결 설정</h3>
+    <p>처음 한 번만 설정하면 됩니다.<br>
+    <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">GitHub에서 Fine-grained Token 생성</a> 후 아래에 입력하세요.<br>
+    <small>권한: leejangpu/homi → Contents: Read and write</small></p>
+    <input type="password" id="ghTokenInput" placeholder="github_pat_..." autocomplete="off">
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="this.closest('.gh-modal-overlay').remove()">취소</button>
+      <button class="btn-save" onclick="confirmGhToken()">저장</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('ghTokenInput').focus();
+}
+
+async function confirmGhToken(){
+  const input=document.getElementById('ghTokenInput');
+  const token=(input?input.value:'').trim();
+  if(!token){alert('토큰을 입력하세요');return;}
+  try{
+    const res=await fetch('https://api.github.com/repos/leejangpu/homi',{
+      headers:{'Authorization':'token '+token}
+    });
+    if(!res.ok) throw new Error('인증 실패');
+  }catch(e){
+    alert('토큰 검증 실패: '+e.message);return;
+  }
+  localStorage.setItem('gh_token',token);
+  document.querySelector('.gh-modal-overlay').remove();
+  updateGhStatus();
+  await doGitHubSave(token);
+}
+
+async function doGitHubSave(ghToken){
+  showSS('저장 중...');
   try{
     syncSectionsToRaw(activeYear);
     const csv=toCSV(rawSheets[activeYear]);
-    const filePath=`financial/${activeYear}.csv`;
+    const filePath='financial/'+activeYear+'.csv';
 
-    // Get current file SHA
-    const getRes=await fetch(`https://api.github.com/repos/leejangpu/homi/contents/${filePath}`,{
-      headers:{'Authorization':`token ${ghToken}`,'Accept':'application/vnd.github.v3+json'}
+    const getRes=await fetch('https://api.github.com/repos/leejangpu/homi/contents/'+filePath,{
+      headers:{'Authorization':'token '+ghToken,'Accept':'application/vnd.github.v3+json'}
     });
     if(!getRes.ok){
-      if(getRes.status===401){localStorage.removeItem('gh_token');showSS('인증 실패 — 토큰을 다시 입력하세요');return;}
+      if(getRes.status===401){localStorage.removeItem('gh_token');updateGhStatus();showSS('인증 만료 — 다시 시도하세요');return;}
       throw new Error('파일 조회 실패: '+getRes.status);
     }
     const fileInfo=await getRes.json();
 
-    // Update file
     const content=btoa(unescape(encodeURIComponent('\uFEFF'+csv)));
-    const putRes=await fetch(`https://api.github.com/repos/leejangpu/homi/contents/${filePath}`,{
+    const putRes=await fetch('https://api.github.com/repos/leejangpu/homi/contents/'+filePath,{
       method:'PUT',
-      headers:{'Authorization':`token ${ghToken}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
-      body:JSON.stringify({
-        message:`가계부 ${activeYear} 업데이트`,
-        content:content,
-        sha:fileInfo.sha
-      })
+      headers:{'Authorization':'token '+ghToken,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+      body:JSON.stringify({message:'가계부 '+activeYear+' 업데이트',content:content,sha:fileInfo.sha})
     });
     if(!putRes.ok){
-      if(putRes.status===401){localStorage.removeItem('gh_token');showSS('인증 실패');return;}
+      if(putRes.status===401){localStorage.removeItem('gh_token');updateGhStatus();showSS('인증 실패');return;}
       throw new Error('저장 실패: '+putRes.status);
     }
-
-    // Re-parse the saved data to update sections (MoM/YoY 재계산)
     splitSections(activeYear);
     renderView();
     showSS('GitHub 저장 완료 ✓');
@@ -1612,6 +1721,12 @@ async function saveToGitHub(){
     console.error(e);
     showSS('저장 실패: '+e.message);
   }
+}
+
+function updateGhStatus(){
+  const el=document.getElementById('ghStatus');
+  if(!el)return;
+  el.textContent=localStorage.getItem('gh_token')?'연결됨':'';
 }
 
 function sheetInsertRow(){if(jexcelInstance)jexcelInstance.insertRow();showSS('행 추가됨');}
