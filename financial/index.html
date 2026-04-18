@@ -994,6 +994,67 @@ function generateMonthlySummary(sec, months) {
     parts.push(`급여 대비 잔액이 ${fmtWon(balCur)}으로 개선되었습니다.`);
   }
 
+  // ── 은퇴 플랜 코칭 ──
+  const assetGroups = sec.asset.groups || [];
+  const _totalPos = assetGroups.filter(a=>a.value>0).reduce((s,a)=>s+a.value,0);
+  const _totalDebt = assetGroups.filter(a=>a.value<0).reduce((s,a)=>s+a.value,0);
+  const _netAsset = _totalPos + _totalDebt;
+
+  if (_netAsset > 0) {
+    const GOAL = 1500000000, GOAL_START = 2026, GOAL_END = 2036;
+    const remaining = GOAL - _netAsset;
+    const remainYears = Math.max(1, GOAL_END - THIS_YEAR);
+    const needPerYear = remaining > 0 ? remaining / remainYears : 0;
+    const goalPct = (_netAsset / GOAL * 100).toFixed(1);
+
+    // 부동산 제외 유동자산 계산
+    const housingVal = assetGroups.filter(a=>a.name && a.name.includes('부동산')).reduce((s,a)=>s+a.value,0);
+    const liquidAssets = _netAsset - housingVal;
+
+    parts.push(`<br><span class="highlight">── 은퇴 플랜 코칭 ──</span>`);
+    parts.push(`순자산 ${fmtWon(_netAsset)} (목표 15억의 ${goalPct}%).`);
+
+    if (housingVal > 0) {
+      parts.push(`부동산(${fmtWon(housingVal)}) 제외 유동자산은 <span class="highlight">${fmtWon(liquidAssets)}</span>이며, 실질적으로 근로소득과 금융소득으로 채워야 할 금액입니다.`);
+    }
+
+    if (needPerYear > 0) {
+      parts.push(`남은 ${remainYears}년간 연 <span class="warn">${fmtWon(needPerYear)}</span> 순자산 증가가 필요합니다.`);
+
+      // 현재 저축 속도 평가
+      const annualSavings = savCur * 12;
+      if (annualSavings > 0) {
+        const coverage = (annualSavings / needPerYear * 100);
+        if (coverage < 50) {
+          parts.push(`<span class="down">현재 월 저축(${fmtWon(savCur)}, 연 ${fmtWon(annualSavings)})은 필요 금액의 ${coverage.toFixed(0)}%에 불과합니다. 저축 확대와 투자 수익률 개선이 시급합니다.</span>`);
+        } else if (coverage < 80) {
+          parts.push(`<span class="warn">현재 월 저축(${fmtWon(savCur)}, 연 ${fmtWon(annualSavings)})은 필요 금액의 ${coverage.toFixed(0)}% 수준입니다. 추가 소득원 확보나 지출 절감을 검토하세요.</span>`);
+        } else {
+          parts.push(`현재 월 저축(${fmtWon(savCur)}, 연 ${fmtWon(annualSavings)})으로 필요 금액의 ${coverage.toFixed(0)}%를 커버합니다.`);
+        }
+      }
+    }
+
+    // 소득 대비 지출 비율
+    if (incCur > 0 && expCur > 0) {
+      const expRatio = (expCur / incCur * 100);
+      if (expRatio > 50) {
+        parts.push(`<span class="warn">소득 대비 지출 비율 ${expRatio.toFixed(0)}% — 은퇴 가속화를 위해 40% 이하로 낮추는 것이 이상적입니다.</span>`);
+      } else {
+        parts.push(`소득 대비 지출 비율 ${expRatio.toFixed(0)}%로 양호합니다.`);
+      }
+    }
+
+    // 주요 개선 제안
+    const suggestions = [];
+    if (savCur > 0 && savCur * 12 < needPerYear) suggestions.push('배당주 월 납입액 추가 확대');
+    if (expCur > 0 && incCur > 0 && expCur / incCur > 0.5) suggestions.push('변동지출(외식/쇼핑/여가) 절감');
+    suggestions.push('금융소득(배당/이자) 재투자 극대화');
+    if (suggestions.length) {
+      parts.push(`<span class="highlight">개선 방향:</span> ${suggestions.join(' · ')}`);
+    }
+  }
+
   // Title tag
   const overallTrend = (incPct||0) > 0 && (expPct||0) < 0 ? 'up' :
                        (incPct||0) < 0 && (expPct||0) > 0 ? 'down' : 'neutral';
