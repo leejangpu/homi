@@ -1400,11 +1400,12 @@ function renderSpreadsheet(container,key){
     tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
-    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}},
-    oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);},
-    ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);}
+    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(autoCalcPercent,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}},
+    oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(autoCalcPercent,100);},
+    ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(autoCalcPercent,100);}
   });
   setTimeout(applyCellStyles,100);
+  setTimeout(autoCalcPercent,200);
 }
 
 function applyCellStyles(){
@@ -1435,20 +1436,49 @@ function applyCellStyles(){
         else if(c===3) td.classList.add('cell-owner');
       }
 
-      // 전월 대비 변동률 (월 데이터 열, c>=4, 헤더/합계 행 제외)
-      td.removeAttribute('title');
-      td.style.borderLeft='';
-      if(c>=4 && !isHeader && !isTotal){
-        const cur=parseNum(row[c]);
-        const prev=parseNum(row[c-1]);
-        if(cur!==0 && prev!==0){
-          const change=(cur-prev)/Math.abs(prev)*100;
-          if(Math.abs(change)>=0.01){
-            const sign=change>0?'+':'';
-            td.setAttribute('title','전월대비 '+sign+change.toFixed(1)+'%');
-            td.style.borderLeft=`3px solid ${change>0?'var(--green)':'var(--red)'}`;
-          }
-        }
+      // % 행 스타일링 (▲/▼ 기호로 시작하는 셀)
+      if(c>=4){
+        const cellVal=String(row[c]||'').trim();
+        if(cellVal.startsWith('▲')) td.style.color='var(--green)';
+        else if(cellVal.startsWith('▼')) td.style.color='var(--red)';
+        else if(cellVal.match(/^0\.0%$/)) td.style.color='var(--text-dim)';
+        else td.style.color='';
+      }
+    }
+  }
+}
+function autoCalcPercent(){
+  if(!jexcelInstance)return;
+  const data=jexcelInstance.getData();
+  for(let r=1;r<data.length-1;r++){
+    const row=data[r];
+    const nextRow=data[r+1];
+    // 값 행 판별: 월 데이터 열(4 이상)에 ₩가 포함된 값이 있는지
+    let isValueRow=false;
+    for(let c=4;c<row.length;c++){
+      if(String(row[c]||'').includes('₩')){isValueRow=true;break;}
+    }
+    if(!isValueRow)continue;
+    // 다음 행이 % 행인지: col1이 비어있으면 % 행으로 간주
+    const nc1=(nextRow[1]||'').trim();
+    const isPercentRow=!nc1;
+    if(!isPercentRow)continue;
+
+    // 각 월 열에 대해 % 계산
+    for(let c=4;c<row.length;c++){
+      const cur=parseNum(row[c]);
+      const prev=(c>4)?parseNum(row[c-1]):0;
+      if(cur!==0 && prev!==0){
+        const change=(cur-prev)/Math.abs(prev)*100;
+        let display;
+        if(Math.abs(change)<0.05) display='0.0%';
+        else if(change>0) display='▲ '+change.toFixed(1)+'%';
+        else display='▼ '+Math.abs(change).toFixed(1)+'%';
+        jexcelInstance.setValueFromCoords(c,r+1,display,true);
+      } else if(cur===0 && prev!==0){
+        jexcelInstance.setValueFromCoords(c,r+1,'▼ 100.0%',true);
+      } else {
+        if(c>4) jexcelInstance.setValueFromCoords(c,r+1,'',true);
       }
     }
   }
