@@ -581,7 +581,7 @@
   .hamburger-btn:hover{background:var(--bg-hover);color:var(--text);border-color:rgba(56,217,192,0.25);box-shadow:0 0 10px rgba(56,217,192,0.06);}
 
   /* App containers */
-  #lotto-app,#infinite-buy-app{padding:24px var(--pad) 56px;position:relative;z-index:1;}
+  #lotto-app,#infinite-buy-app,#vr-calc-app{padding:24px var(--pad) 56px;position:relative;z-index:1;}
 
   /* ── LOTTO ── */
   .lotto-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px;}
@@ -677,10 +677,129 @@
   @media(max-width:768px){
     .lotto-stats{grid-template-columns:1fr;}
     .ib-grid{grid-template-columns:1fr;}
-    #lotto-app,#infinite-buy-app{padding:16px var(--pad) 36px;}
+    #lotto-app,#infinite-buy-app,#vr-calc-app{padding:16px var(--pad) 36px;}
   }
   @media(max-width:480px){
     .lotto-stats{grid-template-columns:repeat(3,1fr);}
+  }
+
+  /* ── VR CALCULATOR ── */
+  #vr-calc-app{padding:24px var(--pad) 56px;position:relative;z-index:1;}
+  .vr-input-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+  .vr-field{display:flex;flex-direction:column;gap:5px;}
+  .vr-field label{font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:.6px;text-transform:uppercase;}
+  .vr-field input{
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:10px 14px;
+    color:var(--text);
+    font-family:var(--font-num);
+    font-size:14px;font-weight:500;
+    outline:none;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .vr-field input:focus{border-color:rgba(56,217,192,0.4);box-shadow:0 0 12px rgba(56,217,192,0.1);}
+  .vr-field input::placeholder{color:var(--text-dim);font-size:12px;}
+  .vr-summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+  .vr-summary-card{
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    box-shadow:var(--shadow-card);
+    transition:all .25s var(--ease-out-expo);
+  }
+  .vr-summary-card:hover{border-color:rgba(56,217,192,0.15);box-shadow:var(--shadow-card-hover);}
+  .vr-card-label{font-size:11px;color:var(--text-muted);font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .vr-card-value{font-family:var(--font-num);font-size:20px;font-weight:700;color:var(--text);}
+  .vr-card-sub{font-family:var(--font-num);font-size:12px;color:var(--text-muted);margin-top:4px;}
+  .vr-detail-card{
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    margin-bottom:24px;
+    box-shadow:var(--shadow-card);
+  }
+  .vr-detail-title{font-size:12px;font-weight:700;color:var(--text-dim);letter-spacing:.6px;text-transform:uppercase;margin-bottom:16px;}
+  .vr-detail-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03);}
+  .vr-detail-row:last-child{border-bottom:none;}
+  .vr-detail-label{font-size:13px;color:var(--text-muted);font-weight:500;}
+  .vr-detail-value{font-family:var(--font-num);font-size:14px;font-weight:600;color:var(--text);}
+  .vr-order-wrap{
+    display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;
+  }
+  .vr-order-card{
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    box-shadow:var(--shadow-card);
+    max-height:420px;overflow-y:auto;
+  }
+  .vr-order-card::-webkit-scrollbar{width:4px;}
+  .vr-order-card::-webkit-scrollbar-track{background:transparent;}
+  .vr-order-card::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px;}
+  .vr-order-title{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:14px;}
+  .vr-order-title.buy{color:var(--green);}
+  .vr-order-title.sell{color:var(--red);}
+  .vr-order-title.hold{color:var(--text-muted);}
+  .vr-order-table{width:100%;border-collapse:collapse;}
+  .vr-order-table th{
+    font-size:10px;color:var(--text-dim);font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+    text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);
+  }
+  .vr-order-table th:first-child{text-align:center;width:36px;}
+  .vr-order-table td{
+    font-family:var(--font-num);font-size:12px;font-weight:500;color:var(--text);
+    text-align:right;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.025);
+  }
+  .vr-order-table td:first-child{text-align:center;color:var(--text-dim);}
+  .vr-order-table tr.total-row td{
+    font-weight:700;border-top:1px solid var(--border);border-bottom:none;
+    padding-top:10px;
+  }
+  .vr-signal{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:6px 16px;border-radius:8px;
+    font-size:14px;font-weight:700;
+  }
+  .vr-signal.buy{background:rgba(54,219,160,0.12);color:var(--green);border:1px solid rgba(54,219,160,0.22);}
+  .vr-signal.sell{background:rgba(249,112,136,0.12);color:var(--red);border:1px solid rgba(249,112,136,0.22);}
+  .vr-signal.hold{background:rgba(134,148,168,0.08);color:var(--text-muted);border:1px solid var(--border);}
+  .vr-btn{
+    display:block;width:100%;
+    padding:14px 24px;
+    background:linear-gradient(135deg,var(--primary),#2ab8a2);
+    border:none;border-radius:var(--radius-sm);
+    color:#060a12;font-family:var(--font-ui);
+    font-size:14px;font-weight:700;letter-spacing:.3px;
+    cursor:pointer;
+    transition:all .2s var(--ease-out-expo);
+    box-shadow:0 2px 12px rgba(56,217,192,0.25);
+  }
+  .vr-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(56,217,192,0.35);}
+  .vr-btn:active{transform:translateY(0);}
+  .vr-toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:var(--primary);color:#060a12;
+    padding:12px 28px;border-radius:var(--radius-sm);
+    font-weight:700;font-size:13px;
+    box-shadow:0 4px 20px rgba(56,217,192,0.3);
+    transition:transform .3s var(--ease-spring);
+    z-index:9000;
+  }
+  .vr-toast.show{transform:translateX(-50%) translateY(0);}
+
+  @media(max-width:768px){
+    .vr-input-grid{grid-template-columns:repeat(2,1fr);}
+    .vr-summary-grid{grid-template-columns:1fr;}
+    .vr-order-wrap{grid-template-columns:1fr;}
+    #vr-calc-app{padding:16px var(--pad) 36px;}
+  }
+  @media(max-width:400px){
+    .vr-input-grid{grid-template-columns:1fr;}
   }
 
   /* ── LOCK SCREEN ── */
@@ -903,6 +1022,9 @@
     <div class="drawer-item" id="nav-infinite-buy" onclick="switchApp('infinite-buy')">
       <span class="drawer-item-icon">📈</span>무한매수법
     </div>
+    <div class="drawer-item" id="nav-vr-calc" onclick="switchApp('vr-calc')">
+      <span class="drawer-item-icon">⚖️</span>VR 계산기
+    </div>
   </div>
   <div class="drawer-footer">HOMI · Home Automation</div>
 </div>
@@ -929,6 +1051,9 @@
 
 <!-- 무한매수법 앱 -->
 <div id="infinite-buy-app" style="display:none"></div>
+
+<!-- VR 계산기 앱 -->
+<div id="vr-calc-app" style="display:none"></div>
 
 </div><!-- /appWrap -->
 
@@ -973,7 +1098,7 @@ function switchApp(app){
   activeApp = app;
   closeDrawer();
   // Update nav active state
-  ['financial','lotto','infinite-buy'].forEach(a=>{
+  ['financial','lotto','infinite-buy','vr-calc'].forEach(a=>{
     const el = document.getElementById('nav-'+a);
     if(el) el.classList.toggle('active', a===app);
   });
@@ -981,9 +1106,11 @@ function switchApp(app){
   document.getElementById('financial-app').style.display = app==='financial' ? '' : 'none';
   document.getElementById('lotto-app').style.display = app==='lotto' ? '' : 'none';
   document.getElementById('infinite-buy-app').style.display = app==='infinite-buy' ? '' : 'none';
+  document.getElementById('vr-calc-app').style.display = app==='vr-calc' ? '' : 'none';
   // Render the selected app
   if(app==='lotto') renderLotto();
   else if(app==='infinite-buy') renderInfiniteBuy();
+  else if(app==='vr-calc') renderVRCalc();
 }
 
 // ===== Lotto Render =====
@@ -2467,6 +2594,298 @@ function sheetDownload(){
   a.download=`${activeYear}_${n[activeSection]||activeSection}.csv`;a.click();URL.revokeObjectURL(a.href);showSS('CSV 저장됨');
 }
 function showSS(m){const el=document.getElementById('sheetStatus');if(!el)return;el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+
+// ===== VR Calculator =====
+let vrState = null;
+let vrRendered = false;
+
+async function loadVRState(){
+  try{
+    const r = await fetch('./vr-state.json?t='+Date.now());
+    if(r.ok) vrState = await r.json();
+  }catch(e){ vrState = null; }
+}
+
+function vrFmt(n, decimals=2){
+  if(n==null || isNaN(n)) return '-';
+  return '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+function vrFmtNum(n, decimals=2){
+  if(n==null || isNaN(n)) return '-';
+  return Number(n).toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+
+function vrGetInputs(){
+  const g = id => {const el=document.getElementById(id); return el?parseFloat(el.value)||0:0;};
+  const gs = id => {const el=document.getElementById(id); return el?el.value.trim():'';};
+  return {
+    ticker: gs('vr-ticker') || 'QLD',
+    currentPrice: g('vr-currentPrice'),
+    totalQuantity: g('vr-totalQuantity'),
+    targetValue: g('vr-targetValue'),
+    pool: g('vr-pool'),
+    gradient: g('vr-gradient') || 10,
+    bandPercent: g('vr-bandPercent') || 15,
+    periodicAmount: g('vr-periodicAmount'),
+    weekNumber: g('vr-weekNumber'),
+  };
+}
+
+function vrCalculate(inp){
+  const { currentPrice, totalQuantity, targetValue, pool, gradient, bandPercent, periodicAmount, weekNumber } = inp;
+
+  // 1. 현재 평가금
+  const currentEvaluation = totalQuantity * currentPrice;
+
+  // 2. V값 업데이트 (실력공식)
+  const poolContribution = pool / gradient;
+  const skillAdjustment = (currentEvaluation - targetValue) / (2 * Math.sqrt(gradient));
+  const newV = targetValue + poolContribution + skillAdjustment + periodicAmount;
+
+  // 3. 밴드 계산
+  const bandRate = bandPercent / 100;
+  const minBand = newV * (1 - bandRate);
+  const maxBand = newV * (1 + bandRate);
+
+  // 4. Pool 사용 한도
+  const decaySteps = Math.floor(weekNumber / 26);
+  const poolLimit = Math.max(0.10, 0.75 - decaySteps * 0.05);
+  const poolAvailable = pool * poolLimit;
+
+  // 5. 매매 판단
+  let signal = 'hold';
+  if(currentEvaluation < minBand) signal = 'buy';
+  else if(currentEvaluation > maxBand) signal = 'sell';
+
+  // 6. 매수 주문 생성
+  const buyOrders = [];
+  if(signal === 'buy' && currentPrice > 0){
+    let spent = 0;
+    for(let n=1; n<=20; n++){
+      const targetQty = totalQuantity + n;
+      const orderPrice = minBand / targetQty;
+      if(orderPrice <= 0) break;
+      const orderAmount = orderPrice; // 1주당
+      if(spent + orderAmount > poolAvailable) break;
+      spent += orderAmount;
+      buyOrders.push({ seq: n, targetQty, price: orderPrice, amount: orderAmount });
+    }
+  }
+
+  // 7. 매도 주문 생성
+  const sellOrders = [];
+  if(signal === 'sell' && totalQuantity > 0 && currentPrice > 0){
+    for(let n=1; n<=20; n++){
+      const targetQty = totalQuantity - n;
+      if(targetQty <= 0) break;
+      const orderPrice = maxBand / targetQty;
+      const orderAmount = orderPrice; // 1주당
+      sellOrders.push({ seq: n, targetQty, price: orderPrice, amount: orderAmount });
+    }
+  }
+
+  return {
+    currentEvaluation, newV, poolContribution, skillAdjustment,
+    minBand, maxBand, signal, poolLimit, poolAvailable,
+    buyOrders, sellOrders,
+    diffPercent: targetValue ? ((currentEvaluation - targetValue) / targetValue * 100) : 0,
+    vChange: newV - targetValue,
+  };
+}
+
+function vrRenderResult(){
+  const inp = vrGetInputs();
+  const r = vrCalculate(inp);
+  const resultEl = document.getElementById('vr-result');
+  if(!resultEl) return;
+
+  const signalLabel = r.signal === 'buy' ? 'BUY (매수)' : r.signal === 'sell' ? 'SELL (매도)' : 'HOLD (홀드)';
+  const signalIcon = r.signal === 'buy' ? '🟢' : r.signal === 'sell' ? '🔴' : '⚪';
+  const diffColor = r.diffPercent >= 0 ? 'var(--green)' : 'var(--red)';
+  const vChangeColor = r.vChange >= 0 ? 'var(--green)' : 'var(--red)';
+
+  let html = `
+  <div class="vr-summary-grid">
+    <div class="vr-summary-card">
+      <div class="vr-card-label">현재 평가금 vs V</div>
+      <div class="vr-card-value">${vrFmt(r.currentEvaluation)}</div>
+      <div class="vr-card-sub">V: ${vrFmt(inp.targetValue)} <span style="color:${diffColor}">(${r.diffPercent>=0?'+':''}${r.diffPercent.toFixed(1)}%)</span></div>
+    </div>
+    <div class="vr-summary-card">
+      <div class="vr-card-label">밴드 범위</div>
+      <div class="vr-card-value" style="font-size:16px">${vrFmt(r.minBand)} ~ ${vrFmt(r.maxBand)}</div>
+      <div class="vr-card-sub">밴드폭 ${inp.bandPercent}%</div>
+    </div>
+    <div class="vr-summary-card">
+      <div class="vr-card-label">매매 판단</div>
+      <div style="margin-top:4px"><span class="vr-signal ${r.signal}">${signalIcon} ${signalLabel}</span></div>
+      <div class="vr-card-sub">Pool 한도 ${(r.poolLimit*100).toFixed(0)}% (${vrFmt(r.poolAvailable)})</div>
+    </div>
+  </div>
+
+  <div class="vr-detail-card">
+    <div class="vr-detail-title">새 V값 계산 내역</div>
+    <div class="vr-detail-row">
+      <span class="vr-detail-label">기존 V</span>
+      <span class="vr-detail-value">${vrFmt(inp.targetValue)}</span>
+    </div>
+    <div class="vr-detail-row">
+      <span class="vr-detail-label">Pool 기여분 (Pool/G)</span>
+      <span class="vr-detail-value" style="color:var(--green)">+${vrFmt(r.poolContribution)}</span>
+    </div>
+    <div class="vr-detail-row">
+      <span class="vr-detail-label">실력 조정분 ((E-V)/(2√G))</span>
+      <span class="vr-detail-value" style="color:${r.skillAdjustment>=0?'var(--green)':'var(--red)'}">${r.skillAdjustment>=0?'+':''}${vrFmt(r.skillAdjustment)}</span>
+    </div>
+    <div class="vr-detail-row">
+      <span class="vr-detail-label">2주 적립금</span>
+      <span class="vr-detail-value" style="color:var(--green)">+${vrFmt(inp.periodicAmount)}</span>
+    </div>
+    <div class="vr-detail-row" style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+      <span class="vr-detail-label" style="font-weight:700;color:var(--text)">새 V</span>
+      <span class="vr-detail-value" style="font-size:16px;color:var(--primary)">${vrFmt(r.newV)} <span style="font-size:12px;color:${vChangeColor}">(${r.vChange>=0?'+':''}${vrFmt(r.vChange)})</span></span>
+    </div>
+  </div>`;
+
+  // 주문 테이블
+  html += `<div class="vr-order-wrap">`;
+
+  // 매수 주문
+  html += `<div class="vr-order-card">
+    <div class="vr-order-title buy">매수 주문 (${r.buyOrders.length}건)</div>`;
+  if(r.buyOrders.length > 0){
+    const totalBuy = r.buyOrders.reduce((s,o)=>s+o.amount,0);
+    html += `<table class="vr-order-table">
+      <thead><tr><th>#</th><th>목표수량</th><th>주문가</th><th>금액</th></tr></thead><tbody>`;
+    r.buyOrders.forEach(o => {
+      html += `<tr><td>${o.seq}</td><td>${o.targetQty}</td><td>${vrFmt(o.price)}</td><td>${vrFmt(o.amount)}</td></tr>`;
+    });
+    html += `<tr class="total-row"><td></td><td></td><td style="color:var(--text-muted)">합계</td><td style="color:var(--green)">${vrFmt(totalBuy)}</td></tr>`;
+    html += `</tbody></table>`;
+  } else {
+    html += `<p style="color:var(--text-dim);font-size:12px">${r.signal==='buy'?'Pool 부족 또는 가격 조건 불충분':'매수 신호 없음'}</p>`;
+  }
+  html += `</div>`;
+
+  // 매도 주문
+  html += `<div class="vr-order-card">
+    <div class="vr-order-title sell">매도 주문 (${r.sellOrders.length}건)</div>`;
+  if(r.sellOrders.length > 0){
+    const totalSell = r.sellOrders.reduce((s,o)=>s+o.amount,0);
+    html += `<table class="vr-order-table">
+      <thead><tr><th>#</th><th>목표수량</th><th>주문가</th><th>금액</th></tr></thead><tbody>`;
+    r.sellOrders.forEach(o => {
+      html += `<tr><td>${o.seq}</td><td>${o.targetQty}</td><td>${vrFmt(o.price)}</td><td>${vrFmt(o.amount)}</td></tr>`;
+    });
+    html += `<tr class="total-row"><td></td><td></td><td style="color:var(--text-muted)">합계</td><td style="color:var(--red)">${vrFmt(totalSell)}</td></tr>`;
+    html += `</tbody></table>`;
+  } else {
+    html += `<p style="color:var(--text-dim);font-size:12px">${r.signal==='sell'?'매도 가능 수량 없음':'매도 신호 없음'}</p>`;
+  }
+  html += `</div></div>`;
+
+  resultEl.innerHTML = html;
+}
+
+function vrSave(){
+  const inp = vrGetInputs();
+  const r = vrCalculate(inp);
+  const state = {
+    ...inp,
+    lastUpdated: new Date().toISOString(),
+    computed: {
+      currentEvaluation: r.currentEvaluation,
+      newV: r.newV,
+      minBand: r.minBand,
+      maxBand: r.maxBand,
+      signal: r.signal,
+    }
+  };
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'vr-state.json'; a.click();
+  URL.revokeObjectURL(url);
+  vrShowToast('vr-state.json 다운로드 완료!');
+}
+
+function vrShowToast(msg){
+  let toast = document.getElementById('vrToast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'vrToast';
+    toast.className = 'vr-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'), 2500);
+}
+
+async function renderVRCalc(){
+  const container = document.getElementById('vr-calc-app');
+  if(!container) return;
+
+  if(!vrRendered){
+    await loadVRState();
+    const s = vrState || {};
+
+    container.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.6px;text-transform:uppercase;margin-bottom:16px">VR (Value Rebalancing) 계산기</div>
+    <div class="vr-input-grid">
+      <div class="vr-field">
+        <label>종목명</label>
+        <input type="text" id="vr-ticker" value="${s.ticker||'QLD'}" placeholder="예: QLD">
+      </div>
+      <div class="vr-field">
+        <label>현재가 ($)</label>
+        <input type="number" id="vr-currentPrice" value="${s.currentPrice||''}" step="0.01" placeholder="현재 주가">
+      </div>
+      <div class="vr-field">
+        <label>보유 수량</label>
+        <input type="number" id="vr-totalQuantity" value="${s.totalQuantity||0}" step="1" placeholder="보유 주수">
+      </div>
+      <div class="vr-field">
+        <label>목표 평가금 V ($)</label>
+        <input type="number" id="vr-targetValue" value="${s.targetValue||''}" step="0.01" placeholder="현재 V값">
+      </div>
+      <div class="vr-field">
+        <label>Pool ($)</label>
+        <input type="number" id="vr-pool" value="${s.pool||''}" step="0.01" placeholder="USD 현금 잔고">
+      </div>
+      <div class="vr-field">
+        <label>기울기 G</label>
+        <input type="number" id="vr-gradient" value="${s.gradient||10}" step="1" placeholder="10 또는 20">
+      </div>
+      <div class="vr-field">
+        <label>밴드 %</label>
+        <input type="number" id="vr-bandPercent" value="${s.bandPercent||15}" step="1" placeholder="15">
+      </div>
+      <div class="vr-field">
+        <label>2주 적립금 ($)</label>
+        <input type="number" id="vr-periodicAmount" value="${s.periodicAmount||0}" step="0.01" placeholder="2주마다 입금액">
+      </div>
+      <div class="vr-field">
+        <label>현재 주차</label>
+        <input type="number" id="vr-weekNumber" value="${s.weekNumber||0}" step="1" placeholder="경과 주">
+      </div>
+    </div>
+    <div id="vr-result"></div>
+    <button class="vr-btn" onclick="vrSave()" style="margin-top:8px">📥 vr-state.json 다운로드</button>
+    <p style="font-size:11px;color:var(--text-dim);margin-top:10px;text-align:center">다운로드한 파일을 financial/ 디렉토리에 넣고 커밋하면 다음 로드 시 자동 반영됩니다.</p>
+    `;
+
+    // 입력 필드에 이벤트 리스너 연결
+    const inputs = container.querySelectorAll('input');
+    inputs.forEach(inp => inp.addEventListener('input', vrRenderResult));
+
+    vrRendered = true;
+  }
+
+  // 초기 계산 실행
+  vrRenderResult();
+}
 
 // ===== Init =====
 async function init(){
