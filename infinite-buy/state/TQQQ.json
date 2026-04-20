@@ -8,13 +8,16 @@
   "starDecreaseRate": 0.005,
   "principal": 13123,
   "buyPerRound": 328.075,
-  "totalQuantity": 8,
-  "avgPrice": 55.845,
-  "totalInvested": 446.76,
-  "remainingCash": 12676.24,
-  "totalBuyAmount": 446.76,
+  "totalQuantity": 10,
+  "avgPrice": 56.292,
+  "totalInvested": 562.9200000000001,
+  "remainingCash": 12560.08,
+  "totalBuyAmount": 562.92,
   "totalSellAmount": 0,
-  "totalRealizedProfit": -446.76,
+  "totalRealizedProfit": -562.92,
   "startedAt": "2026-04-15T14:04:33.334Z",
-  "updatedAt": "2026-04-16T22:00:06.488Z"
+  "updatedAt": "2026-04-20T22:00:04.350Z",
+  "currentPrice": 58.08,
+  "unrealizedPnl": 17.879999999999967,
+  "unrealizedPnlRate": 0.03176295033041989
 }
