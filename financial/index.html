@@ -2657,30 +2657,28 @@ function vrCalculate(inp){
   if(currentEvaluation < minBand) signal = 'buy';
   else if(currentEvaluation > maxBand) signal = 'sell';
 
-  // 6. 매수 주문 생성
+  // 6. 매수 주문 생성 (항상 생성 - 밴드 아래 가격에 지정가 대기)
   const buyOrders = [];
-  if(signal === 'buy' && currentPrice > 0){
+  if(currentPrice > 0){
     let spent = 0;
     for(let n=1; n<=20; n++){
       const targetQty = totalQuantity + n;
-      const orderPrice = minBand / targetQty;
+      const orderPrice = Math.round((minBand / targetQty) * 100) / 100;
       if(orderPrice <= 0) break;
-      const orderAmount = orderPrice; // 1주당
-      if(spent + orderAmount > poolAvailable) break;
-      spent += orderAmount;
-      buyOrders.push({ seq: n, targetQty, price: orderPrice, amount: orderAmount });
+      if(spent + orderPrice > poolAvailable) break;
+      spent += orderPrice;
+      buyOrders.push({ seq: n, targetQty, price: orderPrice, qty: 1 });
     }
   }
 
-  // 7. 매도 주문 생성
+  // 7. 매도 주문 생성 (항상 생성 - 밴드 위 가격에 지정가 대기)
   const sellOrders = [];
-  if(signal === 'sell' && totalQuantity > 0 && currentPrice > 0){
+  if(totalQuantity > 0 && currentPrice > 0){
     for(let n=1; n<=20; n++){
       const targetQty = totalQuantity - n;
       if(targetQty <= 0) break;
-      const orderPrice = maxBand / targetQty;
-      const orderAmount = orderPrice; // 1주당
-      sellOrders.push({ seq: n, targetQty, price: orderPrice, amount: orderAmount });
+      const orderPrice = Math.round((maxBand / targetQty) * 100) / 100;
+      sellOrders.push({ seq: n, targetQty, price: orderPrice, qty: 1 });
     }
   }
 
@@ -2698,6 +2696,7 @@ function vrRenderResult(){
   const r = vrCalculate(inp);
   const resultEl = document.getElementById('vr-result');
   if(!resultEl) return;
+  const { totalQuantity, pool } = inp;
 
   const signalLabel = r.signal === 'buy' ? 'BUY (매수)' : r.signal === 'sell' ? 'SELL (매도)' : 'HOLD (홀드)';
   const signalIcon = r.signal === 'buy' ? '🟢' : r.signal === 'sell' ? '🔴' : '⚪';
@@ -2752,35 +2751,39 @@ function vrRenderResult(){
 
   // 매수 주문
   html += `<div class="vr-order-card">
-    <div class="vr-order-title buy">매수 주문 (${r.buyOrders.length}건)</div>`;
+    <div class="vr-order-title buy">매수 주문 (${r.buyOrders.length}건) ${r.signal==='buy'?'⬅ 현재 신호':''}
+    </div>
+    <p style="color:var(--text-dim);font-size:11px;margin:0 0 8px">이 가격 이하로 내려오면 1주씩 체결</p>`;
   if(r.buyOrders.length > 0){
-    const totalBuy = r.buyOrders.reduce((s,o)=>s+o.amount,0);
+    const totalBuy = r.buyOrders.reduce((s,o)=>s+o.price,0);
     html += `<table class="vr-order-table">
-      <thead><tr><th>#</th><th>목표수량</th><th>주문가</th><th>금액</th></tr></thead><tbody>`;
+      <thead><tr><th>#</th><th>체결 후 보유</th><th>수량</th><th>주문가</th></tr></thead><tbody>`;
     r.buyOrders.forEach(o => {
-      html += `<tr><td>${o.seq}</td><td>${o.targetQty}</td><td>${vrFmt(o.price)}</td><td>${vrFmt(o.amount)}</td></tr>`;
+      html += `<tr><td>${o.seq}</td><td>${o.targetQty}주</td><td>1주</td><td style="color:var(--green)">${vrFmt(o.price)}</td></tr>`;
     });
-    html += `<tr class="total-row"><td></td><td></td><td style="color:var(--text-muted)">합계</td><td style="color:var(--green)">${vrFmt(totalBuy)}</td></tr>`;
+    html += `<tr class="total-row"><td></td><td></td><td>${r.buyOrders.length}주</td><td style="color:var(--green)">${vrFmt(totalBuy)}</td></tr>`;
     html += `</tbody></table>`;
   } else {
-    html += `<p style="color:var(--text-dim);font-size:12px">${r.signal==='buy'?'Pool 부족 또는 가격 조건 불충분':'매수 신호 없음'}</p>`;
+    html += `<p style="color:var(--text-dim);font-size:12px">${totalQuantity===0&&pool===0?'보유 수량과 Pool을 입력하세요':'Pool 부족'}</p>`;
   }
   html += `</div>`;
 
   // 매도 주문
   html += `<div class="vr-order-card">
-    <div class="vr-order-title sell">매도 주문 (${r.sellOrders.length}건)</div>`;
+    <div class="vr-order-title sell">매도 주문 (${r.sellOrders.length}건) ${r.signal==='sell'?'⬅ 현재 신호':''}
+    </div>
+    <p style="color:var(--text-dim);font-size:11px;margin:0 0 8px">이 가격 이상으로 올라가면 1주씩 체결</p>`;
   if(r.sellOrders.length > 0){
-    const totalSell = r.sellOrders.reduce((s,o)=>s+o.amount,0);
+    const totalSell = r.sellOrders.reduce((s,o)=>s+o.price,0);
     html += `<table class="vr-order-table">
-      <thead><tr><th>#</th><th>목표수량</th><th>주문가</th><th>금액</th></tr></thead><tbody>`;
+      <thead><tr><th>#</th><th>체결 후 보유</th><th>수량</th><th>주문가</th></tr></thead><tbody>`;
     r.sellOrders.forEach(o => {
-      html += `<tr><td>${o.seq}</td><td>${o.targetQty}</td><td>${vrFmt(o.price)}</td><td>${vrFmt(o.amount)}</td></tr>`;
+      html += `<tr><td>${o.seq}</td><td>${o.targetQty}주</td><td>1주</td><td style="color:var(--red)">${vrFmt(o.price)}</td></tr>`;
     });
-    html += `<tr class="total-row"><td></td><td></td><td style="color:var(--text-muted)">합계</td><td style="color:var(--red)">${vrFmt(totalSell)}</td></tr>`;
+    html += `<tr class="total-row"><td></td><td></td><td>${r.sellOrders.length}주</td><td style="color:var(--red)">${vrFmt(totalSell)}</td></tr>`;
     html += `</tbody></table>`;
   } else {
-    html += `<p style="color:var(--text-dim);font-size:12px">${r.signal==='sell'?'매도 가능 수량 없음':'매도 신호 없음'}</p>`;
+    html += `<p style="color:var(--text-dim);font-size:12px">${inp.totalQuantity<=0?'보유 수량이 없습니다':'주문 생성 불가'}</p>`;
   }
   html += `</div></div>`;
 
