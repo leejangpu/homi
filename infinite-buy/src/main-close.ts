@@ -15,7 +15,7 @@ import { KisApiClient } from './kisApi.js';
 import { calculateDecreaseRate, calculateQuarterModeSeed } from './calculator.js';
 import type { QuarterModeState } from './calculator.js';
 import {
-  readConfig, readCycleState, writeCycleState, appendLog, saveCycleHistory,
+  readConfig, readCycleState, writeCycleState, appendLog, saveCycleHistory, getNextCycleNumber,
   type CycleState, type CycleHistory,
 } from './stateManager.js';
 import { notifyCycleCompleted, notifyError } from './telegram.js';
@@ -174,6 +174,9 @@ async function syncTicker(
   const tickerExecs = allExecutions.filter(e => e.ticker === ticker);
   const todayBuyAmt = tickerExecs.filter(e => e.side === 'BUY').reduce((s, e) => s + e.amount, 0);
   const todaySellAmt = tickerExecs.filter(e => e.side === 'SELL').reduce((s, e) => s + e.amount, 0);
+  const todaySellQty = tickerExecs.filter(e => e.side === 'SELL').reduce((s, e) => s + e.quantity, 0);
+  const todayBuyQty = tickerExecs.filter(e => e.side === 'BUY').reduce((s, e) => s + e.quantity, 0);
+  const prevQty = cycleData.totalQuantity || 0;
 
   const newTotalBuy = (cycleData.totalBuyAmount || 0) + todayBuyAmt;
   const newTotalSell = (cycleData.totalSellAmount || 0) + todaySellAmt;
@@ -271,6 +274,69 @@ async function syncTicker(
         console.log(`[Close]   → 쿼터모드 round ${quarterMode.round} → ${newRound}`);
       }
     }
+  }
+
+  // 전액 매도 + 당일 LOC 매수 동시 발생: 구 사이클 완료 후 신 사이클 초기화
+  const isFullSellWithNewBuy = prevQty > 0 && todaySellQty >= prevQty && todayBuyQty > 0;
+  if (isFullSellWithNewBuy) {
+    console.log(`[Close]   → 전액 매도+당일 LOC 매수 동시 발생! (prevQty=${prevQty}, soldQty=${todaySellQty}, boughtQty=${todayBuyQty})`);
+
+    // 구 사이클 완료 처리 (당일 매수분 제외)
+    const oldTotalBuy = cycleData.totalBuyAmount || 0;
+    const oldTotalSell = (cycleData.totalSellAmount || 0) + todaySellAmt;
+    const oldRealizedProfit = oldTotalSell - oldTotalBuy;
+    const oldFinalProfitRate = cycleData.principal > 0 ? oldRealizedProfit / cycleData.principal : 0;
+
+    const history: CycleHistory = {
+      ticker, cycleNumber: cycleData.cycleNumber,
+      strategyVersion: cycleData.strategyVersion, splitCount: cycleData.splitCount,
+      targetProfit: cycleData.targetProfit, starDecreaseRate: cycleData.starDecreaseRate,
+      principal: cycleData.principal, buyPerRound: cycleData.buyPerRound,
+      totalBuyAmount: oldTotalBuy, totalSellAmount: oldTotalSell,
+      totalRealizedProfit: oldRealizedProfit, finalProfitRate: oldFinalProfitRate,
+      startedAt: cycleData.startedAt, completedAt: nowISO(),
+    };
+    saveCycleHistory(history);
+    console.log(`[Close]   구 사이클 #${cycleData.cycleNumber} 완료: 수익=${fmtUSD(oldRealizedProfit)} (${(oldFinalProfitRate * 100).toFixed(2)}%)`);
+    await notifyCycleCompleted(ticker, cycleData.cycleNumber, oldRealizedProfit, oldFinalProfitRate);
+
+    // 신 사이클 초기화 (당일 LOC 매수분으로 시작)
+    const newPrincipal = cycleData.principal + oldRealizedProfit;
+    const newBuyPerRound = newPrincipal / cycleData.splitCount;
+    const newCycleNumber = getNextCycleNumber(ticker);
+
+    const newState: CycleState = {
+      ticker, status: 'active',
+      cycleNumber: newCycleNumber,
+      strategyVersion: cycleData.strategyVersion,
+      splitCount: cycleData.splitCount,
+      targetProfit: cycleData.targetProfit,
+      starDecreaseRate: cycleData.starDecreaseRate,
+      principal: newPrincipal, buyPerRound: newBuyPerRound,
+      totalQuantity, avgPrice, totalInvested,
+      remainingCash: newPrincipal - totalInvested,
+      totalBuyAmount: todayBuyAmt, totalSellAmount: 0,
+      totalRealizedProfit: 0,
+      startedAt: nowISO(), updatedAt: nowISO(),
+    };
+    if (currentPrice > 0 && totalQuantity > 0) {
+      newState.currentPrice = currentPrice;
+      newState.unrealizedPnl = (currentPrice - avgPrice) * totalQuantity;
+      newState.unrealizedPnlRate = avgPrice > 0 ? (currentPrice - avgPrice) / avgPrice : 0;
+    }
+    writeCycleState(ticker, newState);
+    console.log(`[Close]   신 사이클 #${newCycleNumber} 시작: 원금=${fmtUSD(newPrincipal)}, buyPerRound=${fmtUSD(newBuyPerRound)}, qty=${totalQuantity}주 @ ${fmtUSD(avgPrice)}`);
+
+    appendLog(today, {
+      timestamp: nowISO(), ticker, action: 'CYCLE_SPLIT',
+      details: {
+        oldCycleNumber: cycleData.cycleNumber, newCycleNumber,
+        oldRealizedProfit, oldFinalProfitRate,
+        newPrincipal, newBuyPerRound,
+        todaySellQty, todayBuyQty,
+      },
+    });
+    return;
   }
 
   // 사이클 완료 감지: 기존 조건 OR (당일 매도 체결 있고 보유 0)

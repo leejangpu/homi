@@ -55,7 +55,7 @@ export interface CycleState {
 export interface LogEntry {
   timestamp: string;
   ticker: string;
-  action: 'ORDER_SUBMIT' | 'ORDER_RESULT' | 'SYNC' | 'CYCLE_START' | 'CYCLE_COMPLETE' | 'MOO_RESERVATION' | 'ERROR' | 'SKIP';
+  action: 'ORDER_SUBMIT' | 'ORDER_RESULT' | 'SYNC' | 'CYCLE_START' | 'CYCLE_COMPLETE' | 'CYCLE_SPLIT' | 'MOO_RESERVATION' | 'ERROR' | 'SKIP';
   details: Record<string, unknown>;
 }
 
