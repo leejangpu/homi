@@ -1,0 +1,122 @@
+[
+  {
+    "timestamp": "2026-04-22T14:00:04.523Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 94.96,
+      "quantity": 2,
+      "label": "전반전 0% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031080922"
+    }
+  },
+  {
+    "timestamp": "2026-04-22T14:00:05.062Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 105.85,
+      "quantity": 2,
+      "label": "전반전 +11.5% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031080949"
+    }
+  },
+  {
+    "timestamp": "2026-04-22T14:00:05.599Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LOC",
+      "price": 105.86,
+      "quantity": 1,
+      "label": "쿼터매도 +11.5% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031080980"
+    }
+  },
+  {
+    "timestamp": "2026-04-22T14:00:06.135Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LIMIT",
+      "price": 106.36,
+      "quantity": 2,
+      "label": "목표 +12% LIMIT [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031081009"
+    }
+  },
+  {
+    "timestamp": "2026-04-22T14:00:07.509Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 56.48,
+      "quantity": 2,
+      "label": "전반전 0% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031081071"
+    }
+  },
+  {
+    "timestamp": "2026-04-22T14:00:08.052Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 61.53,
+      "quantity": 2,
+      "label": "전반전 +9.0% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031081095"
+    }
+  },
+  {
+    "timestamp": "2026-04-22T14:00:08.586Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LOC",
+      "price": 61.54,
+      "quantity": 3,
+      "label": "쿼터매도 +9.0% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031081116"
+    }
+  },
+  {
+    "timestamp": "2026-04-22T14:00:09.121Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LIMIT",
+      "price": 62.12,
+      "quantity": 9,
+      "label": "목표 +10% LIMIT [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031081141"
+    }
+  }
+]
