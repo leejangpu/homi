@@ -1,14 +1,16 @@
 name: 로또 자동 구매
 
 on:
-  # schedule:
-  #   # 매주 월요일 10:00 KST (01:00 UTC) — 로컬 launchd로 전환
-  #   - cron: '0 1 * * 1'
+  schedule:
+    - cron: '0 1 * * 1'  # 매주 월요일 10:00 KST (01:00 UTC)
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   purchase:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: lotto
@@ -17,12 +19,15 @@ jobs:
 
       - name: Setup Python venv
         run: |
-          if [ ! -d .venv ]; then
-            python3 -m venv .venv
-          fi
+          python3 -m venv .venv
           source .venv/bin/activate
           pip install -q -r requirements.txt
-          playwright install chromium
+          playwright install --with-deps chromium
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Run lotto purchase
         env:
