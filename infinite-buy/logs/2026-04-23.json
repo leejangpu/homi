@@ -118,5 +118,32 @@
       "message": "주문 전송 완료 되었습니다.",
       "orderNo": "0031493898"
     }
+  },
+  {
+    "timestamp": "2026-04-23T22:00:05.846Z",
+    "ticker": "SOXL",
+    "action": "CYCLE_COMPLETE",
+    "details": {
+      "cycleNumber": 1,
+      "principal": 13123,
+      "totalBuyAmount": 1205.8799999999999,
+      "totalSellAmount": 1332.3814,
+      "totalRealizedProfit": 126.5014000000001,
+      "finalProfitRate": 0.00963967080698012
+    }
+  },
+  {
+    "timestamp": "2026-04-23T22:00:05.852Z",
+    "ticker": "TQQQ",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 16,
+      "avgPrice": 57.2862,
+      "totalInvested": 916.5792,
+      "remainingCash": 12206.4208,
+      "todayBuyAmt": 118.44,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -916.5799999999999
+    }
   }
 ]

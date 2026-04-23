@@ -1,6 +1,5 @@
 {
   "ticker": "SOXL",
-  "status": "completed",
   "cycleNumber": 1,
   "strategyVersion": "v2.2",
   "splitCount": 30,
@@ -8,17 +7,10 @@
   "starDecreaseRate": 0.008,
   "principal": 13123,
   "buyPerRound": 437.43333333333334,
-  "totalQuantity": 0,
-  "avgPrice": 0,
-  "totalInvested": 0,
-  "remainingCash": 13123,
   "totalBuyAmount": 1205.8799999999999,
   "totalSellAmount": 1332.3814,
   "totalRealizedProfit": 126.5014000000001,
+  "finalProfitRate": 0.00963967080698012,
   "startedAt": "2026-04-15T14:04:32.461Z",
-  "updatedAt": "2026-04-23T22:00:03.685Z",
-  "currentPrice": 105.64,
-  "unrealizedPnl": 19.21589999999999,
-  "unrealizedPnlRate": 0.06454697802280852,
-  "completedAt": "2026-04-23T22:00:03.685Z"
+  "completedAt": "2026-04-23T22:00:03.684Z"
 }
