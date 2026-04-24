@@ -1,0 +1,90 @@
+[
+  {
+    "timestamp": "2026-04-24T14:00:04.384Z",
+    "ticker": "SOXL",
+    "action": "CYCLE_START",
+    "details": {
+      "cycleNumber": 2,
+      "principal": 13286.501400000001,
+      "buyPerRound": 442.88338000000005,
+      "splitCount": 30,
+      "targetProfit": 0.12,
+      "strategyVersion": "v2.2"
+    }
+  },
+  {
+    "timestamp": "2026-04-24T14:00:04.435Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "type": "FIRST_BUY",
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 129.46,
+      "quantity": 3,
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031915640"
+    }
+  },
+  {
+    "timestamp": "2026-04-24T14:00:05.307Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 57.29,
+      "quantity": 2,
+      "label": "전반전 0% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031915690"
+    }
+  },
+  {
+    "timestamp": "2026-04-24T14:00:05.848Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 62.2,
+      "quantity": 2,
+      "label": "전반전 +8.6% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031915729"
+    }
+  },
+  {
+    "timestamp": "2026-04-24T14:00:06.382Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LOC",
+      "price": 62.21,
+      "quantity": 4,
+      "label": "쿼터매도 +8.6% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031915757"
+    }
+  },
+  {
+    "timestamp": "2026-04-24T14:00:06.915Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LIMIT",
+      "price": 63.01,
+      "quantity": 12,
+      "label": "목표 +10% LIMIT [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031915777"
+    }
+  }
+]
