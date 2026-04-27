@@ -405,11 +405,77 @@
       "result": "낙첨",
       "winnings": 0,
       "winDetail": "낙첨"
+    },
+    {
+      "round": 1222,
+      "buyDate": "2026-04-27",
+      "drawDate": "2026-05-02",
+      "tickets": [
+        {
+          "numbers": [
+            2,
+            6,
+            12,
+            17,
+            30,
+            36
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            3,
+            24,
+            34,
+            36,
+            39,
+            40
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            9,
+            12,
+            26,
+            27,
+            38,
+            39
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            6,
+            16,
+            22,
+            35,
+            38,
+            43
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            11,
+            14,
+            17,
+            18,
+            21,
+            27
+          ],
+          "mode": "random"
+        }
+      ],
+      "totalAmount": 5000,
+      "result": "pending",
+      "winnings": 0,
+      "winDetail": ""
     }
   ],
   "stats": {
-    "totalSpent": 35000,
+    "totalSpent": 40000,
     "totalWon": 5000,
-    "totalRounds": 7
+    "totalRounds": 8
   }
 }
