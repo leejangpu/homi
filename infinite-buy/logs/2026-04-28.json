@@ -118,5 +118,33 @@
       "message": "주문 전송 완료 되었습니다.",
       "orderNo": "0030688653"
     }
+  },
+  {
+    "timestamp": "2026-04-28T22:00:05.132Z",
+    "ticker": "SOXL",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 7,
+      "avgPrice": 121.5514,
+      "totalInvested": 850.8598,
+      "remainingCash": 12435.6416,
+      "todayBuyAmt": 219.12,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -850.86
+    }
+  },
+  {
+    "timestamp": "2026-04-28T22:00:05.136Z",
+    "ticker": "TQQQ",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 11,
+      "avgPrice": 57.9142,
+      "totalInvested": 637.0562,
+      "remainingCash": 12485.943800000001,
+      "todayBuyAmt": 121.48,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -599.9
+    }
   }
 ]
