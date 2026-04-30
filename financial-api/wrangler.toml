@@ -1,0 +1,7 @@
+name = "homi-financial-api"
+main = "src/index.ts"
+compatibility_date = "2024-09-25"
+
+[vars]
+REPO_OWNER = "leejangpu"
+REPO_NAME = "homi"

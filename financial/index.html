@@ -1406,6 +1406,14 @@ function monthNumFromLabel(label) {
   return 0;
 }
 
+// ===== Irregular expense total for a given month number =====
+function irMonthTotal(irregulars, monthNum) {
+  return (irregulars||[]).reduce((s,ir) => {
+    const m = parseInt((ir.month||'').match(/(\d+)/)?.[1]||'0');
+    return m===monthNum ? s+(ir.amount||0) : s;
+  }, 0);
+}
+
 // ===== Find default month index based on today =====
 function getDefaultMonthIdx(months) {
   // Find the month matching this month, or closest previous
@@ -1565,7 +1573,7 @@ function generateRetirementCoaching(sec, months, curIdx, prevIdx) {
 
   const savCur = (curIdx >= 0 && sec.savings.total) ? parseNum(sec.savings.total[months[curIdx].col]) : 0;
   const incCur = (curIdx >= 0 && sec.income.total) ? parseNum(sec.income.total[months[curIdx].col]) : 0;
-  const expCur = (curIdx >= 0 && sec.expense.total) ? parseNum(sec.expense.total[months[curIdx].col]) : 0;
+  const expCur = ((curIdx >= 0 && sec.expense.total) ? parseNum(sec.expense.total[months[curIdx].col]) : 0) + (curIdx>=0 ? irMonthTotal(sec.irregulars, monthNumFromLabel(months[curIdx].label)) : 0);
 
   if (needPerYear > 0) {
     parts.push(`남은 ${remainYears}년간 연 <span class="warn">${fmtWon(needPerYear)}</span> 순자산 증가가 필요합니다.`);
@@ -1682,7 +1690,12 @@ function generateMonthlySummary(sec, months) {
 
   const incCur = gv(sec.income.total), incPrev = gvP(sec.income.total, 'income');
   const savCur = gv(sec.savings.total), savPrev = gvP(sec.savings.total, 'savings');
-  const expCur = gv(sec.expense.total), expPrev = gvP(sec.expense.total, 'expense');
+  const expCur = gv(sec.expense.total) + irMonthTotal(sec.irregulars, monthNumFromLabel(months[curIdx].label));
+  const expPrevBase = gvP(sec.expense.total, 'expense');
+  const expPrevIr = usePrevYear
+    ? irMonthTotal(prevYearSec.irregulars, monthNumFromLabel(prevYearLastMonth.label))
+    : irMonthTotal(sec.irregulars, monthNumFromLabel(months[prevIdx].label));
+  const expPrev = expPrevBase + expPrevIr;
 
   // Check if we have enough data
   if (!incCur && !incPrev && !expCur && !expPrev) return null;
@@ -1827,7 +1840,8 @@ function renderDashboard(container){
   if(!sec){container.innerHTML='<p style="color:var(--text-muted)">데이터 없음</p>';return;}
   const months=sec.months;
   const gv=(tr)=>months.map(m=>tr?parseNum(tr[m.col]):0);
-  const incV=gv(sec.income.total), savV=gv(sec.savings.total), expV=gv(sec.expense.total);
+  const irV=months.map(m=>irMonthTotal(sec.irregulars,monthNumFromLabel(m.label)));
+  const incV=gv(sec.income.total), savV=gv(sec.savings.total), expV=gv(sec.expense.total).map((v,i)=>v+irV[i]);
 
   // Determine selected month
   if(selectedMonthIdx<0) selectedMonthIdx=getDefaultMonthIdx(months);
@@ -1844,7 +1858,7 @@ function renderDashboard(container){
       const lastMonth = prevSec.months[prevSec.months.length - 1];
       prevInc = prevSec.income && prevSec.income.total ? parseNum(prevSec.income.total[lastMonth.col]) : 0;
       prevSav = prevSec.savings && prevSec.savings.total ? parseNum(prevSec.savings.total[lastMonth.col]) : 0;
-      prevExp = prevSec.expense && prevSec.expense.total ? parseNum(prevSec.expense.total[lastMonth.col]) : 0;
+      prevExp = (prevSec.expense && prevSec.expense.total ? parseNum(prevSec.expense.total[lastMonth.col]) : 0) + irMonthTotal(prevSec.irregulars, monthNumFromLabel(lastMonth.label));
     }
   }
   const calcChg2=(cur,prev)=>prev?((cur-prev)/Math.abs(prev)*100):null;
@@ -1985,48 +1999,6 @@ function renderDashboard(container){
     </div>
   </div>
 
-  ${sec.irregulars && sec.irregulars.length ? (()=>{
-    const monthOrder=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-    const monthKey=m=>{if(!m)return 99;const idx=monthOrder.findIndex(mo=>m.includes(mo.replace('월','')));return idx>=0?idx:99;};
-    const grouped={};
-    sec.irregulars.forEach(ir=>{
-      const mk=ir.month||'기타';
-      const key=monthOrder.find(mo=>mk.includes(mo.replace('월','')))||'기타';
-      if(!grouped[key])grouped[key]=[];
-      grouped[key].push(ir);
-    });
-    const sortedKeys=Object.keys(grouped).sort((a,b)=>monthKey(a)-monthKey(b));
-    const irTotal=sec.irregulars.reduce((s,ir)=>s+(ir.amount||0),0);
-    let html='';
-    sortedKeys.forEach(month=>{
-      const items=grouped[month];
-      const monthTotal=items.reduce((s,ir)=>s+(ir.amount||0),0);
-      html+=`<div style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <span style="font-size:14px;font-weight:700;color:var(--text)">${month}</span>
-          <span style="font-size:13px;font-weight:600;color:var(--amber)">${monthTotal?fmtWon(monthTotal):''}</span>
-        </div>
-        ${items.map(ir=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg-card);border-radius:10px;margin-bottom:4px;border:1px solid var(--border)">
-          <div>
-            <span style="font-size:13px;color:var(--text)">${ir.name}</span>
-            ${ir.memo?'<span style="font-size:11px;color:var(--text-muted);margin-left:8px">'+ir.memo+'</span>':''}
-          </div>
-          <span style="font-size:13px;font-weight:600;color:${ir.amount?'var(--amber)':'var(--text-muted)'};font-family:var(--font-num)">${ir.amount?fmtWon(ir.amount):'-'}</span>
-        </div>`).join('')}
-      </div>`;
-    });
-    return `<div class="chart-card" style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div style="display:flex;align-items:center;gap:10px">
-          <h3>비정기 지출</h3>
-          <span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:600;background:var(--amber-bg);color:var(--amber)">연간</span>
-        </div>
-        <span style="font-size:15px;font-weight:700;color:var(--amber)">${fmtWon(irTotal)}</span>
-      </div>
-      <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">세금, 경조사, 보험 등 매달 발생하지 않는 지출 항목</p>
-      ${html}
-    </div>`;
-  })() : ''}
 
   ${positiveGroups.length ? `
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -2059,6 +2031,21 @@ function renderDashboard(container){
     html+=`<tr${hl}><td>${months[i].label}</td><td class="n">${fmtNum(incV[i])}</td><td class="n">${fmtNum(savV[i])}</td><td class="n">${fmtNum(expV[i])}</td><td class="n ${bal>=0?'pos':'neg'}">${fmtNum(bal)}</td></tr>`;
   }
   html+=`</tbody></table></div></div>`;
+  if(sec.irregulars && sec.irregulars.length){
+    const monthOrder=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    const monthKey=m=>{if(!m)return 99;const idx=monthOrder.findIndex(mo=>m.includes(mo.replace('월','')));return idx>=0?idx:99;};
+    const grouped={};
+    sec.irregulars.forEach(ir=>{const mk=ir.month||'기타';const key=monthOrder.find(mo=>mk.includes(mo.replace('월','')))||'기타';if(!grouped[key])grouped[key]=[];grouped[key].push(ir);});
+    const sortedKeys=Object.keys(grouped).sort((a,b)=>monthKey(a)-monthKey(b));
+    const irTotal=sec.irregulars.reduce((s,ir)=>s+(ir.amount||0),0);
+    let irHtml='';
+    sortedKeys.forEach(month=>{
+      const items=grouped[month];
+      const monthTotal=items.reduce((s,ir)=>s+(ir.amount||0),0);
+      irHtml+=`<div style="margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-size:14px;font-weight:700;color:var(--text)">${month}</span><span style="font-size:13px;font-weight:600;color:var(--amber)">${monthTotal?fmtWon(monthTotal):''}</span></div>${items.map(ir=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg-card);border-radius:10px;margin-bottom:4px;border:1px solid var(--border)"><div><span style="font-size:13px;color:var(--text)">${ir.name}</span>${ir.memo?'<span style="font-size:11px;color:var(--text-muted);margin-left:8px">'+ir.memo+'</span>':''}</div><span style="font-size:13px;font-weight:600;color:${ir.amount?'var(--amber)':'var(--text-muted)'};font-family:var(--font-num)">${ir.amount?fmtWon(ir.amount):'-'}</span></div>`).join('')}</div>`;
+    });
+    html+=`<div class="chart-card" style="margin-top:20px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="display:flex;align-items:center;gap:10px"><h3>비정기 지출</h3><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;font-weight:600;background:var(--amber-bg);color:var(--amber)">연간</span></div><span style="font-size:15px;font-weight:700;color:var(--amber)">${fmtWon(irTotal)}</span></div><p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">세금, 경조사, 보험 등 매달 발생하지 않는 지출 항목</p>${irHtml}</div>`;
+  }
   container.innerHTML=html;
 
   // Charts (ECharts) — defer to next frame so DOM layout is settled
@@ -2110,6 +2097,12 @@ function renderDashboard(container){
       if (!name) return;
       const val = parseNum(data[r][months[si].col]);
       if (val > 0) expItemMap[name] = (expItemMap[name]||0) + val;
+    });
+    // Add irregular expenses for selected month
+    const siMn = monthNumFromLabel(months[si].label);
+    (sec.irregulars||[]).forEach(ir => {
+      if (parseInt((ir.month||'').match(/(\d+)/)?.[1]||'0')===siMn && ir.amount>0)
+        expItemMap[ir.name] = (expItemMap[ir.name]||0) + ir.amount;
     });
     const expItems = Object.entries(expItemMap).map(([name,val])=>({name,val}));
     const expColors=['#fbbf24','#f87171','#a78bfa','#34d399','#f472b6','#60a5fa','#fb923c','#22d3ee','#4ade80','#e879f9','#38bdf8','#818cf8'];
@@ -2178,12 +2171,17 @@ function renderDashboard(container){
           }
           return sum;
         });
-        return {name:cat,type:'bar',stack:'exp',data:vals,color:expColors[ci%expColors.length],itemStyle:{borderRadius:ci===cats.length-1?[2,2,0,0]:[0,0,0,0]},barWidth:'55%'};
+        return {name:cat,type:'bar',stack:'exp',data:vals,color:expColors[ci%expColors.length],itemStyle:{borderRadius:[0,0,0,0]},barWidth:'55%'};
       });
+      // Add 비정기 series
+      const irBarVals = months.slice(0,lastData+1).map(m=>irMonthTotal(sec.irregulars,monthNumFromLabel(m.label)));
+      if(irBarVals.some(v=>v>0)) expBarSeries.push({name:'비정기',type:'bar',stack:'exp',data:irBarVals,color:'#fb923c',itemStyle:{borderRadius:[2,2,0,0]},barWidth:'55%'});
+      else if(expBarSeries.length) expBarSeries[expBarSeries.length-1].itemStyle.borderRadius=[2,2,0,0];
+      const allCats = [...cats,...(irBarVals.some(v=>v>0)?['비정기']:[])];
       const el=document.getElementById('chExpBar');
       if(el) initChart(el,{
         tooltip:{...ecTooltip,trigger:'axis',axisPointer:{type:'shadow'},formatter:ps=>{let t=0;const lines=ps.filter(p=>p.value).map(p=>{t+=p.value;return `<span style="color:${p.color}">●</span> ${p.seriesName}: ${fmtWon(p.value)}`;});lines.push(`<b>합계: ${fmtWon(t)}</b>`);return lines.join('<br/>');}},
-        legend:{...ecLegend,top:0,type:'scroll',data:cats},
+        legend:{...ecLegend,top:0,type:'scroll',data:allCats},
         grid:{left:60,right:16,top:40,bottom:24,containLabel:false},
         xAxis:{type:'category',data:labels,axisLabel:{...ecTextStyle,fontSize:11},axisLine:ecAxisLine,axisTick:{show:false}},
         yAxis:{type:'value',axisLabel:{...ecTextStyle,fontSize:10,formatter:v=>fmtWon(v)},axisLine:{show:false},axisTick:{show:false},splitLine:ecSplitLine},
@@ -2295,7 +2293,7 @@ function renderSpreadsheet(container,key){
       </table></div>
     </div>`;
   }
-  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">&#9729; GitHub 저장</button><span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>${irregularHtml}`;
+  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">☁️ 저장</button><span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>${irregularHtml}`;
   const nc=sData[0].length;
   const cols=[];for(let i=0;i<nc;i++)cols.push({type:'text',width:i===0?30:i<=2?110:i===3?60:95});
   jexcelInstance=jspreadsheet(document.getElementById('spreadsheet'),{
@@ -2311,7 +2309,7 @@ function renderSpreadsheet(container,key){
   });
   setTimeout(applyCellStyles,100);
   setTimeout(applyFilter,150);
-  updateGhStatus();
+  updateSaveStatus();
 }
 
 function applyCellStyles(){
@@ -2497,90 +2495,80 @@ function syncSectionsToRaw(year){
   }
 }
 
+const WORKER_API_URL = 'https://homi-financial-api.leejangpu.workers.dev';
+
 async function saveToGitHub(){
-  let ghToken=localStorage.getItem('gh_token');
-  if(!ghToken){
-    showGhTokenModal();
+  let password=localStorage.getItem('save_password');
+  if(!password){
+    showPasswordModal();
     return;
   }
-  await doGitHubSave(ghToken);
+  await doSave(password);
 }
 
-function showGhTokenModal(){
+function showPasswordModal(){
   const overlay=document.createElement('div');
   overlay.className='gh-modal-overlay';
   overlay.innerHTML=`<div class="gh-modal">
-    <h3>GitHub 연결 설정</h3>
-    <p>처음 한 번만 설정하면 됩니다.<br>
-    <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">GitHub에서 Fine-grained Token 생성</a> 후 아래에 입력하세요.<br>
-    <small>권한: leejangpu/homi → Contents: Read and write</small></p>
-    <input type="password" id="ghTokenInput" placeholder="github_pat_..." autocomplete="off">
+    <h3>저장 비밀번호 설정</h3>
+    <p>처음 한 번만 설정하면 됩니다.</p>
+    <input type="password" id="passwordInput" placeholder="비밀번호 입력" autocomplete="off">
     <div class="btn-row">
       <button class="btn-cancel" onclick="this.closest('.gh-modal-overlay').remove()">취소</button>
-      <button class="btn-save" onclick="confirmGhToken()">저장</button>
+      <button class="btn-save" onclick="confirmPassword()">저장</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
-  document.getElementById('ghTokenInput').focus();
+  document.getElementById('passwordInput').focus();
 }
 
-async function confirmGhToken(){
-  const input=document.getElementById('ghTokenInput');
-  const token=(input?input.value:'').trim();
-  if(!token){alert('토큰을 입력하세요');return;}
-  try{
-    const res=await fetch('https://api.github.com/repos/leejangpu/homi',{
-      headers:{'Authorization':'token '+token}
-    });
-    if(!res.ok) throw new Error('인증 실패');
-  }catch(e){
-    alert('토큰 검증 실패: '+e.message);return;
-  }
-  localStorage.setItem('gh_token',token);
+async function confirmPassword(){
+  const input=document.getElementById('passwordInput');
+  const password=(input?input.value:'').trim();
+  if(!password){alert('비밀번호를 입력하세요');return;}
+  localStorage.setItem('save_password',password);
   document.querySelector('.gh-modal-overlay').remove();
-  updateGhStatus();
-  await doGitHubSave(token);
+  updateSaveStatus();
+  await doSave(password);
 }
 
-async function doGitHubSave(ghToken){
+async function doSave(password){
   showSS('저장 중...');
   try{
     syncSectionsToRaw(activeYear);
     const csv=toCSV(rawSheets[activeYear]);
-    const filePath='financial/'+activeYear+'.csv';
-
-    const getRes=await fetch('https://api.github.com/repos/leejangpu/homi/contents/'+filePath,{
-      headers:{'Authorization':'token '+ghToken,'Accept':'application/vnd.github.v3+json'}
+    const res=await fetch(WORKER_API_URL+'/save',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        password:password,
+        year:String(activeYear),
+        content:csv
+      })
     });
-    if(!getRes.ok){
-      if(getRes.status===401){localStorage.removeItem('gh_token');updateGhStatus();showSS('인증 만료 — 다시 시도하세요');return;}
-      throw new Error('파일 조회 실패: '+getRes.status);
-    }
-    const fileInfo=await getRes.json();
-
-    const content=btoa(unescape(encodeURIComponent('\uFEFF'+csv)));
-    const putRes=await fetch('https://api.github.com/repos/leejangpu/homi/contents/'+filePath,{
-      method:'PUT',
-      headers:{'Authorization':'token '+ghToken,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
-      body:JSON.stringify({message:'가계부 '+activeYear+' 업데이트',content:content,sha:fileInfo.sha})
-    });
-    if(!putRes.ok){
-      if(putRes.status===401){localStorage.removeItem('gh_token');updateGhStatus();showSS('인증 실패');return;}
-      throw new Error('저장 실패: '+putRes.status);
+    if(!res.ok){
+      if(res.status===401){
+        localStorage.removeItem('save_password');
+        updateSaveStatus();
+        showSS('비밀번호 오류 — 다시 시도하세요');
+        return;
+      }
+      const err=await res.text();
+      throw new Error(err||'저장 실패: '+res.status);
     }
     splitSections(activeYear);
     renderView();
-    showSS('GitHub 저장 완료 ✓');
+    showSS('저장 완료 ✓');
   }catch(e){
     console.error(e);
     showSS('저장 실패: '+e.message);
   }
 }
 
-function updateGhStatus(){
+function updateSaveStatus(){
   const el=document.getElementById('ghStatus');
   if(!el)return;
-  el.textContent=localStorage.getItem('gh_token')?'연결됨':'';
+  el.textContent=localStorage.getItem('save_password')?'연결됨':'';
 }
 
 function sheetInsertRow(){if(jexcelInstance)jexcelInstance.insertRow();showSS('행 추가됨');}
