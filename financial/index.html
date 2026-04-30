@@ -1371,6 +1371,7 @@ let activeYear=null, activeSection='dashboard', selectedMonthIdx=-1;
 let assetViewMode='group'; // 'group' or 'detail'
 let activeFilter='all';
 let jexcelInstance=null;
+let _isFormatting=false;
 let chartInstances=[];
 let aiSummaries={}; // loaded from summary.json
 
@@ -1382,7 +1383,7 @@ const THIS_YEAR=TODAY.getFullYear();
 function parseCSV(t){const rows=[];let c='',q=false,row=[];for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch==='"'&&t[i+1]==='"'){c+='"';i++;}else if(ch==='"')q=false;else c+=ch;}else{if(ch==='"')q=true;else if(ch===','){row.push(c);c='';}else if(ch==='\n'||(ch==='\r'&&t[i+1]==='\n')){row.push(c);c='';rows.push(row);row=[];if(ch==='\r')i++;}else c+=ch;}}if(c||row.length){row.push(c);rows.push(row);}const mx=Math.max(...rows.map(r=>r.length));rows.forEach(r=>{while(r.length<mx)r.push('');});return rows;}
 function toCSV(d){return d.map(r=>r.map(c=>{const s=String(c??'');return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');}
 function parseNum(s){if(!s)return 0;s=String(s).trim().replace(/[₩,\s]/g,'');if(!s||s==='-'||s.startsWith('#'))return 0;const n=parseFloat(s);return isNaN(n)?0:n;}
-function autoFormatAmount(val){if(!val)return val;const s=String(val).trim();if(s==='-'||s===''||s.includes('%')||s.includes('▲')||s.includes('▼'))return val;const cleaned=s.replace(/[₩,\s]/g,'');if(!cleaned||isNaN(cleaned))return val;const n=parseFloat(cleaned);if(isNaN(n))return val;return '₩'+n.toLocaleString('ko-KR');}
+function autoFormatAmount(val){if(!val)return val;const s=String(val).trim();if(s==='-'||s===''||s.includes('%')||s.includes('▲')||s.includes('▼'))return val;const hasWon=s.includes('₩');const cleaned=s.replace(/[₩,\s]/g,'');if(!cleaned||isNaN(cleaned))return val;const n=parseFloat(cleaned);if(isNaN(n))return val;const formatted=n.toLocaleString('ko-KR');return hasWon?'₩'+formatted:formatted;}
 function autoCalcTotals(){
   if(!jexcelInstance||!activeYear||!activeSection)return;
   const sec=sections[activeYear];
@@ -1755,7 +1756,7 @@ function generateMonthlySummary(sec, months) {
         body += generateRetirementCoaching(sec, months, curIdx, prevIdx);
       }
       return {
-        title: `${aiSum.period} AI 브리핑`,
+        title: `${parseInt(aiSum.period)}월 브리핑`,
         tag: `<span class="summary-tag ${cls}">${label}</span>`,
         body: body,
         isAI: true,
@@ -2409,12 +2410,13 @@ function renderSpreadsheet(container,key){
     tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
-    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}if(x>=4)setTimeout(()=>autoCalcTotals(),150);},
+    onchange:(instance,cell,x,y,value)=>{if(_isFormatting)return;sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){_isFormatting=true;jexcelInstance.setValueFromCoords(x,y,formatted,true);_isFormatting=false;}}},
     oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);},
     ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);},
     onselection:(instance,x1,y1,x2,y2)=>{showCellTooltip(x1,y1);},
     onblur:()=>{hideCellTooltip();},
-    oneditionstart:(instance,cell,x,y)=>{if(x>=4){const input=cell.querySelector('input')||cell.querySelector('textarea');if(input){input.inputMode='decimal';}}}
+    oneditionstart:(instance,cell,x,y)=>{if(x>=4){cell.setAttribute('inputmode','decimal');setTimeout(()=>{const el=cell.querySelector('input')||cell.querySelector('textarea');if(el)el.inputMode='decimal';},50);}},
+    oneditionend:(instance,cell,x,y)=>{if(x>=4){cell.removeAttribute('inputmode');}}
 
   });
   setTimeout(applyCellStyles,100);

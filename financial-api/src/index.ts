@@ -101,6 +101,25 @@ async function handleSave(request: Request, env: Env): Promise<Response> {
     );
   }
 
+  // AI 리포트 자동 생성 트리거
+  try {
+    const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const reportMonth = String(kst.getMonth() + 1);
+    await fetch(
+      `https://api.github.com/repos/${env.REPO_OWNER}/${env.REPO_NAME}/actions/workflows/financial-report.yml/dispatches`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          ref: "main",
+          inputs: { year, month: reportMonth },
+        }),
+      }
+    );
+  } catch (e) {
+    // 리포트 생성 실패는 저장 성공에 영향을 주지 않음
+  }
+
   return jsonResponse({ ok: true, message: `${year}.csv 저장 완료` }, 200);
 }
 

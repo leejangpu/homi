@@ -89,7 +89,7 @@ const s = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf-8')) : {};
 if (!s['$YEAR']) s['$YEAR'] = {};
 s['$YEAR']['$MN'] = {
   date: new Date().toISOString().split('T')[0],
-  period: '${PREV_MONTH}월 → ${MN}월',
+  period: '${MN}월',
   trend: '$TREND',
   summary: fs.readFileSync('/dev/stdin','utf-8').trim()
 };
