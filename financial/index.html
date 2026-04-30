@@ -2419,7 +2419,6 @@ function renderSpreadsheet(container,key){
   });
   setTimeout(applyCellStyles,100);
   setTimeout(applyFilter,150);
-  setTimeout(()=>{autoCalcTotals();sec[key].data=jexcelInstance.getData();},200);
   updateSaveStatus();
 }
 
@@ -3064,7 +3063,7 @@ async function renderVRCalc(){
 async function init(){
   // Load AI summaries
   try{const r=await fetch('./summary.json?t='+Date.now());if(r.ok)aiSummaries=await r.json();}catch(e){}
-  for(const f of['2025','2026']){try{const r=await fetch(`./${f}.csv?t=`+Date.now());if(r.ok){rawSheets[f]=parseCSV(await r.text());splitSections(f);}}catch(e){}}
+  for(const f of['2025','2026']){try{const r=await fetch(`./${f}.csv?t=`+Date.now());if(r.ok){rawSheets[f]=parseCSV(await r.text());splitSections(f);calcAllTotals(f);splitSections(f);}}catch(e){}}
   if(!Object.keys(rawSheets).length){rawSheets['new']=[Array(20).fill('')];splitSections('new');}
   // Default to year matching today, or latest
   activeYear=rawSheets[String(THIS_YEAR)]?String(THIS_YEAR):Object.keys(rawSheets).pop();
