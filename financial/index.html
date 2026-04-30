@@ -2419,6 +2419,7 @@ function renderSpreadsheet(container,key){
   });
   setTimeout(applyCellStyles,100);
   setTimeout(applyFilter,150);
+  setTimeout(()=>{autoCalcTotals();sec[key].data=jexcelInstance.getData();},200);
   updateSaveStatus();
 }
 
@@ -2589,6 +2590,76 @@ function hideCellTooltip() {
   if (tip) tip.style.display = 'none';
 }
 
+function calcAllTotals(year){
+  const sec=sections[year];if(!sec)return;
+  const raw=rawSheets[year];if(!raw)return;
+  const ms=sec.monthStart;
+  const numCols=raw[0]?raw[0].length:0;
+  // 소득/저축: 단순 합계
+  for(const key of['income','savings']){
+    const s=sec[key];if(!s||!s.rows)continue;
+    let totalRow=-1;
+    for(const r of s.rows){const c1=(raw[r][1]||'').trim();if(c1==='계'||c1==='합계')totalRow=r;}
+    if(totalRow<0)continue;
+    for(let c=ms;c<numCols;c++){
+      let sum=0;
+      for(const r of s.rows){if(r===totalRow)continue;sum+=parseNum(raw[r][c]);}
+      raw[totalRow][c]=sum===0?'0':sum.toLocaleString('ko-KR');
+    }
+  }
+  // 지출: 합계 + 잔액
+  const exp=sec.expense;
+  if(exp&&exp.rows){
+    let totalRow=-1,balanceRow=-1;
+    for(const r of exp.rows){const c1=(raw[r][1]||'').trim();if(c1==='계'||c1==='합계')totalRow=r;if(c1.includes('잔액'))balanceRow=r;}
+    if(totalRow>=0){
+      for(let c=ms;c<numCols;c++){
+        let sum=0;
+        for(const r of exp.rows){if(r===totalRow||r===balanceRow)continue;sum+=parseNum(raw[r][c]);}
+        raw[totalRow][c]=sum===0?'0':sum.toLocaleString('ko-KR');
+      }
+    }
+    if(balanceRow>=0){
+      // 소득계/저축계 행 찾기
+      let incTotalRow=-1,savTotalRow=-1;
+      if(sec.income)for(const r of sec.income.rows){const c1=(raw[r][1]||'').trim();if(c1==='계'||c1==='합계')incTotalRow=r;}
+      if(sec.savings)for(const r of sec.savings.rows){const c1=(raw[r][1]||'').trim();if(c1==='계'||c1==='합계')savTotalRow=r;}
+      for(let c=ms;c<numCols;c++){
+        const inc=incTotalRow>=0?parseNum(raw[incTotalRow][c]):0;
+        const sav=savTotalRow>=0?parseNum(raw[savTotalRow][c]):0;
+        const exp2=totalRow>=0?parseNum(raw[totalRow][c]):0;
+        const bal=inc-sav-exp2;
+        raw[balanceRow][c]=bal===0?'0':(bal<0?'-':'')+Math.abs(bal).toLocaleString('ko-KR');
+      }
+    }
+  }
+  // 자산: 유동자산계 + 총계
+  const ast=sec.asset;
+  if(ast&&ast.rows){
+    const EXCL=['부동산','연금저축','대출'];
+    let fluidRow=-1,grandRow=-1;
+    for(const r of ast.rows){const c1=(raw[r][1]||'').trim();if(c1==='유동자산계')fluidRow=r;if(c1==='계'||c1==='합계')grandRow=r;}
+    if(fluidRow>=0){
+      for(let c=ms;c<numCols;c++){
+        let sum=0,lastCat='';
+        for(const r of ast.rows){
+          if(r===fluidRow||r===grandRow)continue;
+          const c1=(raw[r][1]||'').trim();if(c1)lastCat=c1;
+          if(EXCL.includes(c1||lastCat))continue;
+          sum+=parseNum(raw[r][c]);
+        }
+        raw[fluidRow][c]='₩'+sum.toLocaleString('ko-KR');
+      }
+    }
+    if(grandRow>=0){
+      for(let c=ms;c<numCols;c++){
+        let sum=0;
+        for(const r of ast.rows){if(r===fluidRow||r===grandRow)continue;sum+=parseNum(raw[r][c]);}
+        raw[grandRow][c]='₩'+sum.toLocaleString('ko-KR');
+      }
+    }
+  }
+}
 function syncSectionsToRaw(year){
   const sec=sections[year];
   if(!sec)return;
@@ -2646,6 +2717,7 @@ async function doSave(password){
   showSS('저장 중...');
   try{
     syncSectionsToRaw(activeYear);
+    calcAllTotals(activeYear);
     const csv=toCSV(rawSheets[activeYear]);
     const res=await fetch(WORKER_API_URL+'/save',{
       method:'POST',
