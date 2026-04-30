@@ -1383,6 +1383,114 @@ function parseCSV(t){const rows=[];let c='',q=false,row=[];for(let i=0;i<t.lengt
 function toCSV(d){return d.map(r=>r.map(c=>{const s=String(c??'');return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');}
 function parseNum(s){if(!s)return 0;s=String(s).trim().replace(/[₩,\s]/g,'');if(!s||s==='-'||s.startsWith('#'))return 0;const n=parseFloat(s);return isNaN(n)?0:n;}
 function autoFormatAmount(val){if(!val)return val;const s=String(val).trim();if(s==='-'||s===''||s.includes('%')||s.includes('▲')||s.includes('▼'))return val;const cleaned=s.replace(/[₩,\s]/g,'');if(!cleaned||isNaN(cleaned))return val;const n=parseFloat(cleaned);if(isNaN(n))return val;return '₩'+n.toLocaleString('ko-KR');}
+function autoCalcTotals(){
+  if(!jexcelInstance||!activeYear||!activeSection)return;
+  const sec=sections[activeYear];
+  if(!sec)return;
+  const key=activeSection;
+  const data=jexcelInstance.getData();
+  const ms=sec.monthStart; // 월 데이터 컬럼 시작 인덱스 (rawSheet 기준)
+  // data[0]은 헤더행이므로 컬럼 인덱스는 rawSheet와 동일
+  // 스프레드시트의 컬럼 인덱스 = rawSheet의 컬럼 인덱스
+  const numCols=data[0]?data[0].length:0;
+
+  if(key==='income'||key==='savings'){
+    // 합계행(column 1 === '계') = 나머지 모든 행의 합
+    let totalRowIdx=-1;
+    for(let r=1;r<data.length;r++){
+      const c1=(data[r][1]||'').trim();
+      if(c1==='계'||c1==='합계'){totalRowIdx=r;break;}
+    }
+    if(totalRowIdx<0)return;
+    for(let c=ms;c<numCols;c++){
+      let sum=0;
+      for(let r=1;r<data.length;r++){
+        if(r===totalRowIdx)continue;
+        sum+=parseNum(data[r][c]);
+      }
+      const fmt=sum===0?'0':sum.toLocaleString('ko-KR');
+      jexcelInstance.setValueFromCoords(c,totalRowIdx,fmt,false);
+    }
+  } else if(key==='expense'){
+    // 합계행 = '잔액' 행 제외한 나머지 행의 합
+    let totalRowIdx=-1, balanceRowIdx=-1;
+    for(let r=1;r<data.length;r++){
+      const c1=(data[r][1]||'').trim();
+      if(c1==='계'||c1==='합계')totalRowIdx=r;
+      if(c1.includes('잔액'))balanceRowIdx=r;
+    }
+    if(totalRowIdx>=0){
+      for(let c=ms;c<numCols;c++){
+        let sum=0;
+        for(let r=1;r<data.length;r++){
+          if(r===totalRowIdx||r===balanceRowIdx)continue;
+          sum+=parseNum(data[r][c]);
+        }
+        const fmt=sum===0?'0':sum.toLocaleString('ko-KR');
+        jexcelInstance.setValueFromCoords(c,totalRowIdx,fmt,false);
+      }
+    }
+    // 잔액행 = 소득계 - 저축계 - 지출계
+    if(balanceRowIdx>=0){
+      const incTotal=sec.income?sec.income.total:null;
+      const savTotal=sec.savings?sec.savings.total:null;
+      // 지출계는 방금 계산한 totalRowIdx 행 사용
+      for(let c=ms;c<numCols;c++){
+        const incVal=incTotal?parseNum(incTotal[c]):0;
+        const savVal=savTotal?parseNum(savTotal[c]):0;
+        let expVal=0;
+        if(totalRowIdx>=0){
+          // 방금 setValueFromCoords로 업데이트했지만 getData()는 아직 이전 값일 수 있으므로 직접 재계산
+          for(let r=1;r<data.length;r++){
+            if(r===totalRowIdx||r===balanceRowIdx)continue;
+            expVal+=parseNum(data[r][c]);
+          }
+        }
+        const balance=incVal-savVal-expVal;
+        const fmt=balance===0?'0':(balance<0?'-':'')+Math.abs(balance).toLocaleString('ko-KR');
+        jexcelInstance.setValueFromCoords(c,balanceRowIdx,fmt,false);
+      }
+    }
+  } else if(key==='asset'){
+    // 카테고리 상속: column 1이 비어있으면 직전 비어있지 않은 column 1 상속
+    const EXCLUDE_CATS=['부동산','연금저축','대출'];
+    let fluidTotalRowIdx=-1, grandTotalRowIdx=-1;
+    for(let r=1;r<data.length;r++){
+      const c1=(data[r][1]||'').trim();
+      if(c1==='유동자산계')fluidTotalRowIdx=r;
+      if(c1==='계'||c1==='합계')grandTotalRowIdx=r;
+    }
+    // 유동자산계: 부동산/연금저축/대출 제외한 항목 합
+    if(fluidTotalRowIdx>=0){
+      for(let c=ms;c<numCols;c++){
+        let sum=0;
+        let lastCat='';
+        for(let r=1;r<data.length;r++){
+          if(r===fluidTotalRowIdx||r===grandTotalRowIdx)continue;
+          const c1=(data[r][1]||'').trim();
+          if(c1)lastCat=c1;
+          const cat=c1||lastCat;
+          if(EXCLUDE_CATS.includes(cat))continue;
+          sum+=parseNum(data[r][c]);
+        }
+        const fmt='₩'+sum.toLocaleString('ko-KR');
+        jexcelInstance.setValueFromCoords(c,fluidTotalRowIdx,fmt,false);
+      }
+    }
+    // 계: 유동자산계/계 자체 제외하고 모든 항목 합 (부동산/연금저축/대출 포함)
+    if(grandTotalRowIdx>=0){
+      for(let c=ms;c<numCols;c++){
+        let sum=0;
+        for(let r=1;r<data.length;r++){
+          if(r===fluidTotalRowIdx||r===grandTotalRowIdx)continue;
+          sum+=parseNum(data[r][c]);
+        }
+        const fmt='₩'+sum.toLocaleString('ko-KR');
+        jexcelInstance.setValueFromCoords(c,grandTotalRowIdx,fmt,false);
+      }
+    }
+  }
+}
 function fmtNum(n){if(n===0)return'-';return n.toLocaleString('ko-KR');}
 function fmtWon(n){if(!n)return'-';const a=Math.abs(n);const sign=n<0?'-':'';if(a<10000)return sign+a.toLocaleString('ko-KR')+'원';if(a>=100000000){const eok=Math.floor(a/100000000);const man=Math.round((a%100000000)/10000);return sign+eok+'억'+(man?man.toLocaleString('ko-KR')+'만':'')+'원';}return sign+Math.round(a/10000).toLocaleString('ko-KR')+'만원';}
 function destroyCharts(){chartInstances.forEach(c=>{try{c.dispose();}catch(e){}});chartInstances=[];}
@@ -2301,7 +2409,7 @@ function renderSpreadsheet(container,key){
     tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
-    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}},
+    onchange:(instance,cell,x,y,value)=>{sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){jexcelInstance.setValueFromCoords(x,y,formatted,true);}}if(x>=4)setTimeout(()=>autoCalcTotals(),150);},
     oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);},
     ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);},
     onselection:(instance,x1,y1,x2,y2)=>{showCellTooltip(x1,y1);},
