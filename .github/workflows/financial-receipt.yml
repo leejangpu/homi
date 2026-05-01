@@ -19,6 +19,8 @@ permissions:
 jobs:
   analyze-receipt:
     runs-on: self-hosted
+    env:
+      HOME: /Users/jangpu
     defaults:
       run:
         working-directory: financial

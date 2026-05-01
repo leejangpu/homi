@@ -18,6 +18,8 @@ permissions:
 jobs:
   generate-report:
     runs-on: self-hosted
+    env:
+      HOME: /Users/jangpu
     defaults:
       run:
         working-directory: financial
