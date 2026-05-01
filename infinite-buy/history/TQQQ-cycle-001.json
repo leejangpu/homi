@@ -1,6 +1,5 @@
 {
   "ticker": "TQQQ",
-  "status": "completed",
   "cycleNumber": 1,
   "strategyVersion": "v2.2",
   "splitCount": 40,
@@ -8,17 +7,10 @@
   "starDecreaseRate": 0.005,
   "principal": 13123,
   "buyPerRound": 328.075,
-  "totalQuantity": 0,
-  "avgPrice": 0,
-  "totalInvested": 0,
-  "remainingCash": 13123,
   "totalBuyAmount": 1288.86,
   "totalSellAmount": 1420.1999,
   "totalRealizedProfit": 131.33990000000017,
+  "finalProfitRate": 0.010008374609464313,
   "startedAt": "2026-04-15T14:04:33.334Z",
-  "updatedAt": "2026-05-01T22:00:04.843Z",
-  "currentPrice": 63.54,
-  "unrealizedPnl": 65.24400000000003,
-  "unrealizedPnlRate": 0.0734848894415311,
-  "completedAt": "2026-05-01T22:00:04.843Z"
+  "completedAt": "2026-05-01T22:00:04.842Z"
 }
