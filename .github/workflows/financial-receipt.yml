@@ -21,6 +21,8 @@ jobs:
     runs-on: self-hosted
     env:
       HOME: /Users/jangpu
+      USER: jangpu
+      LOGNAME: jangpu
     defaults:
       run:
         working-directory: financial
