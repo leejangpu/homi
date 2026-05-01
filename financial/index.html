@@ -2380,7 +2380,8 @@ function renderSpreadsheet(container,key){
   const sData=sec[key].data;
   if(!sData.length){container.innerHTML='<p style="color:var(--text-muted)">해당 섹션 데이터가 없습니다.</p>';return;}
   const names={income:'소득',savings:'저축',expense:'지출',asset:'자산'};
-  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">☁️ 저장</button><span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>`;
+  const receiptBtn=key==='expense'?`<button class="btn" onclick="openReceiptUpload()" title="카드 명세서 PDF/이미지를 업로드하여 자동 분석">📎 영수증 분석</button>`:'';
+  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">☁️ 저장</button>${receiptBtn}<span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>`;
   const nc=sData[0].length;
   const cols=[];for(let i=0;i<nc;i++)cols.push({type:'text',width:i===0?30:i<=2?110:i===3?60:95});
   jexcelInstance=jspreadsheet(document.getElementById('spreadsheet'),{
@@ -2656,6 +2657,53 @@ function syncSectionsToRaw(year){
 }
 
 const WORKER_API_URL = 'https://homi-financial-api.leejangpu.workers.dev';
+
+function openReceiptUpload(){
+  const password=localStorage.getItem('save_password');
+  const overlay=document.createElement('div');
+  overlay.className='gh-modal-overlay';
+  overlay.id='receiptOverlay';
+  overlay.innerHTML=`<div class="gh-modal">
+    <h3>📎 영수증 분석</h3>
+    <p style="color:var(--text-muted);font-size:13px">${activeYear}년 ${selectedMonthIdx+1}월 카드 명세서를 업로드하면 자동으로 지출내역을 분석합니다.</p>
+    ${!password?'<p style="color:#e55;font-size:12px">⚠️ 먼저 저장 비밀번호를 설정하세요 (☁️ 저장 버튼 사용).</p>':''}
+    <input type="file" id="receiptFileInput" accept=".pdf,.jpg,.jpeg,.png,.webp" style="margin:12px 0;width:100%">
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="document.getElementById('receiptOverlay').remove()">취소</button>
+      <button class="btn-save" onclick="submitReceiptUpload()" ${!password?'disabled':''}>분석 시작</button>
+    </div>
+    <div id="receiptStatus" style="margin-top:8px;font-size:13px;min-height:20px"></div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function submitReceiptUpload(){
+  const fileInput=document.getElementById('receiptFileInput');
+  const statusEl=document.getElementById('receiptStatus');
+  const file=fileInput&&fileInput.files&&fileInput.files[0];
+  if(!file){alert('파일을 선택하세요');return;}
+
+  const password=localStorage.getItem('save_password');
+  if(!password){alert('저장 비밀번호를 먼저 설정하세요');return;}
+
+  const month=String(selectedMonthIdx+1).padStart(2,'0');
+  const formData=new FormData();
+  formData.append('file',file);
+  formData.append('year',activeYear);
+  formData.append('month',month);
+  formData.append('password',password);
+
+  statusEl.textContent='업로드 중...';
+  try{
+    const res=await fetch(`${WORKER_API_URL}/analyze-receipt`,{method:'POST',body:formData});
+    const data=await res.json();
+    if(!res.ok){statusEl.textContent='오류: '+(data.error||res.status);return;}
+    statusEl.textContent='✓ '+data.message;
+    setTimeout(()=>{document.getElementById('receiptOverlay')&&document.getElementById('receiptOverlay').remove();},3000);
+  }catch(e){
+    statusEl.textContent='네트워크 오류: '+e.message;
+  }
+}
 
 async function saveToGitHub(){
   let password=localStorage.getItem('save_password');

@@ -36,6 +36,10 @@ infinite-buy/state/token.json
 # typescript
 *.tsbuildinfo
 
+# financial receipt temp files
+financial/tmp/*
+!financial/tmp/.gitkeep
+
 # wrangler files
 .wrangler
 .dev.vars*

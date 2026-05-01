@@ -1,0 +1,55 @@
+name: Financial - Receipt Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: '연도 (예: 2026)'
+        required: true
+      month:
+        description: '월 (예: 05)'
+        required: true
+      file_name:
+        description: 'financial/tmp/ 내 파일명'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  analyze-receipt:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: financial
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Analyze receipt with Claude CLI
+        run: |
+          bash analyze-receipt.sh \
+            "${{ github.event.inputs.year }}" \
+            "${{ github.event.inputs.month }}" \
+            "${{ github.event.inputs.file_name }}"
+
+      - name: Commit changes
+        run: |
+          git config user.name "receipt-bot"
+          git config user.email "bot@homi.local"
+          git rm --ignore-unmatch "tmp/${{ github.event.inputs.file_name }}"
+          git add expense_detail.json ../financial/2026.csv summary.json || true
+          git add expense_detail.json 2026.csv summary.json || true
+          if git diff --staged --quiet; then
+            echo "변경사항 없음"
+          else
+            git commit -m "영수증 분석: ${{ github.event.inputs.year }}년 ${{ github.event.inputs.month }}월 지출 업데이트"
+            git pull --rebase
+            git push
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Receipt Analysis — ${{ github.event.inputs.year }}년 ${{ github.event.inputs.month }}월" >> $GITHUB_STEP_SUMMARY
+          echo "- **파일:** ${{ github.event.inputs.file_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **실행:** $(date '+%Y-%m-%d %H:%M KST')" >> $GITHUB_STEP_SUMMARY
