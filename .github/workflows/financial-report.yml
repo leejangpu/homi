@@ -26,6 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set macOS TMPDIR
+        run: echo "TMPDIR=$(getconf DARWIN_USER_TEMP_DIR)" >> $GITHUB_ENV
+
       - name: Generate AI report
         run: |
           YEAR="${{ github.event.inputs.year || '' }}"
