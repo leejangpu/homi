@@ -112,7 +112,7 @@ if git diff --staged --quiet; then
   echo "ℹ️ 변경사항 없음"
 else
   git commit -m "${YEAR}년 ${MONTH}월 AI 브리핑 리포트 생성"
-  git pull --rebase
+  git pull --rebase --autostash
   git push
   echo "✅ Git push 완료"
 fi
