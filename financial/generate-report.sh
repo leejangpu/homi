@@ -40,7 +40,8 @@ ${CSV_DATA}"
 fi
 
 # Claude CLI로 리포트 생성
-REPORT=$(cat <<PROMPT | claude -p --model sonnet --bare
+REPORT_PROMPT_FILE=$(mktemp)
+cat > "$REPORT_PROMPT_FILE" <<PROMPT
 너는 가계부 데이터를 분석하는 금융 어드바이저야. 아래 CSV 데이터를 분석해서 월간 AI 브리핑 리포트를 작성해줘.
 
 ## 작성 규칙
@@ -61,7 +62,13 @@ REPORT=$(cat <<PROMPT | claude -p --model sonnet --bare
 
 ${CSV_DATA}
 PROMPT
-)
+if ! REPORT=$(claude -p --model sonnet --bare < "$REPORT_PROMPT_FILE" 2>&1); then
+  echo "❌ Claude CLI 실패:"
+  echo "$REPORT"
+  rm -f "$REPORT_PROMPT_FILE"
+  exit 1
+fi
+rm -f "$REPORT_PROMPT_FILE"
 
 if [ -z "$REPORT" ]; then
   echo "❌ Claude CLI 응답이 비어있습니다"
