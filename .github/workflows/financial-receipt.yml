@@ -32,6 +32,9 @@ jobs:
       - name: Set macOS TMPDIR
         run: echo "TMPDIR=$(getconf DARWIN_USER_TEMP_DIR)" >> $GITHUB_ENV
 
+      - name: Unlock macOS Keychain
+        run: security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" ~/Library/Keychains/login.keychain-db
+
       - name: Analyze receipt with Claude CLI
         run: |
           bash analyze-receipt.sh \
