@@ -62,7 +62,7 @@ cat > "$REPORT_PROMPT_FILE" <<PROMPT
 
 ${CSV_DATA}
 PROMPT
-if ! REPORT=$(claude -p --model sonnet --bare --dangerously-skip-permissions < "$REPORT_PROMPT_FILE" 2>&1); then
+if ! REPORT=$(claude -p --model claude-sonnet-4-6 --dangerously-skip-permissions < "$REPORT_PROMPT_FILE" 2>&1); then
   echo "❌ Claude CLI 실패:"
   echo "$REPORT"
   rm -f "$REPORT_PROMPT_FILE"
