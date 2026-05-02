@@ -368,7 +368,7 @@
   .sheet-toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
 
   /* ── SHEET FULLSCREEN (landscape rotate) ── */
-  #sheet-wrapper.sheet-fullscreen{position:fixed!important;width:100vh;height:100vw;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);z-index:1000;background:var(--bg);overflow:hidden;}
+  #sheet-wrapper.sheet-fullscreen{position:fixed!important;width:100vh;height:100vw;top:50%;left:50%;transform:translate(-50%,-50%) rotate(90deg);z-index:1000;background:var(--bg);overflow:hidden;}
   #sheet-wrapper.sheet-fullscreen .sheet-toolbar{display:none!important;}
   #sheet-wrapper.sheet-fullscreen #spreadsheet{width:100%;height:100%;}
   /* 플로팅 버튼 */
@@ -2463,7 +2463,7 @@ function openSheetFullscreen(){
   wrapper.classList.add('sheet-fullscreen');
   // 플로팅버튼: portrait 기준 좌상단 → 회전 후 landscape 우상단
   const btn=document.getElementById('sheet-float-btn');
-  if(btn){btn.style.top='16px';btn.style.left='16px';btn.style.bottom='';btn.style.right='';btn.textContent='✕';btn.title='닫기';}
+  if(btn){btn.style.bottom='16px';btn.style.right='16px';btn.style.top='';btn.style.left='';btn.textContent='✕';btn.title='닫기';}
   setTimeout(()=>{resizeSheetContent(true);applyFreezeColumnsCSS();applyCompactDisplay();},80);
 }
 
@@ -2535,6 +2535,42 @@ function applyFreezeColumnsCSS(){
   }
   // Divider on first monthly column
   css+=`#spreadsheet .jexcel tr td:nth-child(${monthlyNth}){border-left:2px solid rgba(56,217,192,0.3)!important;}\n`;
+
+  // 헤더(thead) 행 상단 고정
+  css+=`#spreadsheet .jexcel thead td{position:sticky!important;top:0!important;z-index:6!important;background:#060a12!important;}\n`;
+  // 첫 데이터행(월 레이블 행) 상단 고정
+  const thead=table.querySelector('thead');
+  const theadH=thead?thead.offsetHeight:24;
+  css+=`#spreadsheet .jexcel tbody tr:nth-child(1) td{position:sticky!important;top:${theadH}px!important;z-index:5!important;background:#060a12!important;}\n`;
+  // thead+first row corner cells: 컬럼 고정과 겹치는 영역에서 z-index 최우선
+  for(let i=0;i<=sec.monthStart;i++){
+    const nth=i+1;
+    css+=`#spreadsheet .jexcel thead td:nth-child(${nth}){z-index:10!important;}\n`;
+    css+=`#spreadsheet .jexcel tbody tr:nth-child(1) td:nth-child(${nth}){z-index:9!important;}\n`;
+  }
+
+  // 합계/계 행 하단 고정
+  const rawData=jexcelInstance.getData();
+  const totalKw=['계','합계','잔액'];
+  const totalRowIdxs=[];
+  rawData.forEach((row,idx)=>{
+    const lbl=(row[1]||'').trim();
+    if(totalKw.some(k=>lbl===k||lbl.endsWith(k)))totalRowIdxs.push(idx);
+  });
+  let accBottom=0;
+  for(let i=totalRowIdxs.length-1;i>=0;i--){
+    const trNth=totalRowIdxs[i]+1;
+    // 실제 행 높이 측정
+    const trEl=table.querySelector(`tbody tr:nth-child(${trNth})`);
+    const rowH=trEl?trEl.offsetHeight:28;
+    css+=`#spreadsheet .jexcel tbody tr:nth-child(${trNth}) td{position:sticky!important;bottom:${accBottom}px!important;z-index:5!important;background:#060a12!important;}\n`;
+    // corner
+    for(let ci=0;ci<=sec.monthStart;ci++){
+      css+=`#spreadsheet .jexcel tbody tr:nth-child(${trNth}) td:nth-child(${ci+1}){z-index:8!important;}\n`;
+    }
+    accBottom+=rowH;
+  }
+
   // Text colors
   css+=`#spreadsheet .jexcel td.cell-header{color:var(--primary-light)!important;}
 #spreadsheet .jexcel td.cell-category{color:var(--cyan)!important;}
@@ -2649,8 +2685,14 @@ function showCellTooltip(x, y) {
     const rect=cell.getBoundingClientRect();
     tip.innerHTML=`<div style="font-size:12px;padding:2px 0">담당: <strong style="color:var(--text)">${owner}</strong></div>`;
     tip.style.display='block';
-    tip.style.left=Math.min(rect.left+4,window.innerWidth-120)+'px';
-    tip.style.top=(rect.bottom+6)+'px';
+    if(_sheetFullscreen){
+      tip.style.transform='rotate(90deg)';tip.style.transformOrigin='top left';
+      tip.style.left=rect.left+'px';tip.style.top=(rect.bottom+8)+'px';
+    }else{
+      tip.style.transform='';
+      tip.style.left=Math.min(rect.left+4,window.innerWidth-120)+'px';
+      tip.style.top=(rect.bottom+6)+'px';
+    }
     return;
   }
   if (x < 4) { hideCellTooltip(); return; }
@@ -2739,22 +2781,35 @@ function showCellTooltip(x, y) {
   if (!cell) { hideCellTooltip(); return; }
   const rect = cell.getBoundingClientRect();
   tip.style.display = 'block';
-  tip.style.left = (rect.right + 8) + 'px';
-  tip.style.top = (rect.top - 10) + 'px';
 
-  // Ensure tooltip stays within viewport
-  const tipRect = tip.getBoundingClientRect();
-  if (tipRect.right > window.innerWidth) {
-    tip.style.left = (rect.left - tipRect.width - 8) + 'px';
-  }
-  if (tipRect.bottom > window.innerHeight) {
-    tip.style.top = (window.innerHeight - tipRect.height - 10) + 'px';
+  if (_sheetFullscreen) {
+    // 전체화면(rotate 90deg CW): 셀 rect는 portrait 좌표계
+    // 툴팁도 rotate(90deg)로 돌려서 사용자가 읽기 편하게
+    tip.style.transform = 'rotate(90deg)';
+    tip.style.transformOrigin = 'top left';
+    // portrait 기준으로 셀 아래(landscape 기준 셀 왼쪽)에 위치
+    tip.style.left = (rect.left) + 'px';
+    tip.style.top = (rect.bottom + 8) + 'px';
+    const tipRect = tip.getBoundingClientRect();
+    if (tipRect.right > window.innerWidth) tip.style.left = Math.max(0, window.innerWidth - tipRect.width - 8) + 'px';
+    if (tipRect.bottom > window.innerHeight) tip.style.top = (window.innerHeight - tipRect.height - 8) + 'px';
+  } else {
+    tip.style.transform = '';
+    tip.style.left = (rect.right + 8) + 'px';
+    tip.style.top = (rect.top - 10) + 'px';
+    const tipRect = tip.getBoundingClientRect();
+    if (tipRect.right > window.innerWidth) {
+      tip.style.left = (rect.left - tipRect.width - 8) + 'px';
+    }
+    if (tipRect.bottom > window.innerHeight) {
+      tip.style.top = (window.innerHeight - tipRect.height - 10) + 'px';
+    }
   }
 }
 
 function hideCellTooltip() {
   const tip = document.getElementById('cellTooltip');
-  if (tip) tip.style.display = 'none';
+  if (tip) { tip.style.display = 'none'; tip.style.transform = ''; }
 }
 
 function calcAllTotals(year){
