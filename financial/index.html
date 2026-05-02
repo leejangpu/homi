@@ -367,10 +367,12 @@
   /* ── SHEET TOOLBAR ── */
   .sheet-toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
 
-  /* ── SHEET FULLSCREEN ── */
-  #sheet-wrapper.sheet-fullscreen{position:fixed!important;top:0;left:0;width:100vw;height:100vh;z-index:1000;background:var(--bg);padding:0;display:flex;flex-direction:column;}
-  #sheet-wrapper.sheet-fullscreen .sheet-toolbar{flex-shrink:0;margin-bottom:0;padding:8px 12px;border-bottom:1px solid var(--border);}
-  #sheet-wrapper.sheet-fullscreen #spreadsheet{flex:1 1 0;min-height:0;overflow:hidden;}
+  /* ── SHEET FULLSCREEN (landscape rotate) ── */
+  #sheet-wrapper.sheet-fullscreen{position:fixed!important;width:100vh;height:100vw;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-90deg);z-index:1000;background:var(--bg);overflow:hidden;}
+  #sheet-wrapper.sheet-fullscreen .sheet-toolbar{display:none!important;}
+  #sheet-wrapper.sheet-fullscreen #spreadsheet{width:100%;height:100%;}
+  /* 플로팅 버튼 */
+  #sheet-float-btn{position:fixed;z-index:2000;display:none;width:40px;height:40px;border-radius:50%;background:rgba(56,217,192,0.15);border:1px solid rgba(56,217,192,0.35);color:var(--primary);font-size:18px;cursor:pointer;display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,0.4);transition:background .15s;}
   .btn{
     padding:8px 16px;
     border:1px solid var(--border);
@@ -1055,6 +1057,9 @@
   <div class="content" id="content"></div>
 </div>
 
+<!-- 시트 플로팅 버튼 -->
+<button id="sheet-float-btn" onclick="toggleSheetFullscreen()" title="크게보기/닫기">⛶</button>
+
 <!-- 로또 앱 -->
 <div id="lotto-app" style="display:none"></div>
 
@@ -1659,7 +1664,7 @@ function switchSection(s){activeSection=s;activeFilter='all';renderSectionTabs()
 function renderView(){
   destroyCharts();
   const el=document.getElementById('content');
-  if(activeSection==='dashboard')renderDashboard(el);
+  if(activeSection==='dashboard'){renderDashboard(el);showSheetFloatBtn(false);}
   else renderSpreadsheet(el,activeSection);
 }
 
@@ -2390,7 +2395,8 @@ function renderSpreadsheet(container,key){
   if(!sData.length){container.innerHTML='<p style="color:var(--text-muted)">해당 섹션 데이터가 없습니다.</p>';return;}
   const names={income:'소득',savings:'저축',expense:'지출',asset:'자산'};
   const receiptBtn=key==='expense'?`<button class="btn" onclick="openReceiptUpload()" title="카드 명세서 PDF/이미지를 업로드하여 자동 분석">📎 영수증 분석</button>`:'';
-  container.innerHTML=`<div id="sheet-wrapper"><div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">☁️ 저장</button>${receiptBtn}<button class="btn" id="sheet-expand-btn" onclick="openSheetFullscreen()" title="전체화면">⛶ 크게보기</button><button class="btn primary" id="sheet-close-btn" onclick="closeSheetFullscreen()" style="display:none">✕ 닫기</button><span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div></div>`;
+  container.innerHTML=`<div id="sheet-wrapper"><div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">☁️ 저장</button>${receiptBtn}<span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div></div>`;
+  showSheetFloatBtn(true);
   const nc=sData[0].length;
   // col 0(A): 숨김, col 1(B): 통장분류+상세항목 합쳐서 표시, col 2(C): 숨김, col 3(D): 숨김, col 4+: 월별
   const cols=[];for(let i=0;i<nc;i++){
@@ -2421,42 +2427,73 @@ function renderSpreadsheet(container,key){
   updateSaveStatus();
 }
 
-function resizeSheetContent(isFullscreen){
-  if(!jexcelInstance)return;
-  const content=document.querySelector('#spreadsheet .jexcel_content');
-  if(!content)return;
-  const toolbar=document.querySelector('#sheet-wrapper .sheet-toolbar');
-  const toolbarH=toolbar?toolbar.offsetHeight:60;
-  if(isFullscreen){
-    content.style.width=window.innerWidth+'px';
-    content.style.height=(window.innerHeight-toolbarH-4)+'px';
+let _sheetFullscreen=false;
+
+function showSheetFloatBtn(show){
+  const btn=document.getElementById('sheet-float-btn');
+  if(!btn)return;
+  if(show){
+    btn.style.display='flex';
+    // 일반모드: 시트 우하단 (portrait 기준)
+    btn.style.bottom='90px';
+    btn.style.right='16px';
+    btn.style.top='';btn.style.left='';
+    btn.textContent='⛶';
+    btn.title='크게보기';
   }else{
-    const ssEl=document.getElementById('spreadsheet');
-    content.style.width=(ssEl?ssEl.offsetWidth:window.innerWidth)+'px';
-    content.style.height=(window.innerHeight-280)+'px';
+    btn.style.display='none';
   }
+}
+
+function toggleSheetFullscreen(){
+  if(_sheetFullscreen)closeSheetFullscreen();
+  else openSheetFullscreen();
 }
 
 function openSheetFullscreen(){
   const wrapper=document.getElementById('sheet-wrapper');
   if(!wrapper)return;
+  _sheetFullscreen=true;
+  // 헤더/탭 숨김
+  ['financial-header','yearTabs','sectionTabs'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.querySelector('.header')&&(document.querySelector('.header').style.display='none');
+  document.querySelector('.year-tabs')&&(document.querySelector('.year-tabs').style.display='none');
+  document.querySelector('.section-tabs')&&(document.querySelector('.section-tabs').style.display='none');
+  // 전체화면 클래스
   wrapper.classList.add('sheet-fullscreen');
-  const expandBtn=document.getElementById('sheet-expand-btn');
-  const closeBtn=document.getElementById('sheet-close-btn');
-  if(expandBtn)expandBtn.style.display='none';
-  if(closeBtn)closeBtn.style.display='';
-  setTimeout(()=>{resizeSheetContent(true);applyFreezeColumnsCSS();applyCompactDisplay();},50);
+  // 플로팅버튼: portrait 기준 좌상단 → 회전 후 landscape 우상단
+  const btn=document.getElementById('sheet-float-btn');
+  if(btn){btn.style.top='16px';btn.style.left='16px';btn.style.bottom='';btn.style.right='';btn.textContent='✕';btn.title='닫기';}
+  setTimeout(()=>{resizeSheetContent(true);applyFreezeColumnsCSS();applyCompactDisplay();},80);
 }
 
 function closeSheetFullscreen(){
   const wrapper=document.getElementById('sheet-wrapper');
   if(!wrapper)return;
+  _sheetFullscreen=false;
   wrapper.classList.remove('sheet-fullscreen');
-  const expandBtn=document.getElementById('sheet-expand-btn');
-  const closeBtn=document.getElementById('sheet-close-btn');
-  if(expandBtn)expandBtn.style.display='';
-  if(closeBtn)closeBtn.style.display='none';
-  setTimeout(()=>{resizeSheetContent(false);applyFreezeColumnsCSS();applyCompactDisplay();},50);
+  // 헤더/탭 복원
+  document.querySelector('.header')&&(document.querySelector('.header').style.display='');
+  document.querySelector('.year-tabs')&&(document.querySelector('.year-tabs').style.display='');
+  document.querySelector('.section-tabs')&&(document.querySelector('.section-tabs').style.display='');
+  // 플로팅버튼 복원
+  showSheetFloatBtn(true);
+  setTimeout(()=>{resizeSheetContent(false);applyFreezeColumnsCSS();applyCompactDisplay();},80);
+}
+
+function resizeSheetContent(isFullscreen){
+  if(!jexcelInstance)return;
+  const content=document.querySelector('#spreadsheet .jexcel_content');
+  if(!content)return;
+  if(isFullscreen){
+    // 회전 후 landscape 치수: 너비=portrait 높이, 높이=portrait 너비
+    content.style.width=window.innerHeight+'px';
+    content.style.height=window.innerWidth+'px';
+  }else{
+    const ssEl=document.getElementById('spreadsheet');
+    content.style.width=(ssEl?ssEl.offsetWidth:window.innerWidth)+'px';
+    content.style.height=(window.innerHeight-280)+'px';
+  }
 }
 
 function applyFreezeColumnsCSS(){
