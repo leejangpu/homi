@@ -2387,24 +2387,32 @@ function renderSpreadsheet(container,key){
   const receiptBtn=key==='expense'?`<button class="btn" onclick="openReceiptUpload()" title="카드 명세서 PDF/이미지를 업로드하여 자동 분석">📎 영수증 분석</button>`:'';
   container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">☁️ 저장</button>${receiptBtn}<span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>`;
   const nc=sData[0].length;
-  const cols=[];for(let i=0;i<nc;i++)cols.push({type:'text',width:i===0?30:i<=2?110:i===3?60:95});
+  // col 0(A): 숨김, col 1(B): 통장분류+상세항목 합쳐서 표시, col 2(C): 숨김, col 3(D): 숨김, col 4+: 월별
+  const cols=[];for(let i=0;i<nc;i++){
+    if(i===0)cols.push({type:'text',width:1});
+    else if(i===1)cols.push({type:'text',width:130});
+    else if(i===2)cols.push({type:'text',width:1});
+    else if(i===3)cols.push({type:'text',width:1});
+    else cols.push({type:'text',width:95});
+  }
   jexcelInstance=jspreadsheet(document.getElementById('spreadsheet'),{
     data:sData.map(r=>[...r]), columns:cols, defaultColWidth:95,
     tableOverflow:true, tableWidth:(document.getElementById('spreadsheet').offsetWidth||window.innerWidth)+'px', tableHeight:(window.innerHeight-280)+'px',
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
-    onchange:(instance,cell,x,y,value)=>{if(_isFormatting)return;sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){_isFormatting=true;jexcelInstance.setValueFromCoords(x,y,formatted,true);_isFormatting=false;}}},
-    oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);},
-    ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);},
+    onchange:(instance,cell,x,y,value)=>{if(_isFormatting)return;sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);setTimeout(applyCompactDisplay,150);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){_isFormatting=true;jexcelInstance.setValueFromCoords(x,y,formatted,true);_isFormatting=false;}}},
+    oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);setTimeout(applyCompactDisplay,150);},
+    ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);setTimeout(applyCompactDisplay,150);},
     onselection:(instance,x1,y1,x2,y2)=>{showCellTooltip(x1,y1);},
     onblur:()=>{hideCellTooltip();},
     oneditionstart:(instance,cell,x,y)=>{if(x>=4){cell.setAttribute('inputmode','decimal');setTimeout(()=>{const el=cell.querySelector('input')||cell.querySelector('textarea');if(el)el.inputMode='decimal';},50);}},
-    oneditionend:(instance,cell,x,y)=>{if(x>=4){cell.removeAttribute('inputmode');}}
+    oneditionend:(instance,cell,x,y)=>{if(x>=4){cell.removeAttribute('inputmode');}setTimeout(applyCompactDisplay,80);}
 
   });
   setTimeout(applyCellStyles,100);
   setTimeout(applyFilter,150);
   setTimeout(applyFreezeColumnsCSS,200);
+  setTimeout(applyCompactDisplay,250);
   updateSaveStatus();
 }
 
@@ -2412,29 +2420,29 @@ function applyFreezeColumnsCSS(){
   if(!jexcelInstance||!activeYear||!activeSection)return;
   const sec=sections[activeYear];
   if(!sec)return;
-  const freezeCount=sec.monthStart; // data columns to freeze (0 ~ monthStart-1)
   const table=document.querySelector('#spreadsheet .jexcel');
   if(!table)return;
 
-  // Measure actual rendered widths from header row
+  // 고정할 td: td[0](row번호), td[2](col B=통장분류+상세항목 합친 컬럼)만 freeze
+  // td[1]=col A(1px), td[3]=col C(1px), td[4]=col D(1px) 숨김
   const headerCells=Array.from(table.querySelectorAll('thead tr:first-child td'));
-  const lefts=[];
-  let leftAcc=0;
-  // td[0] = jspreadsheet row-number col, td[1..freezeCount] = data cols to freeze
-  for(let i=0;i<=freezeCount&&i<headerCells.length;i++){
-    lefts.push(leftAcc);
-    leftAcc+=headerCells[i].offsetWidth;
-  }
+  const getLeft=(idx)=>{let l=0;for(let i=0;i<idx&&i<headerCells.length;i++)l+=headerCells[i].offsetWidth;return l;};
 
-  // Build and inject sticky CSS via <style> tag
+  const left0=getLeft(0); // td[0] row header
+  const left2=getLeft(2); // td[2] col B (after 1px col A)
+  // first monthly td index = sec.monthStart+1 (data col) + 1 (row header) = sec.monthStart+2 in 0-indexed, +1 for nth-child
+  const monthlyNth=sec.monthStart+2;
+
   let css='';
-  for(let i=0;i<=freezeCount;i++){
-    const nth=i+1;
-    css+=`#spreadsheet .jexcel tr td:nth-child(${nth}){position:sticky!important;left:${lefts[i]||0}px!important;z-index:3!important;background:#060a12!important;}\n`;
-  }
-  // Divider border on first non-frozen column
-  css+=`#spreadsheet .jexcel tr td:nth-child(${freezeCount+2}){border-left:2px solid rgba(56,217,192,0.3)!important;}\n`;
-  // Restore cell-specific text colors (overridden bg is fine, keep text readable)
+  // Freeze row-number col
+  css+=`#spreadsheet .jexcel tr td:nth-child(1){position:sticky!important;left:${left0}px!important;z-index:4!important;background:#060a12!important;}\n`;
+  // Freeze col B (merged item col)
+  css+=`#spreadsheet .jexcel tr td:nth-child(3){position:sticky!important;left:${left2}px!important;z-index:3!important;background:#060a12!important;}\n`;
+  // Hide col A, C, D (1px cols)
+  css+=`#spreadsheet .jexcel tr td:nth-child(2),#spreadsheet .jexcel tr td:nth-child(4),#spreadsheet .jexcel tr td:nth-child(5){display:none!important;}\n`;
+  // Divider on first monthly column
+  css+=`#spreadsheet .jexcel tr td:nth-child(${monthlyNth}){border-left:2px solid rgba(56,217,192,0.3)!important;}\n`;
+  // Text colors
   css+=`#spreadsheet .jexcel td.cell-header{color:var(--primary-light)!important;}
 #spreadsheet .jexcel td.cell-category{color:var(--cyan)!important;}
 #spreadsheet .jexcel td.cell-total{color:var(--primary-light)!important;}
@@ -2443,6 +2451,35 @@ function applyFreezeColumnsCSS(){
   let styleEl=document.getElementById('jexcel-freeze-style');
   if(!styleEl){styleEl=document.createElement('style');styleEl.id='jexcel-freeze-style';document.head.appendChild(styleEl);}
   styleEl.textContent=css;
+}
+
+function applyCompactDisplay(){
+  if(!jexcelInstance||jexcelInstance.edition)return; // 편집 중엔 스킵
+  const table=document.querySelector('#spreadsheet .jexcel');
+  if(!table)return;
+  const rawData=jexcelInstance.getData(); // [col0,col1,col2,col3,monthly...]
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  table.querySelectorAll('tbody tr').forEach((row,rowIdx)=>{
+    const cells=row.querySelectorAll('td');
+    // td[0]=row#, td[1]=colA(숨김), td[2]=colB(표시), td[3]=colC(숨김), td[4]=colD(숨김), td[5]+=월별
+    if(!cells[2])return;
+    const d=rawData[rowIdx]||[];
+    const cat=esc((d[1]||'').trim());    // 통장분류
+    const detail=esc((d[2]||'').trim()); // 상세항목
+
+    if(rowIdx===0){
+      // 헤더행
+      cells[2].innerHTML='<div style="font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--text-muted)">항목</div>';
+      return;
+    }
+    if(cat&&detail&&cat!==detail){
+      cells[2].innerHTML=`<div style="font-size:10px;color:rgba(56,217,192,0.8);font-weight:600;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</div><div style="font-size:12px;color:var(--text);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${detail}</div>`;
+    }else{
+      const txt=cat||detail;
+      cells[2].innerHTML=`<div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${txt}</div>`;
+    }
+  });
 }
 
 function applyCellStyles(){
@@ -2508,7 +2545,23 @@ function showCellTooltip(x, y) {
   if (!tip || !jexcelInstance) { hideCellTooltip(); return; }
 
   const data = jexcelInstance.getData();
-  if (y < 0 || y >= data.length || x < 4) { hideCellTooltip(); return; }
+  if (y < 0 || y >= data.length) { hideCellTooltip(); return; }
+  // 비월별 컬럼(col B=항목) 클릭 시 분류(owner) 표시
+  const sec=sections[activeYear];
+  if (x < (sec?sec.monthStart:4)) {
+    if(y===0){hideCellTooltip();return;} // 헤더행 스킵
+    const owner=(data[y][3]||'').trim();
+    if(!owner){hideCellTooltip();return;}
+    const cell=jexcelInstance.getCell([x,y]);
+    if(!cell){hideCellTooltip();return;}
+    const rect=cell.getBoundingClientRect();
+    tip.innerHTML=`<div style="font-size:12px;padding:2px 0">담당: <strong style="color:var(--text)">${owner}</strong></div>`;
+    tip.style.display='block';
+    tip.style.left=Math.min(rect.left+4,window.innerWidth-120)+'px';
+    tip.style.top=(rect.bottom+6)+'px';
+    return;
+  }
+  if (x < 4) { hideCellTooltip(); return; }
 
   const val = parseNum(data[y][x]);
   if (val === 0) { hideCellTooltip(); return; }
