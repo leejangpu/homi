@@ -366,6 +366,11 @@
 
   /* ── SHEET TOOLBAR ── */
   .sheet-toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+
+  /* ── SHEET FULLSCREEN ── */
+  #sheet-wrapper.sheet-fullscreen{position:fixed!important;top:0;left:0;width:100vw;height:100vh;z-index:1000;background:var(--bg);padding:0;display:flex;flex-direction:column;}
+  #sheet-wrapper.sheet-fullscreen .sheet-toolbar{flex-shrink:0;margin-bottom:0;padding:8px 12px;border-bottom:1px solid var(--border);}
+  #sheet-wrapper.sheet-fullscreen #spreadsheet{flex:1 1 0;min-height:0;overflow:hidden;}
   .btn{
     padding:8px 16px;
     border:1px solid var(--border);
@@ -2385,7 +2390,7 @@ function renderSpreadsheet(container,key){
   if(!sData.length){container.innerHTML='<p style="color:var(--text-muted)">해당 섹션 데이터가 없습니다.</p>';return;}
   const names={income:'소득',savings:'저축',expense:'지출',asset:'자산'};
   const receiptBtn=key==='expense'?`<button class="btn" onclick="openReceiptUpload()" title="카드 명세서 PDF/이미지를 업로드하여 자동 분석">📎 영수증 분석</button>`:'';
-  container.innerHTML=`<div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">☁️ 저장</button>${receiptBtn}<span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div>`;
+  container.innerHTML=`<div id="sheet-wrapper"><div class="sheet-toolbar"><button class="btn" onclick="sheetInsertRow()">+ 행 추가</button><button class="btn" onclick="sheetUndo()">&#8617; 되돌리기</button><button class="btn primary" onclick="sheetDownload()">&#128190; CSV 저장</button><button class="btn primary" onclick="saveToGitHub()">☁️ 저장</button>${receiptBtn}<button class="btn" id="sheet-expand-btn" onclick="openSheetFullscreen()" title="전체화면">⛶ 크게보기</button><button class="btn primary" id="sheet-close-btn" onclick="closeSheetFullscreen()" style="display:none">✕ 닫기</button><span class="gh-connected" id="ghStatus"></span><div class="filter-bar"><button class="filter-btn active" onclick="setFilter('all',this)">전체</button><button class="filter-btn" onclick="setFilter('장훈',this)">장훈</button><button class="filter-btn" onclick="setFilter('순애',this)">순애</button><button class="filter-btn" onclick="setFilter('공통',this)">공통</button></div><span class="sheet-status" id="sheetStatus"></span></div><div id="spreadsheet"></div></div>`;
   const nc=sData[0].length;
   // col 0(A): 숨김, col 1(B): 통장분류+상세항목 합쳐서 표시, col 2(C): 숨김, col 3(D): 숨김, col 4+: 월별
   const cols=[];for(let i=0;i<nc;i++){
@@ -2414,6 +2419,44 @@ function renderSpreadsheet(container,key){
   setTimeout(applyFreezeColumnsCSS,200);
   setTimeout(applyCompactDisplay,250);
   updateSaveStatus();
+}
+
+function resizeSheetContent(isFullscreen){
+  if(!jexcelInstance)return;
+  const content=document.querySelector('#spreadsheet .jexcel_content');
+  if(!content)return;
+  const toolbar=document.querySelector('#sheet-wrapper .sheet-toolbar');
+  const toolbarH=toolbar?toolbar.offsetHeight:60;
+  if(isFullscreen){
+    content.style.width=window.innerWidth+'px';
+    content.style.height=(window.innerHeight-toolbarH-4)+'px';
+  }else{
+    const ssEl=document.getElementById('spreadsheet');
+    content.style.width=(ssEl?ssEl.offsetWidth:window.innerWidth)+'px';
+    content.style.height=(window.innerHeight-280)+'px';
+  }
+}
+
+function openSheetFullscreen(){
+  const wrapper=document.getElementById('sheet-wrapper');
+  if(!wrapper)return;
+  wrapper.classList.add('sheet-fullscreen');
+  const expandBtn=document.getElementById('sheet-expand-btn');
+  const closeBtn=document.getElementById('sheet-close-btn');
+  if(expandBtn)expandBtn.style.display='none';
+  if(closeBtn)closeBtn.style.display='';
+  setTimeout(()=>{resizeSheetContent(true);applyFreezeColumnsCSS();applyCompactDisplay();},50);
+}
+
+function closeSheetFullscreen(){
+  const wrapper=document.getElementById('sheet-wrapper');
+  if(!wrapper)return;
+  wrapper.classList.remove('sheet-fullscreen');
+  const expandBtn=document.getElementById('sheet-expand-btn');
+  const closeBtn=document.getElementById('sheet-close-btn');
+  if(expandBtn)expandBtn.style.display='';
+  if(closeBtn)closeBtn.style.display='none';
+  setTimeout(()=>{resizeSheetContent(false);applyFreezeColumnsCSS();applyCompactDisplay();},50);
 }
 
 function applyFreezeColumnsCSS(){
