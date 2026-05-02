@@ -2433,13 +2433,23 @@ function applyFreezeColumnsCSS(){
   // first monthly td index = sec.monthStart+1 (data col) + 1 (row header) = sec.monthStart+2 in 0-indexed, +1 for nth-child
   const monthlyNth=sec.monthStart+2;
 
+  // td 0~monthStart 전체를 sticky로 묶되, col A/C/D(1px)는 투명하게 처리
+  // display:none 대신 overflow:hidden+color:transparent — nth-child 카운트 보존
+  const inviStyle='overflow:hidden!important;padding:0!important;border-left:none!important;border-right:none!important;color:transparent!important;';
   let css='';
-  // Freeze row-number col
-  css+=`#spreadsheet .jexcel tr td:nth-child(1){position:sticky!important;left:${left0}px!important;z-index:4!important;background:#060a12!important;}\n`;
-  // Freeze col B (merged item col)
-  css+=`#spreadsheet .jexcel tr td:nth-child(3){position:sticky!important;left:${left2}px!important;z-index:3!important;background:#060a12!important;}\n`;
-  // Hide col A, C, D (1px cols)
-  css+=`#spreadsheet .jexcel tr td:nth-child(2),#spreadsheet .jexcel tr td:nth-child(4),#spreadsheet .jexcel tr td:nth-child(5){display:none!important;}\n`;
+  for(let i=0;i<=sec.monthStart;i++){
+    const nth=i+1;
+    const left=getLeft(i);
+    const isInvisible=(i===0||i===2||i===3); // col A(0), C(2), D(3)은 1px 투명, B(1)는 표시
+    // i=0은 row header(항상 표시), i=1은 col B(표시), 나머지 숨김
+    if(i===0){
+      css+=`#spreadsheet .jexcel tr td:nth-child(${nth}){position:sticky!important;left:${left}px!important;z-index:4!important;background:#060a12!important;}\n`;
+    } else if(i===1){
+      css+=`#spreadsheet .jexcel tr td:nth-child(${nth}){position:sticky!important;left:${left}px!important;z-index:3!important;background:#060a12!important;}\n`;
+    } else {
+      css+=`#spreadsheet .jexcel tr td:nth-child(${nth}){position:sticky!important;left:${left}px!important;z-index:3!important;background:#060a12!important;${inviStyle}}\n`;
+    }
+  }
   // Divider on first monthly column
   css+=`#spreadsheet .jexcel tr td:nth-child(${monthlyNth}){border-left:2px solid rgba(56,217,192,0.3)!important;}\n`;
   // Text colors
