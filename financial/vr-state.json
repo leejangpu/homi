@@ -1,0 +1,19 @@
+{
+  "ticker": "QLD",
+  "currentPrice": 82.6,
+  "totalQuantity": 181,
+  "targetValue": 15019,
+  "pool": 10000,
+  "gradient": 10,
+  "bandPercent": 15,
+  "periodicAmount": 520,
+  "weekNumber": 0,
+  "lastUpdated": "2026-05-02T22:54:50.868Z",
+  "computed": {
+    "currentEvaluation": 14950.599999999999,
+    "newV": 16528.185010402223,
+    "minBand": 14048.957258841889,
+    "maxBand": 19007.412761962554,
+    "signal": "hold"
+  }
+}
