@@ -40,6 +40,7 @@
     background:var(--bg);
     color:var(--text);
     min-height:100vh;
+    overflow-x:hidden;
     -webkit-font-smoothing:antialiased;
     -moz-osx-font-smoothing:grayscale;
     background-image:
@@ -2388,7 +2389,6 @@ function renderSpreadsheet(container,key){
   jexcelInstance=jspreadsheet(document.getElementById('spreadsheet'),{
     data:sData.map(r=>[...r]), columns:cols, defaultColWidth:95,
     tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
-    freezeColumns:sec.monthStart,
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
     onchange:(instance,cell,x,y,value)=>{if(_isFormatting)return;sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){_isFormatting=true;jexcelInstance.setValueFromCoords(x,y,formatted,true);_isFormatting=false;}}},
@@ -2402,7 +2402,45 @@ function renderSpreadsheet(container,key){
   });
   setTimeout(applyCellStyles,100);
   setTimeout(applyFilter,150);
+  setTimeout(applyFreezeColumnsCSS,200);
   updateSaveStatus();
+}
+
+function applyFreezeColumnsCSS(){
+  if(!jexcelInstance||!activeYear||!activeSection)return;
+  const sec=sections[activeYear];
+  if(!sec)return;
+  const freezeCount=sec.monthStart; // data columns to freeze (0 ~ monthStart-1)
+  const table=document.querySelector('#spreadsheet .jexcel');
+  if(!table)return;
+
+  // Measure actual rendered widths from header row
+  const headerCells=Array.from(table.querySelectorAll('thead tr:first-child td'));
+  const lefts=[];
+  let leftAcc=0;
+  // td[0] = jspreadsheet row-number col, td[1..freezeCount] = data cols to freeze
+  for(let i=0;i<=freezeCount&&i<headerCells.length;i++){
+    lefts.push(leftAcc);
+    leftAcc+=headerCells[i].offsetWidth;
+  }
+
+  // Build and inject sticky CSS via <style> tag
+  let css='';
+  for(let i=0;i<=freezeCount;i++){
+    const nth=i+1;
+    css+=`#spreadsheet .jexcel tr td:nth-child(${nth}){position:sticky!important;left:${lefts[i]||0}px!important;z-index:3!important;background:#060a12!important;}\n`;
+  }
+  // Divider border on first non-frozen column
+  css+=`#spreadsheet .jexcel tr td:nth-child(${freezeCount+2}){border-left:2px solid rgba(56,217,192,0.3)!important;}\n`;
+  // Restore cell-specific text colors (overridden bg is fine, keep text readable)
+  css+=`#spreadsheet .jexcel td.cell-header{color:var(--primary-light)!important;}
+#spreadsheet .jexcel td.cell-category{color:var(--cyan)!important;}
+#spreadsheet .jexcel td.cell-total{color:var(--primary-light)!important;}
+#spreadsheet .jexcel td.selected,#spreadsheet .jexcel td.selection{background:rgba(56,217,192,0.15)!important;}\n`;
+
+  let styleEl=document.getElementById('jexcel-freeze-style');
+  if(!styleEl){styleEl=document.createElement('style');styleEl.id='jexcel-freeze-style';document.head.appendChild(styleEl);}
+  styleEl.textContent=css;
 }
 
 function applyCellStyles(){
