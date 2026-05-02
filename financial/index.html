@@ -34,6 +34,8 @@
     --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
   }
   *{margin:0;padding:0;box-sizing:border-box;}
+  html{overflow-x:hidden;}
+  .jexcel_content{-webkit-overflow-scrolling:touch!important;}
 
   body{
     font-family:var(--font-ui);
@@ -2388,7 +2390,7 @@ function renderSpreadsheet(container,key){
   const cols=[];for(let i=0;i<nc;i++)cols.push({type:'text',width:i===0?30:i<=2?110:i===3?60:95});
   jexcelInstance=jspreadsheet(document.getElementById('spreadsheet'),{
     data:sData.map(r=>[...r]), columns:cols, defaultColWidth:95,
-    tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
+    tableOverflow:true, tableWidth:(document.getElementById('spreadsheet').offsetWidth||window.innerWidth)+'px', tableHeight:(window.innerHeight-280)+'px',
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
     onchange:(instance,cell,x,y,value)=>{if(_isFormatting)return;sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){_isFormatting=true;jexcelInstance.setValueFromCoords(x,y,formatted,true);_isFormatting=false;}}},
