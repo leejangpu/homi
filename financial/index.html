@@ -382,7 +382,8 @@
   .sheet-status.show{opacity:1;}
 
   /* ── JSPREADSHEET DARK ── */
-  .jexcel_container{background:var(--bg-card)!important;border-radius:var(--radius)!important;overflow:hidden!important;border:1px solid var(--border)!important;box-shadow:var(--shadow-card)!important;}
+  .jexcel_container{background:var(--bg-card)!important;border-radius:var(--radius)!important;overflow:clip!important;border:1px solid var(--border)!important;box-shadow:var(--shadow-card)!important;}
+  .jexcel_freeze{border-right:2px solid rgba(56,217,192,0.3)!important;}
   .jexcel{background:rgba(6,10,18,0.85)!important;}
   .jexcel td{background:rgba(10,16,28,0.9)!important;color:var(--text)!important;border-color:rgba(255,255,255,0.04)!important;font-size:13px!important;font-family:var(--font-ui)!important;transition:background .1s!important;}
   .jexcel thead td{background:rgba(6,10,18,0.95)!important;color:var(--text-muted)!important;font-weight:700!important;border-color:rgba(255,255,255,0.05)!important;font-size:11px!important;}
@@ -2387,6 +2388,7 @@ function renderSpreadsheet(container,key){
   jexcelInstance=jspreadsheet(document.getElementById('spreadsheet'),{
     data:sData.map(r=>[...r]), columns:cols, defaultColWidth:95,
     tableOverflow:true, tableWidth:'100%', tableHeight:(window.innerHeight-280)+'px',
+    freezeColumns:sec.monthStart,
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
     onchange:(instance,cell,x,y,value)=>{if(_isFormatting)return;sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){_isFormatting=true;jexcelInstance.setValueFromCoords(x,y,formatted,true);_isFormatting=false;}}},
