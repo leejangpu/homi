@@ -2547,8 +2547,7 @@ function showCellTooltip(x, y) {
   const data = jexcelInstance.getData();
   if (y < 0 || y >= data.length) { hideCellTooltip(); return; }
   // 비월별 컬럼(col B=항목) 클릭 시 분류(owner) 표시
-  const sec=sections[activeYear];
-  if (x < (sec?sec.monthStart:4)) {
+  if (x < ((sections[activeYear]||{}).monthStart||4)) {
     if(y===0){hideCellTooltip();return;} // 헤더행 스킵
     const owner=(data[y][3]||'').trim();
     if(!owner){hideCellTooltip();return;}
