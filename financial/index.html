@@ -2443,10 +2443,13 @@ function applyFreezeColumnsCSS(){
     const isInvisible=(i===0||i===2||i===3); // col A(0), C(2), D(3)은 1px 투명, B(1)는 표시
     // i=0은 row header(항상 표시), i=1은 col B(표시), 나머지 숨김
     if(i===0){
+      // row header: 표시
       css+=`#spreadsheet .jexcel tr td:nth-child(${nth}){position:sticky!important;left:${left}px!important;z-index:4!important;background:#060a12!important;}\n`;
-    } else if(i===1){
+    } else if(i===2){
+      // col B (data col 1, 통장분류+상세항목): 표시
       css+=`#spreadsheet .jexcel tr td:nth-child(${nth}){position:sticky!important;left:${left}px!important;z-index:3!important;background:#060a12!important;}\n`;
     } else {
+      // col A(i=1), col C(i=3), col D(i=4): 1px 투명 처리
       css+=`#spreadsheet .jexcel tr td:nth-child(${nth}){position:sticky!important;left:${left}px!important;z-index:3!important;background:#060a12!important;${inviStyle}}\n`;
     }
   }
