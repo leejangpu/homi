@@ -223,6 +223,51 @@ async function handleAnalyzeReceipt(request: Request, env: Env): Promise<Respons
   }, 200);
 }
 
+async function handleSaveVR(request: Request, env: Env): Promise<Response> {
+  let body: { content?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "요청 본문을 파싱할 수 없습니다." }, 400);
+  }
+
+  const { content } = body;
+  if (!content) {
+    return jsonResponse({ error: "content 필드가 필요합니다." }, 400);
+  }
+
+  const filePath = "financial/vr-state.json";
+  const apiBase = `https://api.github.com/repos/${env.REPO_OWNER}/${env.REPO_NAME}/contents/${filePath}`;
+  const headers: HeadersInit = {
+    Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+    Accept: "application/vnd.github+json",
+    "Content-Type": "application/json",
+    "User-Agent": "homi-financial-api",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+
+  let sha: string | undefined;
+  const getRes = await fetch(apiBase, { method: "GET", headers });
+  if (getRes.ok) {
+    const fileData = (await getRes.json()) as { sha?: string };
+    sha = fileData.sha;
+  } else if (getRes.status !== 404) {
+    return jsonResponse({ error: "GitHub API 조회 실패" }, 502);
+  }
+
+  const encoded = btoa(unescape(encodeURIComponent(content)));
+  const putBody: Record<string, unknown> = { message: "VR 상태 저장", content: encoded };
+  if (sha) putBody.sha = sha;
+
+  const putRes = await fetch(apiBase, { method: "PUT", headers, body: JSON.stringify(putBody) });
+  if (!putRes.ok) {
+    const errText = await putRes.text();
+    return jsonResponse({ error: `GitHub API 업데이트 실패: ${errText}` }, 502);
+  }
+
+  return jsonResponse({ ok: true, message: "vr-state.json 저장 완료" }, 200);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -241,6 +286,10 @@ export default {
 
     if (url.pathname === "/analyze-receipt" && request.method === "POST") {
       return handleAnalyzeReceipt(request, env);
+    }
+
+    if (url.pathname === "/save-vr" && request.method === "POST") {
+      return handleSaveVR(request, env);
     }
 
     return jsonResponse({ error: "Not Found" }, 404);

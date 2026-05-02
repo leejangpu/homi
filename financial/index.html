@@ -91,6 +91,7 @@
   .logo-icon:hover{transform:scale(1.05) rotate(-2deg);}
   .logo h1{font-size:17px;font-weight:800;letter-spacing:-0.5px;color:var(--text);}
   .logo .sub{font-size:10px;color:var(--text-dim);margin-top:2px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;}
+  .deploy-time{margin-left:auto;font-size:10px;color:var(--text-dim);font-family:var(--font-num);font-weight:500;letter-spacing:.3px;white-space:nowrap;opacity:.6;}
 
   /* ── YEAR TABS ── */
   .year-tabs{
@@ -1047,6 +1048,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
+  <span class="deploy-time">배포 2026-05-03 01:05 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -3230,10 +3232,10 @@ function vrRenderResult(){
   resultEl.innerHTML = html;
 }
 
-function vrSave(){
+function vrBuildState(){
   const inp = vrGetInputs();
   const r = vrCalculate(inp);
-  const state = {
+  return {
     ...inp,
     lastUpdated: new Date().toISOString(),
     computed: {
@@ -3244,13 +3246,24 @@ function vrSave(){
       signal: r.signal,
     }
   };
+}
+
+async function vrSave(){
+  vrShowToast('저장 중...');
+  const state = vrBuildState();
   const json = JSON.stringify(state, null, 2);
-  const blob = new Blob([json], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'vr-state.json'; a.click();
-  URL.revokeObjectURL(url);
-  vrShowToast('vr-state.json 다운로드 완료!');
+  try{
+    const res = await fetch(WORKER_API_URL+'/save-vr',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({content:json})
+    });
+    if(!res.ok){ vrShowToast('저장 실패: '+res.status); return; }
+    vrState = state;
+    vrShowToast('✓ GitHub에 저장 완료!');
+  }catch(e){
+    vrShowToast('네트워크 오류: '+e.message);
+  }
 }
 
 function vrShowToast(msg){
@@ -3315,8 +3328,7 @@ async function renderVRCalc(){
       </div>
     </div>
     <div id="vr-result"></div>
-    <button class="vr-btn" onclick="vrSave()" style="margin-top:8px">📥 vr-state.json 다운로드</button>
-    <p style="font-size:11px;color:var(--text-dim);margin-top:10px;text-align:center">다운로드한 파일을 financial/ 디렉토리에 넣고 커밋하면 다음 로드 시 자동 반영됩니다.</p>
+    <button class="vr-btn" onclick="vrSave()" style="margin-top:8px">☁️ 저장</button>
     `;
 
     // 입력 필드에 이벤트 리스너 연결
