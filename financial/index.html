@@ -1048,7 +1048,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-03 17:49 KST</span>
+  <span class="deploy-time">배포 2026-05-03 17:58 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -3291,10 +3291,19 @@ function vrUpdateActions(){
       <div style="display:flex;gap:10px;margin-top:8px">
         <button class="vr-btn" style="flex:1" onclick="vrNextCycle()">🔄 다음 사이클 시작</button>
         <button class="vr-btn" style="flex:1;background:rgba(249,112,136,0.12);color:var(--red);border:1px solid rgba(249,112,136,0.25)" onclick="vrEndCycle()">⏹ 사이클 종료</button>
-      </div>`;
+      </div>
+      <button class="vr-btn" onclick="vrUpdateSettings()" style="margin-top:6px;width:100%;background:rgba(255,255,255,0.04);font-size:12px;color:var(--text-dim)">⚙️ 설정 저장 (모드/Pool 등 변경 시)</button>`;
   } else {
     el.innerHTML = `<button class="vr-btn" onclick="vrSave()" style="margin-top:8px;width:100%">☁️ 저장 (사이클 시작)</button>`;
   }
+}
+
+async function vrUpdateSettings(){
+  vrShowToast('저장 중...');
+  try{
+    await vrPushState(vrBuildState({ cycleStatus: vrState.cycleStatus || 'active' }));
+    vrShowToast('✓ 설정 저장 완료!');
+  }catch(e){ vrShowToast(e.message); }
 }
 
 function vrNextCycle(){
