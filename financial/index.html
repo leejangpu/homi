@@ -1048,7 +1048,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-03 11:05 KST</span>
+  <span class="deploy-time">배포 2026-05-03 13:53 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -3079,17 +3079,17 @@ function vrCalculate(inp){
   // 1. 현재 평가금
   const currentEvaluation = totalQuantity * currentPrice;
 
-  // 2. V값 업데이트 (실력공식)
+  // 2. 현재 밴드 = 현재 V(targetValue) 기준 (Pool과 무관)
+  const bandRate = bandPercent / 100;
+  const minBand = targetValue * (1 - bandRate);
+  const maxBand = targetValue * (1 + bandRate);
+
+  // 3. 다음 V값 계산 (실력공식, 2주 후 적용)
   const poolContribution = pool / gradient;
   const skillAdjustment = (currentEvaluation - targetValue) / (2 * Math.sqrt(gradient));
   const newV = targetValue + poolContribution + skillAdjustment + periodicAmount;
 
-  // 3. 밴드 계산
-  const bandRate = bandPercent / 100;
-  const minBand = newV * (1 - bandRate);
-  const maxBand = newV * (1 + bandRate);
-
-  // 4. Pool 사용 한도
+  // 4. Pool 사용 한도 (주문 개수 결정용)
   const decaySteps = Math.floor(weekNumber / 26);
   const poolLimit = Math.max(0.10, 0.75 - decaySteps * 0.05);
   const poolAvailable = pool * poolLimit;
