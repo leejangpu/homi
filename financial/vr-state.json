@@ -8,11 +8,12 @@
   "bandPercent": 10,
   "periodicAmount": 520,
   "weekNumber": 0,
+  "investmentMode": "accumulate",
   "cycleStatus": "active",
-  "lastUpdated": "2026-05-03T08:40:10.638Z",
+  "lastUpdated": "2026-05-03T08:59:52.932Z",
   "computed": {
-    "currentEvaluation": 14950.599999999999,
-    "newV": 15928.185010402223,
+    "currentEvaluation": 14950.6,
+    "newV": 15928.19,
     "minBand": 13517.1,
     "maxBand": 16520.9,
     "signal": "hold"
