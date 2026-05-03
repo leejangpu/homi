@@ -1048,7 +1048,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-03 13:53 KST</span>
+  <span class="deploy-time">배포 2026-05-03 14:03 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -3232,11 +3232,12 @@ function vrRenderResult(){
   resultEl.innerHTML = html;
 }
 
-function vrBuildState(){
+function vrBuildState(overrides={}){
   const inp = vrGetInputs();
   const r = vrCalculate(inp);
   return {
     ...inp,
+    cycleStatus: 'active',
     lastUpdated: new Date().toISOString(),
     computed: {
       currentEvaluation: r.currentEvaluation,
@@ -3244,26 +3245,114 @@ function vrBuildState(){
       minBand: r.minBand,
       maxBand: r.maxBand,
       signal: r.signal,
-    }
+    },
+    ...overrides,
   };
+}
+
+async function vrPushState(state){
+  const json = JSON.stringify(state, null, 2);
+  const res = await fetch(WORKER_API_URL+'/save-vr',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({content:json})
+  });
+  if(!res.ok) throw new Error('저장 실패: '+res.status);
+  vrState = state;
+  vrUpdateActions();
 }
 
 async function vrSave(){
   vrShowToast('저장 중...');
-  const state = vrBuildState();
-  const json = JSON.stringify(state, null, 2);
   try{
-    const res = await fetch(WORKER_API_URL+'/save-vr',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({content:json})
-    });
-    if(!res.ok){ vrShowToast('저장 실패: '+res.status); return; }
-    vrState = state;
-    vrShowToast('✓ GitHub에 저장 완료!');
-  }catch(e){
-    vrShowToast('네트워크 오류: '+e.message);
+    await vrPushState(vrBuildState());
+    vrShowToast('✓ GitHub에 저장 완료! (사이클 시작됨)');
+  }catch(e){ vrShowToast(e.message); }
+}
+
+function vrUpdateActions(){
+  const el = document.getElementById('vr-actions');
+  if(!el) return;
+  const isActive = vrState && vrState.cycleStatus === 'active';
+  if(isActive){
+    el.innerHTML = `
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="vr-btn" style="flex:1" onclick="vrNextCycle()">🔄 다음 사이클 시작</button>
+        <button class="vr-btn" style="flex:1;background:rgba(249,112,136,0.12);color:var(--red);border:1px solid rgba(249,112,136,0.25)" onclick="vrEndCycle()">⏹ 사이클 종료</button>
+      </div>`;
+  } else {
+    el.innerHTML = `<button class="vr-btn" onclick="vrSave()" style="margin-top:8px;width:100%">☁️ 저장 (사이클 시작)</button>`;
   }
+}
+
+function vrNextCycle(){
+  if(!vrState || !vrState.computed){ vrShowToast('저장된 사이클이 없습니다'); return; }
+  const newV = vrState.computed.newV;
+  const newWeek = (vrState.weekNumber || 0) + 2;
+
+  const inputStyle = 'width:100%;margin-top:4px;padding:8px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box';
+  const labelStyle = 'font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:.5px;text-transform:uppercase';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'gh-modal-overlay';
+  overlay.innerHTML = `<div class="gh-modal">
+    <h3>🔄 다음 사이클 시작</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">
+      새 V = <strong style="color:var(--primary)">$${newV.toFixed(2)}</strong> 자동 적용 &nbsp;|&nbsp; ${newWeek}주차
+    </p>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+      <div>
+        <label style="${labelStyle}">현재가 ($)</label>
+        <input type="number" id="nc-price" step="0.01" placeholder="현재 주가" style="${inputStyle}">
+      </div>
+      <div>
+        <label style="${labelStyle}">보유 수량 (주)</label>
+        <input type="number" id="nc-qty" step="1" placeholder="2주간 체결 후 보유 수량" style="${inputStyle}" value="${vrState.totalQuantity||0}">
+      </div>
+      <div>
+        <label style="${labelStyle}">Pool / 예수금 ($)</label>
+        <input type="number" id="nc-pool" step="0.01" placeholder="현재 USD 잔고" style="${inputStyle}">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="this.closest('.gh-modal-overlay').remove()">취소</button>
+      <button class="btn-save" onclick="vrApplyNextCycle(${newV},${newWeek})">시작</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('nc-price').focus();
+}
+
+async function vrApplyNextCycle(newV, newWeek){
+  const price = parseFloat(document.getElementById('nc-price').value)||0;
+  const qty   = parseFloat(document.getElementById('nc-qty').value)||0;
+  const pool  = parseFloat(document.getElementById('nc-pool').value)||0;
+  if(!price){ alert('현재가를 입력하세요'); return; }
+
+  const setVal = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
+  setVal('vr-currentPrice', price);
+  setVal('vr-totalQuantity', qty);
+  setVal('vr-pool', pool);
+  setVal('vr-targetValue', newV.toFixed(2));
+  setVal('vr-weekNumber', newWeek);
+
+  document.querySelector('.gh-modal-overlay').remove();
+  vrRenderResult();
+
+  vrShowToast('저장 중...');
+  try{
+    await vrPushState(vrBuildState());
+    vrShowToast('✓ 새 사이클 저장 완료!');
+  }catch(e){ vrShowToast(e.message); }
+}
+
+async function vrEndCycle(){
+  if(!confirm('사이클을 종료할까요?\n현재 상태는 저장되고 다음 저장 시 새 사이클로 시작됩니다.')) return;
+  vrShowToast('저장 중...');
+  try{
+    await vrPushState(vrBuildState({ cycleStatus: 'ended' }));
+    vrShowToast('✓ 사이클 종료됨');
+  }catch(e){ vrShowToast(e.message); }
 }
 
 function vrShowToast(msg){
@@ -3328,7 +3417,7 @@ async function renderVRCalc(){
       </div>
     </div>
     <div id="vr-result"></div>
-    <button class="vr-btn" onclick="vrSave()" style="margin-top:8px">☁️ 저장</button>
+    <div id="vr-actions"></div>
     `;
 
     // 입력 필드에 이벤트 리스너 연결
@@ -3338,6 +3427,7 @@ async function renderVRCalc(){
     vrRendered = true;
   }
 
+  vrUpdateActions();
   // 초기 계산 실행
   vrRenderResult();
 }
