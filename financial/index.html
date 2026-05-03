@@ -1048,7 +1048,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-03 14:23 KST</span>
+  <span class="deploy-time">배포 2026-05-03 17:49 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -3070,28 +3070,36 @@ function vrGetInputs(){
     bandPercent: g('vr-bandPercent') || 15,
     periodicAmount: g('vr-periodicAmount'),
     weekNumber: g('vr-weekNumber'),
+    investmentMode: gs('vr-investmentMode') || 'accumulate',
   };
 }
 
 function vrCalculate(inp){
-  const { currentPrice, totalQuantity, targetValue, pool, gradient, bandPercent, periodicAmount, weekNumber } = inp;
+  const { currentPrice, totalQuantity, targetValue, pool, gradient, bandPercent, periodicAmount, weekNumber, investmentMode } = inp;
 
-  // 1. 현재 평가금
-  const currentEvaluation = totalQuantity * currentPrice;
+  // 입력값 검증
+  if(!gradient || gradient <= 0) return null;
 
-  // 2. 현재 밴드 = 현재 V(targetValue) 기준 (Pool과 무관)
+  // 1. 현재 평가금 (반올림)
+  const currentEvaluation = Math.round(totalQuantity * currentPrice * 100) / 100;
+
+  // 2. 현재 밴드 = 현재 V(targetValue) 기준 (Pool과 무관, 반올림)
   const bandRate = bandPercent / 100;
-  const minBand = targetValue * (1 - bandRate);
-  const maxBand = targetValue * (1 + bandRate);
+  const minBand = Math.round(targetValue * (1 - bandRate) * 100) / 100;
+  const maxBand = Math.round(targetValue * (1 + bandRate) * 100) / 100;
 
   // 3. 다음 V값 계산 (실력공식, 2주 후 적용)
   const poolContribution = pool / gradient;
   const skillAdjustment = (currentEvaluation - targetValue) / (2 * Math.sqrt(gradient));
-  const newV = targetValue + poolContribution + skillAdjustment + periodicAmount;
+  // 인출식 모드에서는 적립금을 차감
+  const adjustedPeriodic = investmentMode === 'withdraw' ? -Math.abs(periodicAmount) : periodicAmount;
+  const newV = Math.round((targetValue + poolContribution + skillAdjustment + adjustedPeriodic) * 100) / 100;
 
-  // 4. Pool 사용 한도 (주문 개수 결정용)
+  // 4. Pool 사용 한도 — 투자 모드별 기본값
+  const baseLimitMap = { accumulate: 0.75, lump: 0.50, withdraw: 0.25 };
+  const baseLimit = baseLimitMap[investmentMode] || 0.75;
   const decaySteps = Math.floor(weekNumber / 26);
-  const poolLimit = Math.max(0.10, 0.75 - decaySteps * 0.05);
+  const poolLimit = Math.max(0.10, baseLimit - decaySteps * 0.05);
   const poolAvailable = pool * poolLimit;
 
   // 5. 매매 판단
@@ -3141,6 +3149,7 @@ function vrRenderResult(){
   const r = vrCalculate(inp);
   const resultEl = document.getElementById('vr-result');
   if(!resultEl) return;
+  if(!r){ resultEl.innerHTML = '<div style="color:var(--red);padding:12px 0">⚠ 기울기 G는 1 이상 값을 입력하세요.</div>'; return; }
   const { totalQuantity, pool } = inp;
 
   const signalLabel = r.signal === 'buy' ? 'BUY (매수)' : r.signal === 'sell' ? 'SELL (매도)' : 'HOLD (홀드)';
@@ -3399,6 +3408,14 @@ async function renderVRCalc(){
         <input type="number" id="vr-targetValue" value="${s.targetValue||''}" step="0.01" placeholder="현재 V값">
       </div>
       <div class="vr-field">
+        <label>투자 모드</label>
+        <select id="vr-investmentMode" style="width:100%;padding:8px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box">
+          <option value="accumulate" ${(s.investmentMode||'accumulate')==='accumulate'?'selected':''}>적립식 (Pool 75%)</option>
+          <option value="lump" ${s.investmentMode==='lump'?'selected':''}>거치식 (Pool 50%)</option>
+          <option value="withdraw" ${s.investmentMode==='withdraw'?'selected':''}>인출식 (Pool 25%)</option>
+        </select>
+      </div>
+      <div class="vr-field">
         <label>Pool ($)</label>
         <input type="number" id="vr-pool" value="${s.pool||''}" step="0.01" placeholder="USD 현금 잔고">
       </div>
@@ -3424,7 +3441,7 @@ async function renderVRCalc(){
     `;
 
     // 입력 필드에 이벤트 리스너 연결
-    const inputs = container.querySelectorAll('input');
+    const inputs = container.querySelectorAll('input, select');
     inputs.forEach(inp => inp.addEventListener('input', vrRenderResult));
 
     vrRendered = true;
