@@ -1048,7 +1048,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-03 14:03 KST</span>
+  <span class="deploy-time">배포 2026-05-03 14:16 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -3099,24 +3099,25 @@ function vrCalculate(inp){
   if(currentEvaluation < minBand) signal = 'buy';
   else if(currentEvaluation > maxBand) signal = 'sell';
 
-  // 6. 매수 주문 생성 (항상 생성 - 밴드 아래 가격에 지정가 대기)
+  // 6. 매수 주문 생성 — Pool의 60% 예산 내에서, 1주씩 분산
   const buyOrders = [];
-  if(currentPrice > 0){
-    let spent = 0;
+  const buyBudget = poolAvailable * 0.60;
+  if(currentPrice > 0 && buyBudget > 0){
+    let remaining = buyBudget;
     for(let n=1; n<=20; n++){
       const targetQty = totalQuantity + n;
       const orderPrice = Math.round((minBand / targetQty) * 100) / 100;
       if(orderPrice <= 0) break;
-      if(spent + orderPrice > poolAvailable) break;
-      spent += orderPrice;
+      if(remaining < orderPrice) break;
+      remaining -= orderPrice;
       buyOrders.push({ seq: n, targetQty, price: orderPrice, qty: 1 });
     }
   }
 
-  // 7. 매도 주문 생성 (항상 생성 - 밴드 위 가격에 지정가 대기)
+  // 7. 매도 주문 생성 — 10개 고정 (공식 스펙)
   const sellOrders = [];
   if(totalQuantity > 0 && currentPrice > 0){
-    for(let n=1; n<=20; n++){
+    for(let n=1; n<=10; n++){
       const targetQty = totalQuantity - n;
       if(targetQty <= 0) break;
       const orderPrice = Math.round((maxBand / targetQty) * 100) / 100;
