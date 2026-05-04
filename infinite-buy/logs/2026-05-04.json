@@ -1,0 +1,90 @@
+[
+  {
+    "timestamp": "2026-05-04T14:00:04.206Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 122.2,
+      "quantity": 1,
+      "label": "전반전 0% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030318595"
+    }
+  },
+  {
+    "timestamp": "2026-05-04T14:00:04.746Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 133.88,
+      "quantity": 1,
+      "label": "전반전 +9.6% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030318632"
+    }
+  },
+  {
+    "timestamp": "2026-05-04T14:00:05.287Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LOC",
+      "price": 133.89,
+      "quantity": 3,
+      "label": "쿼터매도 +9.6% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030318653"
+    }
+  },
+  {
+    "timestamp": "2026-05-04T14:00:05.825Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LIMIT",
+      "price": 136.86,
+      "quantity": 8,
+      "label": "목표 +12% LIMIT [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030318699"
+    }
+  },
+  {
+    "timestamp": "2026-05-04T14:00:07.146Z",
+    "ticker": "TQQQ",
+    "action": "CYCLE_START",
+    "details": {
+      "cycleNumber": 2,
+      "principal": 13269.3399,
+      "buyPerRound": 331.7334975,
+      "splitCount": 40,
+      "targetProfit": 0.1,
+      "strategyVersion": "v2.2"
+    }
+  },
+  {
+    "timestamp": "2026-05-04T14:00:07.185Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "type": "FIRST_BUY",
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 68.94,
+      "quantity": 5,
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030318778"
+    }
+  }
+]
