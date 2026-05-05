@@ -1048,7 +1048,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-05 07:00 KST</span>
+  <span class="deploy-time">배포 2026-05-05 13:11 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -1619,12 +1619,15 @@ function splitSections(year){
   });
   const assetGroups = Object.entries(assetGroupMap).map(([name,value]) => ({name, value}));
 
-  // Parse irregular expenses from columns R(17), S(18), T(19)
+  // Parse irregular expenses from side-table columns (dynamically after last month col)
+  let irBase = months.length > 0 ? months[months.length-1].col + 2 : 17;
+  // Scan rows for explicit header to override the default offset
+  outer: for(let r=0;r<Math.min(data.length,30);r++){const row=data[r]||[];for(let c=irBase;c<row.length;c++){if((row[c]||'').trim()==='세금 및 비정기 지출'){irBase=c;break outer;}}}
   const irregulars = [];
   for(let r=0;r<data.length;r++){
-    const col17=(data[r][17]||'').trim();
-    const col18=(data[r][18]||'').trim();
-    const col19=(data[r][19]||'').trim();
+    const col17=(data[r][irBase]||'').trim();
+    const col18=(data[r][irBase+1]||'').trim();
+    const col19=(data[r][irBase+2]||'').trim();
     if(col17==='세금 및 비정기 지출') continue;
     if(col17){
       const amt=extractIrAmt(col19);
