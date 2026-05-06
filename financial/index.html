@@ -1048,7 +1048,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-06 07:00 KST</span>
+  <span class="deploy-time">배포 2026-05-06 14:39 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -2324,7 +2324,7 @@ function renderDashboard(container){
     const pieColors=['#2dd4bf','#60a5fa','#fbbf24','#f472b6','#a78bfa','#34d399','#fb923c','#4ade80','#818cf8','#f87171','#38bdf8','#e879f9'];
     const assetItems = sec.asset.items || [];
     const positiveItems = assetItems.filter(a => a.value > 0);
-    const pieData = assetViewMode==='group' ? positiveGroups : positiveItems;
+    const pieData = (assetViewMode==='group' ? positiveGroups : positiveItems).slice().sort((a,b)=>b.value-a.value);
     const pieTotal2 = pieData.reduce((s,a)=>s+a.value,0);
 
     // 5. Asset Donut
@@ -2354,7 +2354,7 @@ function renderDashboard(container){
     // 6. Debt Donut
     if(negativeGroups.length){
       const negItems = assetItems.filter(a => a.value < 0);
-      const debtData = assetViewMode==='group' ? negativeGroups : negItems;
+      const debtData = (assetViewMode==='group' ? negativeGroups : negItems).slice().sort((a,b)=>a.value-b.value);
       const debtTotal = debtData.reduce((s,a)=>s+Math.abs(a.value),0);
       const debtColors=['#fb7185','#fb923c','#fbbf24','#f472b6'];
       const el=document.getElementById('chDebtPie');
