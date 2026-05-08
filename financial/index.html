@@ -803,6 +803,11 @@
     z-index:9000;
   }
   .vr-toast.show{transform:translateX(-50%) translateY(0);}
+  .vr-tab{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;}
+  .vr-tab.active{background:rgba(56,217,192,0.15);border-color:rgba(56,217,192,0.4);color:var(--primary);}
+  .vr-tab:hover:not(.active){background:rgba(255,255,255,0.07);color:var(--text);}
+  .vr-tab-add{padding:5px 12px;border-radius:20px;border:1px dashed var(--border);background:transparent;color:var(--text-dim);font-size:14px;cursor:pointer;transition:all .2s;font-family:inherit;}
+  .vr-tab-add:hover{border-color:var(--primary);color:var(--primary);}
 
   @media(max-width:768px){
     .vr-input-grid{grid-template-columns:repeat(2,1fr);}
@@ -1048,7 +1053,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-08 07:00 KST</span>
+  <span class="deploy-time">배포 2026-05-08 14:44 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -3041,15 +3046,30 @@ function sheetDownload(){
 function showSS(m){const el=document.getElementById('sheetStatus');if(!el)return;el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
 
 // ===== VR Calculator =====
-let vrState = null;
-let vrRendered = false;
+let vrTrackers = {};   // { "QLD": {...state}, "SOXL": {...state} }
+let vrActiveKey = null;
+let vrLoaded = false;
 
 async function loadVRState(){
   try{
     const r = await fetch('./vr-state.json?t='+Date.now());
-    if(r.ok) vrState = await r.json();
-  }catch(e){ vrState = null; }
+    if(r.ok){
+      const data = await r.json();
+      if(data && typeof data === 'object'){
+        // 구버전 단일 객체 포맷 자동 마이그레이션 (root에 ticker 문자열이 있으면 구버전)
+        if(typeof data.ticker === 'string'){
+          vrTrackers = {[data.ticker || 'QLD']: data};
+        } else {
+          vrTrackers = data;
+        }
+        const keys = Object.keys(vrTrackers);
+        vrActiveKey = keys[0] || null;
+      }
+    }
+  }catch(e){ vrTrackers = {}; vrActiveKey = null; }
 }
+
+function vrGetState(){ return vrActiveKey ? (vrTrackers[vrActiveKey] || {}) : {}; }
 
 function vrFmt(n, decimals=2){
   if(n==null || isNaN(n)) return '-';
@@ -3266,14 +3286,14 @@ function vrBuildState(overrides={}){
 }
 
 async function vrPushState(state){
-  const json = JSON.stringify(state, null, 2);
+  vrTrackers[vrActiveKey] = state;
+  const json = JSON.stringify(vrTrackers, null, 2);
   const res = await fetch(WORKER_API_URL+'/save-vr',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({content:json})
   });
   if(!res.ok) throw new Error('저장 실패: '+res.status);
-  vrState = state;
   vrUpdateActions();
 }
 
@@ -3288,7 +3308,7 @@ async function vrSave(){
 function vrUpdateActions(){
   const el = document.getElementById('vr-actions');
   if(!el) return;
-  const isActive = vrState && vrState.cycleStatus === 'active';
+  const isActive = vrActiveKey && vrGetState().cycleStatus === 'active';
   if(isActive){
     el.innerHTML = `
       <div style="display:flex;gap:10px;margin-top:8px">
@@ -3304,15 +3324,16 @@ function vrUpdateActions(){
 async function vrUpdateSettings(){
   vrShowToast('저장 중...');
   try{
-    await vrPushState(vrBuildState({ cycleStatus: vrState.cycleStatus || 'active' }));
+    await vrPushState(vrBuildState({ cycleStatus: vrGetState().cycleStatus || 'active' }));
     vrShowToast('✓ 설정 저장 완료!');
   }catch(e){ vrShowToast(e.message); }
 }
 
 function vrNextCycle(){
-  if(!vrState || !vrState.computed){ vrShowToast('저장된 사이클이 없습니다'); return; }
-  const newV = vrState.computed.newV;
-  const newWeek = (vrState.weekNumber || 0) + 2;
+  const _s = vrGetState();
+  if(!_s.computed){ vrShowToast('저장된 사이클이 없습니다'); return; }
+  const newV = _s.computed.newV;
+  const newWeek = (_s.weekNumber || 0) + 2;
 
   const inputStyle = 'width:100%;margin-top:4px;padding:8px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box';
   const labelStyle = 'font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:.5px;text-transform:uppercase';
@@ -3331,7 +3352,7 @@ function vrNextCycle(){
       </div>
       <div>
         <label style="${labelStyle}">보유 수량 (주)</label>
-        <input type="number" id="nc-qty" step="1" placeholder="2주간 체결 후 보유 수량" style="${inputStyle}" value="${vrState.totalQuantity||0}">
+        <input type="number" id="nc-qty" step="1" placeholder="2주간 체결 후 보유 수량" style="${inputStyle}" value="${_s.totalQuantity||0}">
       </div>
       <div>
         <label style="${labelStyle}">Pool / 예수금 ($)</label>
@@ -3392,15 +3413,44 @@ function vrShowToast(msg){
   setTimeout(()=>toast.classList.remove('show'), 2500);
 }
 
+function vrSwitchTab(key){
+  if(vrActiveKey === key) return;
+  if(vrActiveKey && vrTrackers[vrActiveKey]){
+    Object.assign(vrTrackers[vrActiveKey], vrGetInputs());
+  }
+  vrActiveKey = key;
+  renderVRCalc();
+}
+
+function vrAddTracker(){
+  const name = prompt('추가할 종목명 입력 (예: SOXL)');
+  if(!name || !name.trim()) return;
+  const key = name.trim().toUpperCase();
+  if(vrTrackers[key]){ vrSwitchTab(key); return; }
+  vrTrackers[key] = { ticker: key };
+  vrActiveKey = key;
+  renderVRCalc();
+}
+
 async function renderVRCalc(){
   const container = document.getElementById('vr-calc-app');
   if(!container) return;
 
-  if(!vrRendered){
+  if(!vrLoaded){
     await loadVRState();
-    const s = vrState || {};
+    vrLoaded = true;
+  }
+  const s = vrGetState();
 
+  // 탭 렌더링
+  const keys = Object.keys(vrTrackers);
+  const tabsHtml = keys.map(k =>
+    `<button class="vr-tab${k===vrActiveKey?' active':''}" onclick="vrSwitchTab('${k}')">${k}</button>`
+  ).join('') + `<button class="vr-tab-add" onclick="vrAddTracker()">+</button>`;
+
+  {
     container.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">${tabsHtml}</div>
     <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.6px;text-transform:uppercase;margin-bottom:16px">VR (Value Rebalancing) 계산기</div>
     <div class="vr-input-grid">
       <div class="vr-field">
@@ -3455,12 +3505,9 @@ async function renderVRCalc(){
     // 입력 필드에 이벤트 리스너 연결
     const inputs = container.querySelectorAll('input, select');
     inputs.forEach(inp => inp.addEventListener('input', vrRenderResult));
-
-    vrRendered = true;
   }
 
   vrUpdateActions();
-  // 초기 계산 실행
   vrRenderResult();
 }
 
