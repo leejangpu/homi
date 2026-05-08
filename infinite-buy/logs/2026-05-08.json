@@ -118,5 +118,31 @@
       "message": "주문 전송 완료 되었습니다.",
       "orderNo": "0031990385"
     }
+  },
+  {
+    "timestamp": "2026-05-08T22:00:04.819Z",
+    "ticker": "SOXL",
+    "action": "CYCLE_COMPLETE",
+    "details": {
+      "cycleNumber": 3,
+      "principal": 13498.2723,
+      "totalBuyAmount": 304.2,
+      "totalSellAmount": 347.28999999999996,
+      "totalRealizedProfit": 43.089999999999975,
+      "finalProfitRate": 0.003192260390242681
+    }
+  },
+  {
+    "timestamp": "2026-05-08T22:00:06.112Z",
+    "ticker": "TQQQ",
+    "action": "CYCLE_COMPLETE",
+    "details": {
+      "cycleNumber": 2,
+      "principal": 13269.3399,
+      "totalBuyAmount": 745.1500000000001,
+      "totalSellAmount": 814.46,
+      "totalRealizedProfit": 69.30999999999995,
+      "finalProfitRate": 0.005223319360445349
+    }
   }
 ]
