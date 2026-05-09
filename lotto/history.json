@@ -534,14 +534,14 @@
         }
       ],
       "totalAmount": 5000,
-      "result": "pending",
-      "winnings": 0,
-      "winDetail": ""
+      "result": "당첨",
+      "winnings": 5000,
+      "winDetail": "당첨 (5,000원)"
     }
   ],
   "stats": {
     "totalSpent": 45000,
-    "totalWon": 5000,
+    "totalWon": 10000,
     "totalRounds": 9
   }
 }
