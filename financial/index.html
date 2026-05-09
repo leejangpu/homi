@@ -1053,7 +1053,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-09 09:11 KST</span>
+  <span class="deploy-time">배포 2026-05-09 11:54 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -3058,6 +3058,7 @@ async function loadVRState(){
       if(data && typeof data === 'object'){
         // 구버전 단일 객체 포맷 자동 마이그레이션 (root에 ticker 문자열이 있으면 구버전)
         if(typeof data.ticker === 'string'){
+          if(!data.cycleStartDate) data.cycleStartDate = (data.lastUpdated||'').slice(0,10) || new Date().toISOString().slice(0,10);
           vrTrackers = {[data.ticker || 'QLD']: data};
         } else {
           vrTrackers = data;
@@ -3427,7 +3428,7 @@ function vrAddTracker(){
   if(!name || !name.trim()) return;
   const key = name.trim().toUpperCase();
   if(vrTrackers[key]){ vrSwitchTab(key); return; }
-  vrTrackers[key] = { ticker: key };
+  vrTrackers[key] = { ticker: key, cycleStartDate: new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'}) };
   vrActiveKey = key;
   renderVRCalc();
 }

@@ -2,40 +2,68 @@ name: VR 리밸런싱 2주 리마인더
 
 on:
   schedule:
-    - cron: '0 0 * * 1'  # 매주 월요일 09:00 KST (00:00 UTC)
+    - cron: '0 0 * * *'  # 매일 09:00 KST (00:00 UTC)
   workflow_dispatch:
 
 jobs:
   remind:
     runs-on: ubuntu-latest
     steps:
-      - name: Check if biweekly Monday
-        id: check
+      - uses: actions/checkout@v4
+
+      - name: Check trackers and send reminders
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          # 첫 알림 기준일: 2026-05-18
-          START_SEC=$(date -d "2026-05-18" +%s)
-          TODAY_SEC=$(date -u -d "$(date -u +%Y-%m-%d)" +%s)
-          DIFF_DAYS=$(( (TODAY_SEC - START_SEC) / 86400 ))
-          if [ $DIFF_DAYS -ge 0 ] && [ $(( DIFF_DAYS % 14 )) -eq 0 ]; then
-            echo "send=true" >> $GITHUB_OUTPUT
-          else
-            echo "send=false" >> $GITHUB_OUTPUT
-          fi
+          python3 << 'EOF'
+          import json, os, sys
+          from datetime import datetime, timezone, timedelta
 
-      - name: Send Telegram reminder
-        if: steps.check.outputs.send == 'true'
-        run: |
-          TODAY=$(date -u +"%Y-%m-%d")
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            --data-urlencode "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-            --data-urlencode "text=⚖️ VR 리밸런싱 2주 사이클 알림 ($TODAY)
+          KST = timezone(timedelta(hours=9))
+          today_kst = datetime.now(KST).date()
+          today_str = today_kst.strftime("%Y-%m-%d")
 
-오늘 VR 계산기에서 새 V값을 계산하고 주문을 업데이트하세요!
+          with open('financial/vr-state.json') as f:
+              data = json.load(f)
 
-🔗 https://leejangpu.github.io/homi/financial/#vr-calc
+          # 구버전 단일 객체 포맷 처리
+          if isinstance(data.get('ticker'), str):
+              data = {data['ticker']: data}
 
-확인할 항목:
-• 현재가, 보유수량, Pool 최신값으로 업데이트
-• 새 V값 및 밴드 범위 확인
-• 매수/매도 주문 가격 업데이트 후 ☁️ 저장" \
-            --data-urlencode "parse_mode=HTML"
+          bot_token = os.environ['TELEGRAM_BOT_TOKEN']
+          chat_id = os.environ['TELEGRAM_CHAT_ID']
+
+          import urllib.request, urllib.parse
+
+          for ticker, state in data.items():
+              start_str = state.get('cycleStartDate', '')
+              if not start_str:
+                  print(f"[{ticker}] cycleStartDate 없음, 건너뜀")
+                  continue
+
+              start_date = datetime.strptime(start_str[:10], "%Y-%m-%d").date()
+              diff_days = (today_kst - start_date).days
+
+              if diff_days >= 0 and diff_days % 14 == 0:
+                  print(f"[{ticker}] {diff_days}일차 — 알림 발송")
+                  week_num = diff_days // 14 + 1
+                  text = (
+                      f"⚖️ {ticker} VR 리밸런싱 알림 ({today_str})\n\n"
+                      f"사이클 시작 {diff_days}일차 ({week_num}번째 2주 도래)\n"
+                      f"새 V값을 계산하고 주문을 업데이트하세요!\n\n"
+                      f"🔗 https://leejangpu.github.io/homi/financial/#vr-calc\n\n"
+                      f"확인할 항목:\n"
+                      f"• 현재가, 보유수량, Pool 최신값으로 업데이트\n"
+                      f"• 새 V값 및 밴드 범위 확인\n"
+                      f"• 매수/매도 주문 가격 업데이트 후 ☁️ 저장"
+                  )
+                  params = urllib.parse.urlencode({'chat_id': chat_id, 'text': text})
+                  req = urllib.request.urlopen(
+                      f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                      data=params.encode()
+                  )
+                  print(f"[{ticker}] 발송 완료: {req.status}")
+              else:
+                  print(f"[{ticker}] {diff_days}일차 — 알림 불필요 (14 나머지: {diff_days % 14})")
+          EOF
