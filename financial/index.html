@@ -1053,7 +1053,7 @@
     <div class="logo-icon">H</div>
     <div><h1>HOMI</h1><div class="sub">HOME AUTOMATION</div></div>
   </div>
-  <span class="deploy-time">배포 2026-05-09 11:54 KST</span>
+  <span class="deploy-time">배포 2026-05-10 14:35 KST</span>
 </div>
 
 <!-- 가계부 앱 -->
@@ -3268,11 +3268,22 @@ function vrRenderResult(){
   resultEl.innerHTML = html;
 }
 
+function vrNextBusinessDay(dateStr){
+  // dateStr: 'YYYY-MM-DD' (KST), 주말이면 다음 월요일로 이동
+  const d = new Date(dateStr + 'T00:00:00+09:00');
+  const day = d.getDay(); // 0=일,6=토
+  if(day === 6) d.setDate(d.getDate() + 2);
+  else if(day === 0) d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
+}
+
 function vrBuildState(overrides={}){
   const inp = vrGetInputs();
   const r = vrCalculate(inp);
+  const existing = vrGetState();
   return {
     ...inp,
+    cycleStartDate: existing.cycleStartDate || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'}),
     cycleStatus: 'active',
     lastUpdated: new Date().toISOString(),
     computed: {
@@ -3387,7 +3398,9 @@ async function vrApplyNextCycle(newV, newWeek){
 
   vrShowToast('저장 중...');
   try{
-    await vrPushState(vrBuildState());
+    const todayKST = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
+    const nextBizDay = vrNextBusinessDay(todayKST);
+    await vrPushState(vrBuildState({ cycleStartDate: nextBizDay }));
     vrShowToast('✓ 새 사이클 저장 완료!');
   }catch(e){ vrShowToast(e.message); }
 }
