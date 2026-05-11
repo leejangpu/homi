@@ -537,11 +537,77 @@
       "result": "당첨",
       "winnings": 5000,
       "winDetail": "당첨 (5,000원)"
+    },
+    {
+      "round": 1224,
+      "buyDate": "2026-05-11",
+      "drawDate": "2026-05-16",
+      "tickets": [
+        {
+          "numbers": [
+            1,
+            15,
+            20,
+            24,
+            28,
+            31
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            1,
+            10,
+            16,
+            31,
+            37,
+            40
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            1,
+            6,
+            21,
+            26,
+            27,
+            41
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            2,
+            9,
+            10,
+            18,
+            25,
+            32
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            1,
+            2,
+            9,
+            23,
+            25,
+            38
+          ],
+          "mode": "random"
+        }
+      ],
+      "totalAmount": 5000,
+      "result": "pending",
+      "winnings": 0,
+      "winDetail": ""
     }
   ],
   "stats": {
-    "totalSpent": 45000,
+    "totalSpent": 50000,
     "totalWon": 10000,
-    "totalRounds": 9
+    "totalRounds": 10
   }
 }
