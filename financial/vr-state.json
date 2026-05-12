@@ -1,7 +1,6 @@
 {
   "QLD": {
     "ticker": "QLD",
-    "cycleStartDate": "2026-05-04",
     "currentPrice": 82.6,
     "totalQuantity": 181,
     "targetValue": 15019,
@@ -11,8 +10,9 @@
     "periodicAmount": 520,
     "weekNumber": 0,
     "investmentMode": "accumulate",
-    "cycleStatus": "active",
-    "lastUpdated": "2026-05-03T08:59:52.932Z",
+    "cycleStartDate": "2026-05-04",
+    "cycleStatus": "ended",
+    "lastUpdated": "2026-05-12T01:41:13.076Z",
     "computed": {
       "currentEvaluation": 14950.6,
       "newV": 15928.19,
