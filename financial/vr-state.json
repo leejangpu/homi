@@ -1,5 +1,5 @@
 {
-  "QLD": {
+  "TQQQ": {
     "ticker": "TQQQ",
     "currentPrice": 76.96,
     "totalQuantity": 20,
@@ -18,6 +18,28 @@
       "newV": 1584.62,
       "minBand": 1359,
       "maxBand": 1661,
+      "signal": "hold"
+    }
+  },
+  "QLD": {
+    "ticker": "QLD",
+    "currentPrice": 82.6,
+    "totalQuantity": 181,
+    "targetValue": 15019,
+    "pool": 4000,
+    "gradient": 10,
+    "bandPercent": 10,
+    "periodicAmount": 520,
+    "weekNumber": 0,
+    "investmentMode": "accumulate",
+    "cycleStartDate": "2026-05-04",
+    "cycleStatus": "active",
+    "lastUpdated": "2026-05-03T08:59:52.932Z",
+    "computed": {
+      "currentEvaluation": 14950.6,
+      "newV": 15928.19,
+      "minBand": 13517.1,
+      "maxBand": 16520.9,
       "signal": "hold"
     }
   }
