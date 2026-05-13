@@ -6,18 +6,17 @@
     "targetValue": 1510,
     "pool": 0,
     "gradient": 10,
-    "bandPercent": 10,
+    "bandPercent": 15,
     "periodicAmount": 70,
     "weekNumber": 0,
     "investmentMode": "accumulate",
-    "cycleStartDate": "2026-05-04",
     "cycleStatus": "active",
-    "lastUpdated": "2026-05-12T01:43:34.732Z",
+    "lastUpdated": "2026-05-13T23:52:10.092Z",
     "computed": {
       "currentEvaluation": 1539.2,
       "newV": 1584.62,
-      "minBand": 1359,
-      "maxBand": 1661,
+      "minBand": 1283.5,
+      "maxBand": 1736.5,
       "signal": "hold"
     }
   },
