@@ -288,8 +288,8 @@ async function processTickerOrders(
     }
     cycleData = newState;
 
-    // 최초 매수: LOC +5%
-    const locPrice = Math.round(currentPrice * 1.05 * 100) / 100;
+    // 최초 매수: LOC +10%
+    const locPrice = Math.round(currentPrice * 1.10 * 100) / 100;
     const quantity = Math.floor(buyPerRound / currentPrice);
     if (quantity <= 0) {
       console.log(`[Open]     quantity=0 (buyPerRound=${fmtUSD(buyPerRound)}, price=${fmtUSD(currentPrice)}) → 스킵`);
