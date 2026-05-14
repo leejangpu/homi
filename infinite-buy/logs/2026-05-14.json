@@ -118,5 +118,33 @@
       "message": "주문 전송 완료 되었습니다.",
       "orderNo": "0031703435"
     }
+  },
+  {
+    "timestamp": "2026-05-14T22:00:02.514Z",
+    "ticker": "SOXL",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 3,
+      "avgPrice": 184.89,
+      "totalInvested": 554.67,
+      "remainingCash": 12986.6923,
+      "todayBuyAmt": 186.19,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -554.6700000000001
+    }
+  },
+  {
+    "timestamp": "2026-05-14T22:00:02.516Z",
+    "ticker": "TQQQ",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 9,
+      "avgPrice": 76.5456,
+      "totalInvested": 688.9104,
+      "remainingCash": 12649.7395,
+      "todayBuyAmt": 78.95,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -688.9100000000001
+    }
   }
 ]
