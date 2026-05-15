@@ -8,6 +8,7 @@ Usage:
     python main.py --dry-run                                  # 로그인만 테스트
 """
 
+from __future__ import annotations
 import os
 import sys
 import argparse

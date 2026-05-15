@@ -1,5 +1,6 @@
 """구매/당첨 내역 조회 및 JSON 히스토리 관리 모듈."""
 
+from __future__ import annotations
 import json
 import logging
 import os
