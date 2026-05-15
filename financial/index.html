@@ -984,11 +984,15 @@
   .summary-banner .tag-up{background:rgba(54,219,160,0.12);color:var(--green);border:1px solid rgba(54,219,160,0.22);}
   .summary-banner .tag-down{background:rgba(249,112,136,0.12);color:var(--red);border:1px solid rgba(249,112,136,0.22);}
   .summary-banner .tag-neutral{background:rgba(134,148,168,0.08);color:var(--text-muted);border:1px solid rgba(134,148,168,0.13);}
-  .ai-table{border-collapse:collapse;width:100%;margin:10px 0;font-size:12.5px;}
-  .ai-table th,.ai-table td{padding:6px 12px;border:1px solid rgba(255,255,255,0.08);text-align:right;}
+  .ai-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:10px 0;}
+  .ai-table{border-collapse:collapse;min-width:100%;font-size:12.5px;white-space:nowrap;}
+  .ai-table th,.ai-table td{padding:7px 14px;border:1px solid rgba(255,255,255,0.08);text-align:right;}
   .ai-table th{background:rgba(56,217,192,0.08);color:var(--primary);font-weight:700;text-align:center;}
   .ai-table tr:nth-child(even) td{background:rgba(255,255,255,0.02);}
-  .ai-table td:first-child{text-align:left;color:var(--text-muted);}
+  .ai-table td:first-child{text-align:left;color:var(--text);white-space:normal;min-width:80px;max-width:130px;cursor:pointer;user-select:none;}
+  .ai-table td:first-child .td-base{font-weight:600;}
+  .ai-table td:first-child .td-detail{display:none;font-size:11px;color:var(--text-muted);font-weight:400;}
+  .ai-table td:first-child.open .td-detail{display:block;}
   /* Typewriter reveal for AI body */
   .summary-banner.is-ai .summary-body{animation:fadeIn .7s var(--ease-out-expo) .15s both;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
@@ -1399,30 +1403,52 @@ let activeFilter='all';
 let jexcelInstance=null;
 let _isFormatting=false;
 let chartInstances=[];
+function fmtKrNum(s){
+  // 숫자,원 → 만원/억원 단위 한글 변환 (10,000 배수만)
+  return s.replace(/([0-9]{1,3}(?:,[0-9]{3})+)원/g,(match,numStr)=>{
+    const n=parseInt(numStr.replace(/,/g,''));
+    if(n>=100000000&&n%10000===0){
+      const uk=n/100000000;
+      const rem=(n%100000000)/10000;
+      return rem?`${uk}억 ${rem.toLocaleString()}만원`:`${uk}억원`;
+    }
+    if(n>=10000&&n%10000===0) return`${(n/10000).toLocaleString()}만원`;
+    return match;
+  });
+}
 function mdToHtml(text){
   if(!text)return text;
-  // 마크다운 테이블 → HTML 테이블
+  // 마크다운 테이블 → HTML 테이블 (모바일 최적화)
   text=text.replace(/(?:(?:^|\n)\|.+\|[ \t]*)+/g,m=>{
     const rows=m.trim().split('\n').map(r=>r.trim()).filter(r=>r.startsWith('|'));
     const isDiv=r=>/^\|[-:| ]+\|$/.test(r);
     const trs=rows.filter(r=>!isDiv(r)).map((r,i)=>{
-      const cells=r.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
-      const tag=i===0?'th':'td';
-      return`<tr>${cells.map(c=>`<${tag}>${c}</${tag}>`).join('')}</tr>`;
+      const cells=r.replace(/^\||\|$/g,'').split('|').map(c=>fmtKrNum(c.trim()));
+      if(i===0) return`<tr>${cells.map(c=>`<th>${c}</th>`).join('')}</tr>`;
+      // 첫 번째 데이터 컬럼: 괄호 부분 분리
+      const first=cells[0];
+      const pm=first.match(/^([^(]+?)(\s*\(.+\))?$/);
+      const base=pm?pm[1].trim():first;
+      const detail=pm&&pm[2]?pm[2].trim():'';
+      const firstCell=detail
+        ?`<td onclick="this.classList.toggle('open')"><span class="td-base">${base}</span><span class="td-detail">${detail}</span></td>`
+        :`<td><span class="td-base">${base}</span></td>`;
+      return`<tr>${firstCell}${cells.slice(1).map(c=>`<td>${c}</td>`).join('')}</tr>`;
     });
-    return`<table class="ai-table"><thead>${trs[0]||''}</thead><tbody>${trs.slice(1).join('')}</tbody></table>`;
+    return`<div class="ai-table-wrap"><table class="ai-table"><thead>${trs[0]||''}</thead><tbody>${trs.slice(1).join('')}</tbody></table></div>`;
   });
+  // 본문 숫자도 만원 단위 변환
+  text=fmtKrNum(text);
   // 헤더 → <strong>
   text=text.replace(/^#{1,4}\s+(.+)$/gm,'<strong>$1</strong>');
   // 수평선 제거
   text=text.replace(/^---+$/gm,'');
-  // 굵게 **text** → <strong>text</strong>
+  // 굵게
   text=text.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
   // 기울임 제거
   text=text.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g,'$1');
   // 연속 빈줄 정리
   text=text.replace(/(<br\s*\/?>\s*){3,}/g,'<br><br>');
-  // 줄바꿈 → <br> (테이블 태그 안은 제외)
   text=text.replace(/\n{2,}/g,'<br><br>');
   text=text.replace(/\n(?!<\/?(tr|td|th|thead|tbody|table))/g,'<br>');
   return text.trim();
