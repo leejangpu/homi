@@ -19,7 +19,7 @@ jobs:
   generate-report:
     runs-on: self-hosted
     env:
-      HOME: /Users/jangpu
+      HOME: /Users/mac_ad03249840
     defaults:
       run:
         working-directory: financial

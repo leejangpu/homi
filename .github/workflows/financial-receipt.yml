@@ -20,9 +20,9 @@ jobs:
   analyze-receipt:
     runs-on: self-hosted
     env:
-      HOME: /Users/jangpu
-      USER: jangpu
-      LOGNAME: jangpu
+      HOME: /Users/mac_ad03249840
+      USER: mac_ad03249840
+      LOGNAME: mac_ad03249840
     defaults:
       run:
         working-directory: financial
