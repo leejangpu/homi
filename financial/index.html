@@ -984,6 +984,11 @@
   .summary-banner .tag-up{background:rgba(54,219,160,0.12);color:var(--green);border:1px solid rgba(54,219,160,0.22);}
   .summary-banner .tag-down{background:rgba(249,112,136,0.12);color:var(--red);border:1px solid rgba(249,112,136,0.22);}
   .summary-banner .tag-neutral{background:rgba(134,148,168,0.08);color:var(--text-muted);border:1px solid rgba(134,148,168,0.13);}
+  .ai-table{border-collapse:collapse;width:100%;margin:10px 0;font-size:12.5px;}
+  .ai-table th,.ai-table td{padding:6px 12px;border:1px solid rgba(255,255,255,0.08);text-align:right;}
+  .ai-table th{background:rgba(56,217,192,0.08);color:var(--primary);font-weight:700;text-align:center;}
+  .ai-table tr:nth-child(even) td{background:rgba(255,255,255,0.02);}
+  .ai-table td:first-child{text-align:left;color:var(--text-muted);}
   /* Typewriter reveal for AI body */
   .summary-banner.is-ai .summary-body{animation:fadeIn .7s var(--ease-out-expo) .15s both;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
@@ -1396,19 +1401,30 @@ let _isFormatting=false;
 let chartInstances=[];
 function mdToHtml(text){
   if(!text)return text;
-  // 헤더 제거 (## 제목 → <strong>제목</strong>)
+  // 마크다운 테이블 → HTML 테이블
+  text=text.replace(/(?:(?:^|\n)\|.+\|[ \t]*)+/g,m=>{
+    const rows=m.trim().split('\n').map(r=>r.trim()).filter(r=>r.startsWith('|'));
+    const isDiv=r=>/^\|[-:| ]+\|$/.test(r);
+    const trs=rows.filter(r=>!isDiv(r)).map((r,i)=>{
+      const cells=r.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const tag=i===0?'th':'td';
+      return`<tr>${cells.map(c=>`<${tag}>${c}</${tag}>`).join('')}</tr>`;
+    });
+    return`<table class="ai-table"><thead>${trs[0]||''}</thead><tbody>${trs.slice(1).join('')}</tbody></table>`;
+  });
+  // 헤더 → <strong>
   text=text.replace(/^#{1,4}\s+(.+)$/gm,'<strong>$1</strong>');
   // 수평선 제거
   text=text.replace(/^---+$/gm,'');
   // 굵게 **text** → <strong>text</strong>
   text=text.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
-  // 기울임 *text* → 제거 (span은 이미 있음)
+  // 기울임 제거
   text=text.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g,'$1');
   // 연속 빈줄 정리
   text=text.replace(/(<br\s*\/?>\s*){3,}/g,'<br><br>');
-  // 줄바꿈이 아직 <br>로 안된 경우 처리
+  // 줄바꿈 → <br> (테이블 태그 안은 제외)
   text=text.replace(/\n{2,}/g,'<br><br>');
-  text=text.replace(/\n/g,'<br>');
+  text=text.replace(/\n(?!<\/?(tr|td|th|thead|tbody|table))/g,'<br>');
   return text.trim();
 }
 
@@ -2286,6 +2302,7 @@ function renderDashboard(container){
     if(expPieTitleEl) expPieTitleEl.textContent = pieLabel+' 지출 구성';
 
     // 3-a. Income Donut
+    const incRows=sec.income.rows||[];
     const incItemMap={};
     incRows.forEach(r=>{
       const c1=(data[r][1]||'').trim(),c2=(data[r][2]||'').trim();
