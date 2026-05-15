@@ -1,8 +1,6 @@
 name: Financial Report - Monthly AI Briefing
 
 on:
-  schedule:
-    - cron: '0 15 1 * *'  # 매달 1일 00:00 KST (15:00 UTC)
   workflow_dispatch:
     inputs:
       year:
