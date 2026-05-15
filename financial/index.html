@@ -1403,17 +1403,27 @@ let activeFilter='all';
 let jexcelInstance=null;
 let _isFormatting=false;
 let chartInstances=[];
+function _krConvert(n){
+  if(n>=100000000&&n%10000===0){
+    const uk=n/100000000,rem=(n%100000000)/10000;
+    return rem?`${uk}억 ${rem.toLocaleString()}만원`:`${uk}억원`;
+  }
+  if(n>=10000&&n%10000===0) return`${(n/10000).toLocaleString()}만원`;
+  return null;
+}
 function fmtKrNum(s){
-  // 숫자,원 → 만원/억원 단위 한글 변환 (10,000 배수만)
+  // 텍스트: "N,NNN원" → 만원/억원 (원 suffix 필수)
   return s.replace(/([0-9]{1,3}(?:,[0-9]{3})+)원/g,(match,numStr)=>{
+    const r=_krConvert(parseInt(numStr.replace(/,/g,'')));
+    return r||match;
+  });
+}
+function fmtKrCell(s){
+  // 테이블 셀: 원 suffix 없는 숫자도 변환
+  return s.replace(/(-?)([0-9]{1,3}(?:,[0-9]{3})+)(원?)/g,(match,sign,numStr,won)=>{
     const n=parseInt(numStr.replace(/,/g,''));
-    if(n>=100000000&&n%10000===0){
-      const uk=n/100000000;
-      const rem=(n%100000000)/10000;
-      return rem?`${uk}억 ${rem.toLocaleString()}만원`:`${uk}억원`;
-    }
-    if(n>=10000&&n%10000===0) return`${(n/10000).toLocaleString()}만원`;
-    return match;
+    const r=_krConvert(n);
+    return r?(sign+r):match;
   });
 }
 function mdToHtml(text){
@@ -1423,7 +1433,7 @@ function mdToHtml(text){
     const rows=m.trim().split('\n').map(r=>r.trim()).filter(r=>r.startsWith('|'));
     const isDiv=r=>/^\|[-:| ]+\|$/.test(r);
     const trs=rows.filter(r=>!isDiv(r)).map((r,i)=>{
-      const cells=r.replace(/^\||\|$/g,'').split('|').map(c=>fmtKrNum(c.trim()));
+      const cells=r.replace(/^\||\|$/g,'').split('|').map(c=>fmtKrCell(c.trim()));
       if(i===0) return`<tr>${cells.map(c=>`<th>${c}</th>`).join('')}</tr>`;
       // 첫 번째 데이터 컬럼: 괄호 부분 분리
       const first=cells[0];
