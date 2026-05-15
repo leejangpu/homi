@@ -1,0 +1,24 @@
+name: Runner Health Check (임시)
+
+on:
+  push:
+    paths:
+      - '.github/workflows/runner-test.yml'
+
+jobs:
+  check-env:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System info
+        run: |
+          echo "=== Runner 환경 ==="
+          echo "호스트: $(hostname)"
+          echo "유저: $(whoami)"
+          echo "Node: $(node --version 2>/dev/null || echo 없음)"
+          echo "npm: $(npm --version 2>/dev/null || echo 없음)"
+          echo "Python: $(python3 --version 2>/dev/null || echo 없음)"
+          echo "tsx: $(npx tsx --version 2>/dev/null || echo 없음)"
+          echo "Claude CLI: $(claude --version 2>/dev/null || echo 없음)"
+          echo "=== 완료 ==="
