@@ -2909,7 +2909,7 @@ function syncSectionsToRaw(year){
   }
 }
 
-const WORKER_API_URL = 'https://homi-financial-api.leejangpu.workers.dev';
+const WORKER_API_URL = '';
 
 function openReceiptUpload(){
   const password=localStorage.getItem('save_password');
@@ -3313,7 +3313,7 @@ async function vrSave(){
   vrShowToast('저장 중...');
   try{
     await vrPushState(vrBuildState());
-    vrShowToast('✓ GitHub에 저장 완료! (사이클 시작됨)');
+    vrShowToast('✓ 저장 완료! (사이클 시작됨)');
   }catch(e){ vrShowToast(e.message); }
 }
 
