@@ -1394,6 +1394,24 @@ let activeFilter='all';
 let jexcelInstance=null;
 let _isFormatting=false;
 let chartInstances=[];
+function mdToHtml(text){
+  if(!text)return text;
+  // 헤더 제거 (## 제목 → <strong>제목</strong>)
+  text=text.replace(/^#{1,4}\s+(.+)$/gm,'<strong>$1</strong>');
+  // 수평선 제거
+  text=text.replace(/^---+$/gm,'');
+  // 굵게 **text** → <strong>text</strong>
+  text=text.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
+  // 기울임 *text* → 제거 (span은 이미 있음)
+  text=text.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g,'$1');
+  // 연속 빈줄 정리
+  text=text.replace(/(<br\s*\/?>\s*){3,}/g,'<br><br>');
+  // 줄바꿈이 아직 <br>로 안된 경우 처리
+  text=text.replace(/\n{2,}/g,'<br><br>');
+  text=text.replace(/\n/g,'<br>');
+  return text.trim();
+}
+
 let aiSummaries={}; // loaded from summary.json
 
 const TODAY=new Date();
@@ -1774,7 +1792,7 @@ function generateMonthlySummary(sec, months) {
       const trendLabel = { up: '개선', down: '주의', neutral: '보합' };
       const cls = trendMap[aiSum.trend] || 'tag-neutral';
       const label = trendLabel[aiSum.trend] || '보합';
-      let body = aiSum.summary;
+      let body = mdToHtml(aiSum.summary);
       // 은퇴 플랜 코칭이 아직 없으면 동적 생성하여 추가
       if (!body.includes('은퇴 플랜 코칭')) {
         body += generateRetirementCoaching(sec, months, curIdx, prevIdx);
@@ -2123,10 +2141,16 @@ function renderDashboard(container){
 
   <div class="chart-row">
     <div class="chart-card">
+      <h3 id="incPieTitle">${months[si] ? months[si].label.replace(/^\d{4}-/,'') : ''}월 수입 구성</h3>
+      <div id="chIncPie" style="height:300px"></div>
+    </div>
+    <div class="chart-card">
       <h3 id="expPieTitle">${months[si] ? months[si].label.replace(/^\d{4}-/,'') : ''}월 지출 구성</h3>
       <div id="chExpPie" style="height:300px"></div>
     </div>
-    <div class="chart-card full" style="grid-column:unset">
+  </div>
+  <div class="chart-row">
+    <div class="chart-card full">
       <h3>월별 상세 지출 항목</h3>
       <div id="chExpBar" style="height:300px"></div>
     </div>
@@ -2261,7 +2285,38 @@ function renderDashboard(container){
     const expPieTitleEl = document.getElementById('expPieTitle');
     if(expPieTitleEl) expPieTitleEl.textContent = pieLabel+' 지출 구성';
 
-    // 3. Expense Donut
+    // 3-a. Income Donut
+    const incItemMap={};
+    incRows.forEach(r=>{
+      const c1=(data[r][1]||'').trim(),c2=(data[r][2]||'').trim();
+      if(c1==='계'||c1==='합계')return;
+      const name=c2||c1;if(!name)return;
+      const v=parseNum(data[r][months[si].col]);
+      if(v>0)incItemMap[name]=(incItemMap[name]||0)+v;
+    });
+    const incPieItems=Object.entries(incItemMap).map(([name,val])=>({name,val})).sort((a,b)=>b.val-a.val);
+    const incPieTotal=incPieItems.reduce((s,e)=>s+e.val,0);
+    const incPieTitleEl=document.getElementById('incPieTitle');
+    if(incPieTitleEl)incPieTitleEl.textContent=pieLabel+' 수입 구성';
+    const incColors=['#2dd4bf','#60a5fa','#34d399','#a78bfa','#fbbf24','#38bdf8','#4ade80'];
+    if(incPieItems.length){
+      const incEl=document.getElementById('chIncPie');
+      if(incEl){
+        const incChart=initChart(incEl,{
+          tooltip:{...ecTooltip,trigger:'item',formatter:p=>`<span style="color:${p.color}">●</span> ${p.name}<br/>${fmtWon(p.value)} (${p.percent}%)`},
+          legend:{...ecLegend,orient:'horizontal',bottom:4,type:'scroll',data:incPieItems.map(e=>e.name),selectedMode:true},
+          graphic:[{type:'text',left:'center',top:'38%',style:{text:fmtWon(incPieTotal),fill:'#e2eaf3',fontSize:16,fontWeight:700,fontFamily:'Plus Jakarta Sans,sans-serif',textAlign:'center'}},{type:'text',left:'center',top:'46%',style:{text:'합계',fill:'#7a8ba0',fontSize:11,fontFamily:'Plus Jakarta Sans,sans-serif',textAlign:'center'}}],
+          series:[{type:'pie',radius:['40%','68%'],center:['50%','42%'],data:incPieItems.map((e,i)=>({name:e.name,value:e.val,itemStyle:{color:incColors[i%incColors.length]}})),label:{show:false},emphasis:{label:{show:true,color:'#e2eaf3',fontSize:13,fontWeight:600,fontFamily:'Plus Jakarta Sans,sans-serif',formatter:p=>`${p.name}\n${fmtWon(p.value)}`},itemStyle:{shadowBlur:12,shadowColor:'rgba(0,0,0,0.3)'}},labelLine:{show:false},itemStyle:{borderColor:'transparent',borderWidth:0},animationType:'scale',animationEasing:'elasticOut',animationDelay:i=>i*60}]
+        });
+        incChart.on('legendselectchanged',function(params){
+          const sel=params.selected;let t=0;
+          incPieItems.forEach(e=>{if(sel[e.name])t+=e.val;});
+          incChart.setOption({graphic:[{style:{text:fmtWon(t)}}]});
+        });
+      }
+    }
+
+    // 3-b. Expense Donut
     if(pieItems.length){
       const el=document.getElementById('chExpPie');
       if(el){

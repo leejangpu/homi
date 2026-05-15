@@ -44,19 +44,23 @@ REPORT_PROMPT_FILE=$(mktemp)
 cat > "$REPORT_PROMPT_FILE" <<PROMPT
 너는 가계부 데이터를 분석하는 금융 어드바이저야. 아래 CSV 데이터를 분석해서 월간 AI 브리핑 리포트를 작성해줘.
 
-## 작성 규칙
-1. HTML 인라인 태그를 사용해서 포맷팅해줘 (순수 텍스트가 아닌 HTML span 태그 사용)
-2. 증가/긍정적인 수치: <span class="up-color">내용</span>
-3. 감소/부정적인 수치: <span class="down-color">내용</span>
-4. 경고/주의: <span class="warn">내용</span>
-5. 강조/하이라이트: <span class="highlight">내용</span>
-6. 전월 대비 소득, 저축, 지출 변화를 분석하고 원인을 파악해줘
-7. 주요 항목별 증감을 구체적 금액과 퍼센트로 표시해줘
-8. 마지막에 다음 달 주의사항이나 제안을 포함해줘
-9. 줄바꿈은 <br> 태그를 사용해줘
-10. 은퇴 플랜 코칭은 포함하지 마 (별도로 생성됨)
-11. 응답은 HTML summary 본문만 반환해. JSON이나 마크다운 코드블록으로 감싸지 마
-12. 한국어로 작성해
+[출력 형식 — 반드시 준수]
+- 마크다운 절대 사용 금지: **, *, ##, ---, >, ` 등 모든 마크다운 문법 사용 불가
+- HTML span 태그만 허용: 아래 4가지만 사용
+  - 증가/긍정: <span class="up-color">내용</span>
+  - 감소/부정: <span class="down-color">내용</span>
+  - 경고: <span class="warn">내용</span>
+  - 강조: <span class="highlight">내용</span>
+- 줄바꿈: <br> 태그만 사용 (줄바꿈 문자 \n 사용 가능, 단 마크다운 헤더/목록/구분선 불가)
+- 섹션 제목: <span class="highlight">📌 소득</span><br> 형식으로 작성
+- 코드블록, JSON, 마크다운 감싸기 없이 본문만 출력
+
+[작성 내용]
+- 전월 대비 소득, 저축, 지출 변화를 항목별로 구체적 금액과 퍼센트로 분석
+- 특이사항(인센티브, 비정기지출 등) 원인 파악
+- 마지막에 다음 달 주의사항 포함
+- 은퇴 플랜 코칭은 포함 금지 (별도 생성됨)
+- 한국어 작성
 
 아래는 ${YEAR}년 가계부 CSV 데이터입니다. ${PREV_YEAR}년 ${PREV_MONTH}월과 ${YEAR}년 ${MN}월을 비교 분석한 월간 브리핑을 작성해줘.
 
@@ -75,8 +79,11 @@ if [ -z "$REPORT" ]; then
   exit 1
 fi
 
-# 코드블록 제거
-REPORT=$(echo "$REPORT" | sed '/^```html$/d' | sed '/^```$/d')
+# 마크다운 제거 (코드블록, 헤더, 굵게, 수평선)
+REPORT=$(echo "$REPORT" | sed '/^```/d')
+REPORT=$(echo "$REPORT" | sed 's/^#{1,4} //g')
+REPORT=$(echo "$REPORT" | sed 's/\*\*\([^*]*\)\*\*/<strong>\1<\/strong>/g')
+REPORT=$(echo "$REPORT" | sed '/^---*$/d')
 
 # trend 판단
 TREND="neutral"

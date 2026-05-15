@@ -36,7 +36,19 @@ app.post('/save', (req, res) => {
     res.json({ ok: true, message: `${year}.csv 저장 완료` });
   } catch (e) {
     res.status(500).json({ error: '파일 저장 실패: ' + e.message });
+    return;
   }
+
+  // AI 리포트 백그라운드 재생성
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const month = String(kst.getMonth() + 1);
+  execFile('bash', [path.join(ROOT, 'generate-report.sh'), year, month], {
+    cwd: ROOT,
+    env: { ...process.env, HOME: process.env.HOME || '/Users/mac_ad03249840' },
+  }, (err, stdout) => {
+    if (err) console.error('[generate-report] 실패:', err.message);
+    else console.log('[generate-report] 완료:', stdout.slice(-100));
+  });
 });
 
 // VR 계산기 상태 저장
