@@ -1933,10 +1933,6 @@ function generateMonthlySummary(sec, months) {
       const cls = trendMap[aiSum.trend] || 'tag-neutral';
       const label = trendLabel[aiSum.trend] || '보합';
       let body = mdToHtml(aiSum.summary);
-      // 은퇴 플랜 코칭이 아직 없으면 동적 생성하여 추가
-      if (!body.includes('은퇴 플랜 코칭')) {
-        body += generateRetirementCoaching(sec, months, curIdx, prevIdx);
-      }
       return {
         title: `${parseInt(aiSum.period)}월 브리핑`,
         tag: `<span class="summary-tag ${cls}">${label}</span>`,
