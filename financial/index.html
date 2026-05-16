@@ -2385,18 +2385,14 @@ function renderDashboard(container){
 
     // 3-a. Income Donut
     const incRows=sec.income.rows||[];
-    const incItemMap={};
-    incRows.forEach(r=>{
-      const c1=(data[r][1]||'').trim(),c2=(data[r][2]||'').trim();
-      if(c1==='계'||c1==='합계')return;
-      const name=c2||c1;if(!name)return;
-      const v=parseNum(data[r][months[si].col]);
-      if(v>0)incItemMap[name]=(incItemMap[name]||0)+v;
-    });
+    const buildIncMap=(col)=>{const m={};incRows.forEach(r=>{const c1=(data[r][1]||'').trim(),c2=(data[r][2]||'').trim();if(c1==='계'||c1==='합계')return;const name=c2||c1;if(!name)return;const v=parseNum(data[r][col]);if(v>0)m[name]=(m[name]||0)+v;});return m;};
+    let incItemMap=buildIncMap(months[si].col);
+    let incPieLabel=pieLabel;
+    if(!Object.keys(incItemMap).length){for(let fi=lastData;fi>=0;fi--){const m=buildIncMap(months[fi].col);if(Object.keys(m).length){incItemMap=m;incPieLabel=months[fi].label.replace(/^\d{4}-/,'')+'월';break;}}}
     const incPieItems=Object.entries(incItemMap).map(([name,val])=>({name,val})).sort((a,b)=>b.val-a.val);
     const incPieTotal=incPieItems.reduce((s,e)=>s+e.val,0);
     const incPieTitleEl=document.getElementById('incPieTitle');
-    if(incPieTitleEl)incPieTitleEl.textContent=pieLabel+' 수입 구성';
+    if(incPieTitleEl)incPieTitleEl.textContent=incPieLabel+' 수입 구성';
     const incColors=['#2dd4bf','#60a5fa','#34d399','#a78bfa','#fbbf24','#38bdf8','#4ade80'];
     if(incPieItems.length){
       const incEl=document.getElementById('chIncPie');
