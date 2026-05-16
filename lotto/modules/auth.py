@@ -18,20 +18,13 @@ def save_session(context: BrowserContext) -> None:
 
 
 def is_logged_in(page: Page) -> bool:
-    """현재 페이지에서 로그인 상태를 확인."""
-    page.goto(MAIN_URL, wait_until="domcontentloaded", timeout=30000)
-    page.wait_for_timeout(2000)
-
-    # 로그인 상태면 '로그아웃' 버튼이 보임
-    logout_btn = page.query_selector("button#logoutBtn, a[href*='logout'], button:has-text('로그아웃')")
-    if logout_btn:
+    """로그인 상태를 확인한다. /login 접근 시 리다이렉트 여부로 판단."""
+    page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=30000)
+    page.wait_for_timeout(1000)
+    if "/login" not in page.url:
+        logger.info("로그인 상태 확인: 세션 유효 (리다이렉트 → %s)", page.url)
         return True
-
-    # 로그인 버튼이 보이면 미로그인 상태
-    login_btn = page.query_selector("button#loginBtn, a:has-text('로그인')")
-    if login_btn:
-        return False
-
+    logger.info("로그인 상태 확인: 세션 만료 (로그인 페이지 노출)")
     return False
 
 
@@ -43,7 +36,12 @@ def login(page: Page, user_id: str, user_pw: str) -> bool:
     """
     logger.info("로그인 페이지로 이동 중...")
     page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=30000)
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(1000)
+
+    # 이미 로그인된 경우 리다이렉트됨
+    if "/login" not in page.url:
+        logger.info("이미 로그인된 상태 (리다이렉트 → %s)", page.url)
+        return True
 
     # 아이디/비밀번호 입력
     page.fill("#inpUserId", user_id)
