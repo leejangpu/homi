@@ -1,6 +1,7 @@
 {
   "TQQQ": {
     "ticker": "TQQQ",
+    "cycleStartDate": "2026-05-11",
     "currentPrice": 76.96,
     "totalQuantity": 20,
     "targetValue": 1510,
