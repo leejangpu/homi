@@ -351,7 +351,7 @@ def format_history_message(history: list[dict]) -> str:
         round_no = entry.get("round", "?")
         result = entry.get("result", "미확인")
         amount = entry.get("amount", "")
-        buy_date = entry.get("buy_date", "")
+        draw_date = entry.get("draw_date", "") or entry.get("buy_date", "")
 
         if result == "당첨":
             icon = "🎉"
@@ -365,8 +365,8 @@ def format_history_message(history: list[dict]) -> str:
         line = f"{icon} <b>{round_no}회</b> — {result}"
         if amount and amount != "-":
             line += f" ({amount})"
-        if buy_date:
-            line += f"  [{buy_date}]"
+        if draw_date:
+            line += f"  [추첨일: {draw_date}]"
         lines.append(line)
 
     return "\n".join(lines)
