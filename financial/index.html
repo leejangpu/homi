@@ -2309,6 +2309,7 @@ function renderDashboard(container){
       <div id="chDebtPie" style="height:300px"></div>
     </div>
   </div>` : ''}
+`;
 
   const lastData = months.reduce((acc,_,i) => (incV[i]||savV[i]||expV[i]) ? i : acc, 0);
   container.innerHTML=html;
