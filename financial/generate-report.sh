@@ -39,6 +39,50 @@ ${PREV_CSV}
 ${CSV_DATA}"
 fi
 
+# 다음 달 비정기지출 추출 (CSV에서 비정기지출 섹션 파싱)
+NEXT_MONTH=$(printf "%02d" $((MONTH + 1 > 12 ? 1 : MONTH + 1)))
+NEXT_YEAR=$((MONTH + 1 > 12 ? YEAR + 1 : YEAR))
+NEXT_MONTH_NUM=$((MONTH + 1 > 12 ? 1 : MONTH + 1))
+
+UPCOMING_IR=$(python3 -c "
+import csv, re, sys
+
+csv_path = '${SCRIPT_DIR}/${YEAR}.csv'
+try:
+    with open(csv_path, 'r', encoding='utf-8-sig') as f:
+        rows = list(csv.reader(f))
+except:
+    sys.exit(0)
+
+next_month = ${NEXT_MONTH_NUM}
+items = []
+for r in rows:
+    c1 = r[1].strip() if len(r)>1 else ''
+    c2 = r[2].strip() if len(r)>2 else ''
+    if c1 == '비정기지출' and c2:
+        # Find which month column has data
+        for j in range(4, min(16, len(r))):
+            val = r[j].strip()
+            if val and val != '0':
+                # Header row should have month label at col j
+                header = rows[0]
+                label = header[j].strip() if j < len(header) else ''
+                m = re.search(r'-(\d{2})$', label)
+                if m and int(m.group(1)) == next_month:
+                    items.append(f'{c2}: {val}원')
+for item in items:
+    print(item)
+" 2>/dev/null)
+
+if [ -n "$UPCOMING_IR" ]; then
+  NEXT_MONTH_NOTE="
+[다음 달(${NEXT_YEAR}년 ${NEXT_MONTH_NUM}월) 비정기지출 예정]
+${UPCOMING_IR}
+위 항목들을 반드시 리포트 마지막에 '⚠️ 다음 달 비정기지출 예고' 섹션으로 언급하여 미리 알려줘."
+else
+  NEXT_MONTH_NOTE=""
+fi
+
 # Claude CLI로 리포트 생성
 REPORT_PROMPT_FILE=$(mktemp)
 cat > "$REPORT_PROMPT_FILE" <<PROMPT
@@ -75,6 +119,7 @@ cat > "$REPORT_PROMPT_FILE" <<PROMPT
 - 한국어 작성
 
 아래는 ${YEAR}년 가계부 CSV 데이터입니다. ${PREV_YEAR}년 ${PREV_MONTH}월과 ${YEAR}년 ${MN}월을 비교 분석한 월간 브리핑을 작성해줘.
+${NEXT_MONTH_NOTE}
 
 ${CSV_DATA}
 PROMPT

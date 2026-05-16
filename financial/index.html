@@ -1725,7 +1725,7 @@ function splitSections(year){
     if(!joined){mode='';continue;}
     if(c1.includes('급여')||c1==='순애 (90%)'||c1==='장훈 (90%)'||c1==='금융소득'||c1==='배당소득'||c1==='기타소득'||c1==='기타'){if(mode!=='savings'&&mode!=='expense'&&mode!=='asset')mode='income';}
     if((c1==='저축'||(c1==='비상금'&&mode!=='expense'))&&mode!=='asset')mode='savings';
-    if(c1==='지출'||c1==='고정지출'||c1==='변동지출')mode='expense';
+    if(c1==='지출'||c1==='고정지출'||c1==='변동지출'||c1==='비정기지출')mode='expense';
     if(c1.includes('자산')||c1==='부동산'||c1==='대출'||c1==='유동자산계')mode='asset';
     const isT=(c1==='합계'||c1==='계');
     if(mode==='income'){incRows.push(r);if(isT)mode='';}
@@ -1858,7 +1858,7 @@ function generateRetirementCoaching(sec, months, curIdx, prevIdx) {
 
   const savCur = (curIdx >= 0 && sec.savings.total) ? parseNum(sec.savings.total[months[curIdx].col]) : 0;
   const incCur = (curIdx >= 0 && sec.income.total) ? parseNum(sec.income.total[months[curIdx].col]) : 0;
-  const expCur = ((curIdx >= 0 && sec.expense.total) ? parseNum(sec.expense.total[months[curIdx].col]) : 0) + (curIdx>=0 ? irMonthTotal(sec.irregulars, monthNumFromLabel(months[curIdx].label)) : 0);
+  const expCur = (curIdx >= 0 && sec.expense.total) ? parseNum(sec.expense.total[months[curIdx].col]) : 0;
   const annualSavings = savCur * 12;
   const expRatio = incCur > 0 ? (expCur / incCur * 100) : 0;
   const coverage = needPerYear > 0 && annualSavings > 0 ? (annualSavings / needPerYear * 100) : 0;
@@ -1977,12 +1977,8 @@ function generateMonthlySummary(sec, months) {
 
   const incCur = gv(sec.income.total), incPrev = gvP(sec.income.total, 'income');
   const savCur = gv(sec.savings.total), savPrev = gvP(sec.savings.total, 'savings');
-  const expCur = gv(sec.expense.total) + irMonthTotal(sec.irregulars, monthNumFromLabel(months[curIdx].label));
-  const expPrevBase = gvP(sec.expense.total, 'expense');
-  const expPrevIr = usePrevYear
-    ? irMonthTotal(prevYearSec.irregulars, monthNumFromLabel(prevYearLastMonth.label))
-    : irMonthTotal(sec.irregulars, monthNumFromLabel(months[prevIdx].label));
-  const expPrev = expPrevBase + expPrevIr;
+  const expCur = gv(sec.expense.total);
+  const expPrev = gvP(sec.expense.total, 'expense');
 
   // Check if we have enough data
   if (!incCur && !incPrev && !expCur && !expPrev) return null;
@@ -2127,8 +2123,7 @@ function renderDashboard(container){
   if(!sec){container.innerHTML='<p style="color:var(--text-muted)">데이터 없음</p>';return;}
   const months=sec.months;
   const gv=(tr)=>months.map(m=>tr?parseNum(tr[m.col]):0);
-  const irV=months.map(m=>irMonthTotal(sec.irregulars,monthNumFromLabel(m.label)));
-  const incV=gv(sec.income.total), savV=gv(sec.savings.total), expV=gv(sec.expense.total).map((v,i)=>v+irV[i]);
+  const incV=gv(sec.income.total), savV=gv(sec.savings.total), expV=gv(sec.expense.total);
 
   // Determine selected month
   if(selectedMonthIdx<0) selectedMonthIdx=getDefaultMonthIdx(months);
@@ -2145,7 +2140,7 @@ function renderDashboard(container){
       const lastMonth = prevSec.months[prevSec.months.length - 1];
       prevInc = prevSec.income && prevSec.income.total ? parseNum(prevSec.income.total[lastMonth.col]) : 0;
       prevSav = prevSec.savings && prevSec.savings.total ? parseNum(prevSec.savings.total[lastMonth.col]) : 0;
-      prevExp = (prevSec.expense && prevSec.expense.total ? parseNum(prevSec.expense.total[lastMonth.col]) : 0) + irMonthTotal(prevSec.irregulars, monthNumFromLabel(lastMonth.label));
+      prevExp = prevSec.expense && prevSec.expense.total ? parseNum(prevSec.expense.total[lastMonth.col]) : 0;
     }
   }
   const calcChg2=(cur,prev)=>prev?((cur-prev)/Math.abs(prev)*100):null;
@@ -2364,12 +2359,6 @@ function renderDashboard(container){
       const val = parseNum(data[r][months[si].col]);
       if (val > 0) expItemMap[name] = (expItemMap[name]||0) + val;
     });
-    // Add irregular expenses for selected month
-    const siMn = monthNumFromLabel(months[si].label);
-    (sec.irregulars||[]).forEach(ir => {
-      if (parseInt((ir.month||'').match(/(\d+)/)?.[1]||'0')===siMn && ir.amount>0)
-        expItemMap[ir.name] = (expItemMap[ir.name]||0) + ir.amount;
-    });
     const expItems = Object.entries(expItemMap).map(([name,val])=>({name,val}));
     const expColors=['#fbbf24','#f87171','#a78bfa','#34d399','#f472b6','#60a5fa','#fb923c','#22d3ee','#4ade80','#e879f9','#38bdf8','#818cf8'];
     // Pie: fallback to most recent month with data if selected month is empty
@@ -2471,15 +2460,11 @@ function renderDashboard(container){
         });
         return {name:cat,type:'bar',stack:'exp',data:vals,color:expColors[ci%expColors.length],itemStyle:{borderRadius:[0,0,0,0]},barWidth:'55%'};
       });
-      // Add 비정기 series
-      const irBarVals = months.slice(0,lastData+1).map(m=>irMonthTotal(sec.irregulars,monthNumFromLabel(m.label)));
-      if(irBarVals.some(v=>v>0)) expBarSeries.push({name:'비정기',type:'bar',stack:'exp',data:irBarVals,color:'#fb923c',itemStyle:{borderRadius:[2,2,0,0]},barWidth:'55%'});
-      else if(expBarSeries.length) expBarSeries[expBarSeries.length-1].itemStyle.borderRadius=[2,2,0,0];
-      const allCats = [...cats,...(irBarVals.some(v=>v>0)?['비정기']:[])];
+      if(expBarSeries.length) expBarSeries[expBarSeries.length-1].itemStyle.borderRadius=[2,2,0,0];
       const el=document.getElementById('chExpBar');
       if(el) initChart(el,{
         tooltip:{...ecTooltip,trigger:'axis',axisPointer:{type:'shadow'},formatter:ps=>{let t=0;const lines=ps.filter(p=>p.value).map(p=>{t+=p.value;return `<span style="color:${p.color}">●</span> ${p.seriesName}: ${fmtWon(p.value)}`;});lines.push(`<b>합계: ${fmtWon(t)}</b>`);return lines.join('<br/>');}},
-        legend:{...ecLegend,top:0,type:'scroll',data:allCats},
+        legend:{...ecLegend,top:0,type:'scroll',data:cats},
         grid:{left:60,right:16,top:40,bottom:24,containLabel:false},
         xAxis:{type:'category',data:labels,axisLabel:{...ecTextStyle,fontSize:11},axisLine:ecAxisLine,axisTick:{show:false}},
         yAxis:{type:'value',axisLabel:{...ecTextStyle,fontSize:10,formatter:v=>fmtWon(v)},axisLine:{show:false},axisTick:{show:false},splitLine:ecSplitLine},
