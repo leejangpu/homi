@@ -12,6 +12,10 @@
  * 7. state 업데이트 & 로그 기록
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { KisApiClient } from './kisApi.js';
 import { calculate, calculateDecreaseRate } from './calculator.js';
 import type { StrategyVersion, QuarterModeState } from './calculator.js';
@@ -53,6 +57,13 @@ async function main() {
 
   const today = getETDateISO();
   console.log(`[Open]   → 개장일 확인. ET date: ${today}`);
+
+  // 당일 중복 실행 방지
+  const todayLogPath = path.join(__dirname, '../logs', `${today}.json`);
+  if (!DRY_RUN && fs.existsSync(todayLogPath)) {
+    console.log(`[Open]   → 오늘(${today}) 이미 실행됨. 중복 실행 방지로 종료.`);
+    return;
+  }
 
   // Step 3. KIS API 인증 & 잔고 조회
   console.log('\n[Open] Step 3/7: KIS API 인증 & 잔고 조회');
