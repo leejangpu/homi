@@ -2,7 +2,7 @@ name: VR 리밸런싱 2주 리마인더
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 매일 09:00 KST (00:00 UTC)
+    - cron: '0 1 * * *'  # 매일 10:00 KST (01:00 UTC)
   workflow_dispatch:
 
 jobs:
@@ -23,6 +23,7 @@ jobs:
           KST = timezone(timedelta(hours=9))
           today_kst = datetime.now(KST).date()
           today_str = today_kst.strftime("%Y-%m-%d")
+          print(f"실행 시각(KST): {datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}")
 
           with open('financial/vr-state.json') as f:
               data = json.load(f)
@@ -31,8 +32,9 @@ jobs:
           if isinstance(data.get('ticker'), str):
               data = {data['ticker']: data}
 
-          bot_token = os.environ['TELEGRAM_BOT_TOKEN']
-          chat_id = os.environ['TELEGRAM_CHAT_ID']
+          bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+          chat_id = os.environ.get('TELEGRAM_CHAT_ID', '')
+          print(f"봇 토큰: {'설정됨' if bot_token else '❌ 없음'}, 채팅ID: {chat_id if chat_id else '❌ 없음'}")
 
           import urllib.request, urllib.parse
 
@@ -44,26 +46,31 @@ jobs:
 
               start_date = datetime.strptime(start_str[:10], "%Y-%m-%d").date()
               diff_days = (today_kst - start_date).days
+              print(f"[{ticker}] start={start_str[:10]}, diff={diff_days}일, 나머지={diff_days % 14}")
 
               if diff_days >= 0 and diff_days % 14 == 0:
-                  print(f"[{ticker}] {diff_days}일차 — 알림 발송")
+                  print(f"[{ticker}] → 알림 발송 시도")
                   week_num = diff_days // 14 + 1
                   text = (
                       f"⚖️ {ticker} VR 리밸런싱 알림 ({today_str})\n\n"
                       f"사이클 시작 {diff_days}일차 ({week_num}번째 2주 도래)\n"
                       f"새 V값을 계산하고 주문을 업데이트하세요!\n\n"
-                      f"🔗 https://leejangpu.github.io/homi/financial/#vr-calc\n\n"
                       f"확인할 항목:\n"
                       f"• 현재가, 보유수량, Pool 최신값으로 업데이트\n"
                       f"• 새 V값 및 밴드 범위 확인\n"
                       f"• 매수/매도 주문 가격 업데이트 후 ☁️ 저장"
                   )
-                  params = urllib.parse.urlencode({'chat_id': chat_id, 'text': text})
-                  req = urllib.request.urlopen(
-                      f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                      data=params.encode()
-                  )
-                  print(f"[{ticker}] 발송 완료: {req.status}")
+                  try:
+                      params = urllib.parse.urlencode({'chat_id': chat_id, 'text': text})
+                      req = urllib.request.urlopen(
+                          f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                          data=params.encode()
+                      )
+                      resp = json.loads(req.read())
+                      print(f"[{ticker}] ✅ 발송 완료: status={req.status}, message_id={resp['result']['message_id']}")
+                  except Exception as e:
+                      print(f"[{ticker}] ❌ 발송 실패: {e}")
+                      sys.exit(1)
               else:
-                  print(f"[{ticker}] {diff_days}일차 — 알림 불필요 (14 나머지: {diff_days % 14})")
+                  print(f"[{ticker}] → 알림 불필요")
           EOF
