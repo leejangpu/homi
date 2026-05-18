@@ -1,8 +1,6 @@
 name: VR 리밸런싱 2주 리마인더
 
 on:
-  schedule:
-    - cron: '0 1 * * *'  # 매일 10:00 KST (01:00 UTC)
   workflow_dispatch:
 
 jobs:

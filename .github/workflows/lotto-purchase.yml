@@ -1,8 +1,6 @@
 name: 로또 자동 구매
 
 on:
-  schedule:
-    - cron: '0 1 * * 1'  # 매주 월요일 10:00 KST (01:00 UTC)
   workflow_dispatch:
 
 permissions:
