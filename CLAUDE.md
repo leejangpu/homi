@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Homi는 가족용 퍼스널 자동화 프로젝트입니다. 세 가지 주요 서브시스템으로 구성됩니다:
 
-1. **가계부 대시보드** (`financial/`) — GitHub Pages 정적 사이트, 순수 HTML/JS (ECharts + jSpreadsheet)
+1. **가계부 대시보드** (`financial/`) — 로컬 Express 서버 + Cloudflare Quick Tunnel, 순수 HTML/JS (ECharts + jSpreadsheet)
 2. **로또 자동구매** (`lotto/`) — Python + Playwright 브라우저 자동화, macOS launchd 스케줄
 3. **무한매수법 자동매매** (`infinite-buy/`) — TypeScript, 한국투자증권 API, GitHub Actions self-hosted runner
 
@@ -48,7 +48,7 @@ npx tsx src/main-close.ts   # 장 마감 시 체결 확인
 
 ## 아키텍처 핵심
 
-- **가계부 웹**: GitHub Pages (`https://leejangpu.github.io/homi/financial/`) — `financial/index.html`이 CSV를 fetch하여 차트/테이블 렌더링
+- **가계부 웹**: 로컬 Express 서버 (`financial/server.js`, port 3000) + Cloudflare Quick Tunnel — `financial/index.html`이 CSV를 fetch하여 차트/테이블 렌더링. URL은 터널 재시작 시마다 변경되며 텔레그램으로 알림(`scripts/cloudflared-notify.sh`)
 - **AI 리포트**: `financial/generate-report.sh` → Claude CLI sonnet → `financial/summary.json` 업데이트 → git push
 - **가계부 데이터**: CSV/JSON 파일 (git 관리), 별도 DB 없음
 - **텔레그램 대화**: Claude Code 텔레그램 플러그인으로 직접 대화 (별도 봇 서버 없음)
@@ -71,5 +71,5 @@ npx tsx src/main-close.ts   # 장 마감 시 체결 확인
 - Node.js 20, Python 3.11
 - 패키지 매니저: npm (Node), pip + venv (Python)
 - 자동화: macOS launchd (로또), GitHub Actions self-hosted runner (무한매수법, 리포트)
-- 배포: GitHub Pages (financial), 로컬 실행 (lotto)
+- 배포: 로컬 Express 서버 + Cloudflare Tunnel (financial), 로컬 실행 (lotto)
 - 테스트 프레임워크 미설정

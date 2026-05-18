@@ -77,13 +77,17 @@ def run(dry_run: bool = False, auto: bool = False, numbers: str | None = None) -
     user_id, user_pw = get_credentials()
     ticket_count = int(os.environ.get("LOTTO_TICKET_COUNT", "5"))
 
+    logger.info("Playwright 초기화 중...")
     with sync_playwright() as p:
         storage_state = COOKIE_PATH if os.path.exists(COOKIE_PATH) else None
 
+        logger.info("Chromium 브라우저 실행 중...")
         browser = p.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox"],
+            args=["--no-sandbox", "--disable-setuid-sandbox",
+                  "--disable-gpu", "--disable-dev-shm-usage", "--no-first-run"],
         )
+        logger.info("브라우저 실행 완료")
         context = browser.new_context(
             storage_state=storage_state,
             viewport={"width": 1280, "height": 900},
@@ -177,13 +181,17 @@ def check_history() -> None:
 
     user_id, user_pw = get_credentials()
 
+    logger.info("Playwright 초기화 중...")
     with sync_playwright() as p:
         storage_state = COOKIE_PATH if os.path.exists(COOKIE_PATH) else None
 
+        logger.info("Chromium 브라우저 실행 중...")
         browser = p.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox"],
+            args=["--no-sandbox", "--disable-setuid-sandbox",
+                  "--disable-gpu", "--disable-dev-shm-usage", "--no-first-run"],
         )
+        logger.info("브라우저 실행 완료")
         context = browser.new_context(
             storage_state=storage_state,
             viewport={"width": 1280, "height": 900},
