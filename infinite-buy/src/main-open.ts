@@ -392,6 +392,16 @@ async function processTickerOrders(
 
   console.log(`[Open]     매수 주문 ${buyOrders.length}건, 매도 주문 ${sellOrders.length}건`);
 
+  // 매수가 상한: 현재가 +10% 캡 (LOC 거부 방지)
+  const buyPriceCap = Math.round(currentPrice * 1.10 * 100) / 100;
+  for (const bo of buyOrders) {
+    if (bo.price > buyPriceCap) {
+      console.log(`[Open]     매수가 상한 캡: ${fmtUSD(bo.price)} → ${fmtUSD(buyPriceCap)} (현재가 ${fmtUSD(currentPrice)} +10%)`);
+      bo.price = buyPriceCap;
+      bo.amount = Math.round(bo.price * bo.quantity * 100) / 100;
+    }
+  }
+
   // 자전거래 방지: 매수/매도 가격 겹치면 매수 -0.01
   if (buyOrders.length > 0 && sellOrders.length > 0) {
     const sellPrices = new Set(sellOrders.map(o => o.price));
