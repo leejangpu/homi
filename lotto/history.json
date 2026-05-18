@@ -666,9 +666,9 @@
         }
       ],
       "totalAmount": 5000,
-      "result": "pending",
+      "result": "미추첨",
       "winnings": 0,
-      "winDetail": ""
+      "winDetail": "미추첨"
     }
   ],
   "stats": {
