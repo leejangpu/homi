@@ -666,9 +666,9 @@
         }
       ],
       "totalAmount": 5000,
-      "result": "미추첨",
+      "result": "낙첨",
       "winnings": 0,
-      "winDetail": "미추첨"
+      "winDetail": "낙첨"
     }
   ],
   "stats": {
