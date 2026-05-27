@@ -86,5 +86,33 @@
       "message": "주문 전송 완료 되었습니다.",
       "orderNo": "0030971951"
     }
+  },
+  {
+    "timestamp": "2026-05-27T22:00:03.357Z",
+    "ticker": "SOXL",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 2,
+      "avgPrice": 217.98,
+      "totalInvested": 435.96,
+      "remainingCash": 13570.342900000001,
+      "todayBuyAmt": 435.96,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -435.96
+    }
+  },
+  {
+    "timestamp": "2026-05-27T22:00:03.358Z",
+    "ticker": "TQQQ",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 20,
+      "avgPrice": 76.279,
+      "totalInvested": 1525.58,
+      "remainingCash": 11813.0699,
+      "todayBuyAmt": 81.67,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -1525.5800000000002
+    }
   }
 ]
