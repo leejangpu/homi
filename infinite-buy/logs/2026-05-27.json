@@ -1,0 +1,90 @@
+[
+  {
+    "timestamp": "2026-05-27T19:00:07.875Z",
+    "ticker": "SOXL",
+    "action": "CYCLE_START",
+    "details": {
+      "cycleNumber": 5,
+      "principal": 14006.3029,
+      "buyPerRound": 466.8767633333334,
+      "splitCount": 30,
+      "targetProfit": 0.2,
+      "strategyVersion": "v2.2"
+    }
+  },
+  {
+    "timestamp": "2026-05-27T19:00:07.952Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "type": "FIRST_BUY",
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 237.3,
+      "quantity": 2,
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030971928"
+    }
+  },
+  {
+    "timestamp": "2026-05-27T19:00:08.837Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 76,
+      "quantity": 2,
+      "label": "전반전 0% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030971937"
+    }
+  },
+  {
+    "timestamp": "2026-05-27T19:00:09.403Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 84.91,
+      "quantity": 1,
+      "label": "전반전 +11.8% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030971941"
+    }
+  },
+  {
+    "timestamp": "2026-05-27T19:00:09.948Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LOC",
+      "price": 84.92,
+      "quantity": 5,
+      "label": "쿼터매도 +11.8% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030971945"
+    }
+  },
+  {
+    "timestamp": "2026-05-27T19:00:10.487Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LIMIT",
+      "price": 87.39,
+      "quantity": 14,
+      "label": "목표 +15% LIMIT [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030971951"
+    }
+  }
+]
