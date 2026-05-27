@@ -984,21 +984,23 @@
   .summary-banner .tag-up{background:rgba(54,219,160,0.12);color:var(--green);border:1px solid rgba(54,219,160,0.22);}
   .summary-banner .tag-down{background:rgba(249,112,136,0.12);color:var(--red);border:1px solid rgba(249,112,136,0.22);}
   .summary-banner .tag-neutral{background:rgba(134,148,168,0.08);color:var(--text-muted);border:1px solid rgba(134,148,168,0.13);}
+  .summary-banner .summary-footer{display:flex;justify-content:flex-end;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);}
   #ai-progress-bar{display:none;align-items:center;gap:10px;padding:9px 14px;margin:0 0 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;font-size:12px;transition:opacity .3s;}
   #ai-progress-bar.visible{display:flex;}
   .ai-gen-wrap{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
   .ai-gen-label{color:var(--primary);font-weight:700;font-size:12px;white-space:nowrap;}
-  .ai-gen-dots{display:flex;gap:4px;align-items:center;}
-  .ai-gen-dot{width:5px;height:5px;border-radius:50%;background:var(--primary);animation:aiDot 1.2s ease-in-out infinite;}
-  .ai-gen-dot:nth-child(2){animation-delay:.2s;}.ai-gen-dot:nth-child(3){animation-delay:.4s;}
-  @keyframes aiDot{0%,80%,100%{transform:scale(.5);opacity:.3;}40%{transform:scale(1);opacity:1;}}
-  .ai-gen-track{height:3px;flex:1;max-width:100px;border-radius:2px;background:rgba(56,217,192,0.12);overflow:hidden;}
-  .ai-gen-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--primary),#60a5fa);animation:aiBar 1.8s ease-in-out infinite alternate;}
-  @keyframes aiBar{0%{width:15%;}100%{width:92%;}}
   .ai-status-text{color:var(--text-muted);font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .ai-trigger-btn{flex-shrink:0;padding:5px 11px;border-radius:8px;border:1px solid rgba(56,217,192,0.3);background:rgba(56,217,192,0.07);color:var(--primary);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:background .15s;}
-  .ai-trigger-btn:hover{background:rgba(56,217,192,0.15);}
+  /* AI 원형 스피너 */
+  .ai-spinner{width:22px;height:22px;border-radius:50%;position:relative;flex-shrink:0;animation:aiSpin .85s linear infinite;}
+  .ai-spinner::before{content:'';position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(56,217,192,0) 0%,rgba(56,217,192,1) 65%,rgba(96,165,250,0.9) 82%,rgba(56,217,192,0) 100%);}
+  .ai-spinner::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--bg-card);}
+  @keyframes aiSpin{to{transform:rotate(360deg);}}
+  .ai-trigger-btn{flex-shrink:0;display:flex;align-items:center;gap:5px;padding:5px 13px;border-radius:8px;border:1px solid rgba(56,217,192,0.35);background:rgba(56,217,192,0.08);color:var(--primary);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:all .15s;font-family:inherit;}
+  .ai-trigger-btn:hover:not(:disabled){background:rgba(56,217,192,0.16);box-shadow:0 0 10px rgba(56,217,192,0.12);}
   .ai-trigger-btn:disabled{opacity:.35;cursor:not-allowed;}
+  .ai-trigger-btn .btn-spinner{width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(56,217,192,0.3);border-top-color:var(--primary);animation:aiSpin .7s linear infinite;display:none;}
+  .ai-trigger-btn.loading .btn-spinner{display:block;}
+  .ai-trigger-btn.loading .btn-label{display:none;}
   .ai-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:10px 0;}
   .ai-table{border-collapse:collapse;min-width:100%;font-size:12.5px;white-space:nowrap;}
   .ai-table th,.ai-table td{padding:7px 14px;border:1px solid rgba(255,255,255,0.08);text-align:right;}
@@ -1027,6 +1029,22 @@
     .summary-banner{padding:18px 20px;}
     .summary-banner .summary-body{font-size:12.5px;line-height:1.75;}
   }
+
+  /* ── EXPENSE DETAIL PANEL ── */
+  .exp-detail-panel{margin-top:20px;background:var(--bg-card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;}
+  .exp-detail-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .exp-detail-header h4{font-size:13px;font-weight:700;color:var(--text);margin:0;flex-shrink:0;}
+  .exp-detail-months{display:flex;gap:6px;flex-wrap:wrap;flex:1;}
+  .exp-m-btn{padding:4px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
+  .exp-m-btn.active{background:rgba(245,158,11,0.12);border-color:rgba(245,158,11,0.35);color:#f59e0b;}
+  .exp-detail-tbl{width:100%;border-collapse:collapse;}
+  .exp-detail-tbl th{padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:var(--text-dim);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);white-space:nowrap;}
+  .exp-detail-tbl td{padding:6px 12px;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:top;}
+  .exp-detail-tbl tr:last-child td{border-bottom:none;}
+  .exp-detail-tbl tr:hover td{background:rgba(255,255,255,0.015);}
+  .exp-memo-cell{width:100%;min-width:180px;background:transparent;border:none;color:var(--text-muted);font-size:12px;font-family:var(--font-ui);resize:none;height:20px;overflow:hidden;cursor:pointer;padding:0;line-height:1.5;}
+  .exp-memo-cell:focus{outline:1px solid rgba(56,217,192,0.35);border-radius:3px;padding:2px 4px;background:rgba(56,217,192,0.04);color:var(--text);cursor:text;height:auto;}
+  .exp-memo-cell::placeholder{color:var(--text-dim);opacity:.5;}
 </style>
 </head>
 <body>
@@ -1087,7 +1105,7 @@
   <div class="cell-tooltip" id="cellTooltip"></div>
   <div id="ai-progress-bar">
     <div class="ai-gen-wrap" id="ai-gen-wrap">
-      <span class="ai-status-text" id="ai-status-text">시트 저장 시 자동 생성</span>
+      <span class="ai-status-text" id="ai-status-text"></span>
     </div>
   </div>
   <div class="content" id="content"></div>
@@ -1422,6 +1440,8 @@ let assetViewMode='group'; // 'group' or 'detail'
 let activeFilter='all';
 let jexcelInstance=null;
 let _isFormatting=false;
+let expenseDetailData={};
+let expDetailMonth=null;
 let chartInstances=[];
 function _krConvert(n){
   if(n>=100000000&&n%10000===0){
@@ -1487,7 +1507,8 @@ function mdToHtml(text){
 let aiSummaries={}; // loaded from summary.json
 
 // ===== AI 리포트 Progress =====
-let _reportPoll=null, _reportWasGenerating=false;
+let _reportPoll=null;
+let _pendingMonths=new Set(); // "year-month" keys
 
 function _timeAgo(ts){
   const s=Math.floor((Date.now()-ts)/1000);
@@ -1500,13 +1521,36 @@ function updateAiBar(state){
   const bar=document.getElementById('ai-progress-bar');
   const wrap=document.getElementById('ai-gen-wrap');
   if(!bar)return;
-  if(activeSection!=='dashboard'){bar.classList.remove('visible');return;}
-  bar.classList.add('visible');
-  if(state.generating){
-    wrap.innerHTML=`<span class="ai-gen-label">AI 리포트 생성 중</span><span class="ai-gen-dots"><span class="ai-gen-dot"></span><span class="ai-gen-dot"></span><span class="ai-gen-dot"></span></span><div class="ai-gen-track"><div class="ai-gen-fill"></div></div>`;
-  }else{
-    const ago=state.lastUpdated?_timeAgo(state.lastUpdated):'';
-    wrap.innerHTML=`<span class="ai-status-text">${ago?`마지막 생성: ${ago}`:'시트 저장 시 자동 생성'}</span>`;
+
+  const serverPending=new Set();
+  if(state.current) serverPending.add(`${state.current.year}-${state.current.month}`);
+  (state.queue||[]).forEach(q=>serverPending.add(`${q.year}-${q.month}`));
+
+  const completed=[..._pendingMonths].filter(k=>!serverPending.has(k));
+  _pendingMonths=serverPending;
+
+  if(completed.length>0){
+    fetch('./summary.json?t='+Date.now()).then(r=>r.ok?r.json():null).then(d=>{if(d)aiSummaries=d;renderView();}).catch(()=>{});
+  }
+
+  if(!state.generating&&serverPending.size===0) stopReportPoll();
+
+  if(activeSection!=='dashboard'||!state.generating){
+    bar.classList.remove('visible');
+  } else {
+    bar.classList.add('visible');
+    const lbl=state.current?`${state.current.year}년 ${state.current.month}월 AI 리포트 생성 중...`:'AI 리포트 생성 중...';
+    const qlbl=state.queue&&state.queue.length>0?` (대기 ${state.queue.length}건)`:'';
+    if(wrap) wrap.innerHTML=`<div class="ai-spinner"></div><span class="ai-gen-label">${lbl}${qlbl}</span>`;
+  }
+
+  const btn=document.getElementById('ai-trigger-btn');
+  if(btn){
+    const sec=sections[activeYear];const mths=sec?sec.months:[];
+    const ci=selectedMonthIdx>=0?selectedMonthIdx:getDefaultMonthIdx(mths);
+    const mn=ci>=0&&mths[ci]?String(monthNumFromLabel(mths[ci].label)):null;
+    const isPending=mn?_pendingMonths.has(`${activeYear}-${mn}`):false;
+    btn.disabled=isPending;isPending?btn.classList.add('loading'):btn.classList.remove('loading');
   }
 }
 
@@ -1515,38 +1559,55 @@ async function _pollReportStatus(){
     const r=await fetch('/report-status');if(!r.ok)return;
     const data=await r.json();
     updateAiBar(data);
-    if(data.generating){_reportWasGenerating=true;}
-    else if(_reportWasGenerating){
-      _reportWasGenerating=false;
-      stopReportPoll();
-      const sr=await fetch('./summary.json?t='+Date.now());
-      if(sr.ok)aiSummaries=await sr.json();
-      renderView();
-    }
   }catch(e){}
 }
 
 function startReportPoll(){
   if(_reportPoll)return;
-  _reportWasGenerating=false;
   _reportPoll=setInterval(_pollReportStatus,3000);
   _pollReportStatus();
 }
 function stopReportPoll(){if(_reportPoll){clearInterval(_reportPoll);_reportPoll=null;}}
 
+function showToast(msg){
+  let t=document.getElementById('vrToast');
+  if(!t){t=document.createElement('div');t.id='vrToast';t.className='vr-toast';document.body.appendChild(t);}
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
 async function triggerAiReport(){
   const password=localStorage.getItem('save_password');
   if(!password){alert('먼저 ☁️ 저장 버튼을 눌러 비밀번호를 설정하세요.');return;}
-  const btn=document.getElementById('ai-trigger-btn');
-  if(btn)btn.disabled=true;
   const kst=new Date(Date.now()+9*60*60*1000);
   const year=String(activeYear||kst.getFullYear());
-  const month=String(kst.getMonth()+1);
+  const sec=sections[year];const mths=sec?sec.months:[];
+  const ci=selectedMonthIdx>=0?selectedMonthIdx:getDefaultMonthIdx(mths);
+  const month=ci>=0&&mths[ci]?String(monthNumFromLabel(mths[ci].label)):String(kst.getMonth()+1);
+  const key=`${year}-${month}`;
+  if(_pendingMonths.has(key))return;
+  _pendingMonths.add(key);
+  const btn=document.getElementById('ai-trigger-btn');
+  if(btn){btn.disabled=true;btn.classList.add('loading');}
   try{
     const r=await fetch('/trigger-report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,year,month})});
-    if(r.ok){startReportPoll();}
-    else{const e=await r.json();alert(e.error||'리포트 생성 실패');}
-  }catch(e){alert('서버 연결 실패');}
+    const data=await r.json();
+    if(data.noChange){
+      showToast('변경사항 없음');
+      _pendingMonths.delete(key);
+      if(btn){btn.disabled=false;btn.classList.remove('loading');}
+    }else if(r.ok){
+      startReportPoll();
+    }else{
+      alert(data.error||'리포트 생성 실패');
+      _pendingMonths.delete(key);
+      if(btn){btn.disabled=false;btn.classList.remove('loading');}
+    }
+  }catch(e){
+    alert('서버 연결 실패');
+    _pendingMonths.delete(key);
+    if(btn){btn.disabled=false;btn.classList.remove('loading');}
+  }
 }
 
 const TODAY=new Date();
@@ -2167,6 +2228,8 @@ function renderDashboard(container){
 
   // Generate monthly summary
   const summary = generateMonthlySummary(sec, months);
+  const _curMn=months[si]?String(monthNumFromLabel(months[si].label)):null;
+  const _btnPending=_curMn?_pendingMonths.has(`${activeYear}-${_curMn}`):false;
   const summaryHtml = summary ? `
   <div class="summary-banner${summary.isAI ? ' is-ai' : ''}">
     <div class="ai-corner"></div>
@@ -2175,6 +2238,12 @@ function renderDashboard(container){
       ${summary.tag}${summary.title}${summary.date ? `<span style="margin-left:auto;font-size:10px;color:var(--text-dim);font-weight:500;text-transform:none;letter-spacing:0">${summary.date}</span>` : ''}
     </div>
     <div class="summary-body">${summary.body}</div>
+    <div class="summary-footer">
+      <button class="ai-trigger-btn${_btnPending?' loading':''}" id="ai-trigger-btn" onclick="triggerAiReport()"${_btnPending?' disabled':''}>
+        <span class="btn-spinner"></span>
+        <span class="btn-label">새로받기</span>
+      </button>
+    </div>
   </div>` : '';
 
   // Milestone: 10-year retirement goal (15억, 2026-2036)
@@ -2580,6 +2649,12 @@ function renderSpreadsheet(container,key){
   setTimeout(applyFreezeColumnsCSS,200);
   setTimeout(applyCompactDisplay,250);
   updateSaveStatus();
+  if(key==='expense'){
+    const ec=document.createElement('div');
+    ec.id='exp-detail-container';
+    ec.innerHTML=renderExpenseDetailPanel();
+    container.appendChild(ec);
+  }
 }
 
 let _sheetFullscreen=false;
@@ -3218,18 +3293,32 @@ async function loadVRState(){
 
 function vrGetState(){ return vrActiveKey ? (vrTrackers[vrActiveKey] || {}) : {}; }
 
-function vrFmt(n, decimals=2){
+function vrFmt(n, decimals=null){
   if(n==null || isNaN(n)) return '-';
-  return '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+  const isKRW = (vrGetState().currency || 'USD') === 'KRW';
+  if(isKRW) return '₩'+Math.round(n).toLocaleString('ko-KR');
+  const d = decimals ?? 2;
+  return '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
 }
-function vrFmtNum(n, decimals=2){
+function vrFmtNum(n, decimals=null){
   if(n==null || isNaN(n)) return '-';
-  return Number(n).toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+  const isKRW = (vrGetState().currency || 'USD') === 'KRW';
+  if(isKRW) return Math.round(n).toLocaleString('ko-KR');
+  const d = decimals ?? 2;
+  return Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+}
+
+function vrCalcWeekNumber(strategyStartDate){
+  if(!strategyStartDate) return 0;
+  const start = new Date(strategyStartDate + 'T00:00:00+09:00');
+  const diffMs = Date.now() - start.getTime();
+  return Math.max(0, Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)));
 }
 
 function vrGetInputs(){
   const g = id => {const el=document.getElementById(id); return el?parseFloat(el.value)||0:0;};
   const gs = id => {const el=document.getElementById(id); return el?el.value.trim():'';};
+  const strategyStartDate = gs('vr-strategyStartDate') || '';
   return {
     ticker: gs('vr-ticker') || 'QLD',
     currentPrice: g('vr-currentPrice'),
@@ -3239,8 +3328,10 @@ function vrGetInputs(){
     gradient: g('vr-gradient') || 10,
     bandPercent: g('vr-bandPercent') || 15,
     periodicAmount: g('vr-periodicAmount'),
-    weekNumber: g('vr-weekNumber'),
+    weekNumber: vrCalcWeekNumber(strategyStartDate),
+    strategyStartDate,
     investmentMode: gs('vr-investmentMode') || 'accumulate',
+    cycleStartDate: gs('vr-cycleStartDate') || '',
   };
 }
 
@@ -3294,10 +3385,10 @@ function vrCalculate(inp){
     }
   }
 
-  // 7. 매도 주문 생성 — 10개 고정 (공식 스펙)
+  // 7. 매도 주문 생성 — 보유 수량 전체
   const sellOrders = [];
   if(totalQuantity > 0 && currentPrice > 0){
-    for(let n=1; n<=10; n++){
+    for(let n=1; n<totalQuantity; n++){
       const targetQty = totalQuantity - n;
       if(targetQty <= 0) break;
       const orderPrice = Math.round((maxBand / targetQty) * 100) / 100;
@@ -3314,6 +3405,49 @@ function vrCalculate(inp){
   };
 }
 
+function vrSetExecuted(type, n){
+  const s = vrGetState();
+  const key = type === 'buy' ? 'executedBuyCount' : 'executedSellCount';
+  const current = s[key] || 0;
+  s[key] = (current === n) ? n - 1 : n;
+  if(vrActiveKey) vrTrackers[vrActiveKey] = s;
+  vrRenderResult();
+}
+
+function vrSetExecutedGroup(type, firstSeq, lastSeq){
+  const s = vrGetState();
+  const key = type === 'buy' ? 'executedBuyCount' : 'executedSellCount';
+  const current = s[key] || 0;
+  s[key] = (current >= lastSeq) ? firstSeq - 1 : lastSeq;
+  if(vrActiveKey) vrTrackers[vrActiveKey] = s;
+  vrRenderResult();
+}
+
+function vrApplyGrouping(orders, groupSize){
+  if(!groupSize || groupSize <= 1) return orders.map(o => ({...o, firstOrigSeq: o.seq, lastOrigSeq: o.seq}));
+  const grouped = [];
+  for(let i = 0; i < orders.length; i += groupSize){
+    const chunk = orders.slice(i, i + groupSize);
+    grouped.push({
+      seq: grouped.length + 1,
+      firstOrigSeq: chunk[0].seq,
+      lastOrigSeq: chunk[chunk.length - 1].seq,
+      targetQty: chunk[chunk.length - 1].targetQty,
+      price: chunk[chunk.length - 1].price,
+      qty: chunk.length,
+    });
+  }
+  return grouped;
+}
+
+function vrSetGroupSize(type, size){
+  const s = vrGetState();
+  if(type === 'buy') s.buyGroupSize = parseInt(size) || 1;
+  else s.sellGroupSize = parseInt(size) || 1;
+  if(vrActiveKey) vrTrackers[vrActiveKey] = s;
+  vrRenderResult();
+}
+
 function vrRenderResult(){
   const inp = vrGetInputs();
   const r = vrCalculate(inp);
@@ -3321,13 +3455,26 @@ function vrRenderResult(){
   if(!resultEl) return;
   if(!r){ resultEl.innerHTML = '<div style="color:var(--red);padding:12px 0">⚠ 기울기 G는 1 이상 값을 입력하세요.</div>'; return; }
   const { totalQuantity, pool } = inp;
+  const execBuy = vrGetState().executedBuyCount || 0;
+  const execSell = vrGetState().executedSellCount || 0;
+  const buyGroupSize = vrGetState().buyGroupSize || 1;
+  const sellGroupSize = vrGetState().sellGroupSize || 1;
+  const displayBuyOrders = vrApplyGrouping(r.buyOrders, buyGroupSize);
+  const displaySellOrders = vrApplyGrouping(r.sellOrders, sellGroupSize);
+  const _selStyle = 'padding:2px 6px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit;cursor:pointer';
+  const _gOpts = n => [1,2,3,4,5,6,7,8,9,10].map(i=>`<option value="${i}"${i===n?' selected':''}>×${i}</option>`).join('');
 
   const signalLabel = r.signal === 'buy' ? 'BUY (매수)' : r.signal === 'sell' ? 'SELL (매도)' : 'HOLD (홀드)';
   const signalIcon = r.signal === 'buy' ? '🟢' : r.signal === 'sell' ? '🔴' : '⚪';
   const diffColor = r.diffPercent >= 0 ? 'var(--green)' : 'var(--red)';
   const vChangeColor = r.vChange >= 0 ? 'var(--green)' : 'var(--red)';
+  const cycleNum = vrGetState().cycleNumber || 1;
 
   let html = `
+  <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+    <span style="font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:.6px;text-transform:uppercase">현재 사이클</span>
+    <span style="font-family:var(--font-num);font-size:18px;font-weight:700;color:var(--primary)">#${cycleNum}</span>
+  </div>
   <div class="vr-summary-grid">
     <div class="vr-summary-card">
       <div class="vr-card-label">현재 평가금 vs V</div>
@@ -3342,7 +3489,7 @@ function vrRenderResult(){
     <div class="vr-summary-card">
       <div class="vr-card-label">매매 판단</div>
       <div style="margin-top:4px"><span class="vr-signal ${r.signal}">${signalIcon} ${signalLabel}</span></div>
-      <div class="vr-card-sub">Pool 한도 ${(r.poolLimit*100).toFixed(0)}% (${vrFmt(r.poolAvailable)})</div>
+      <div class="vr-card-sub">Pool 한도 ${(r.poolLimit*100).toFixed(0)}% (${vrFmt(r.poolAvailable)}) &nbsp;·&nbsp; ${inp.weekNumber}주차</div>
     </div>
   </div>
 
@@ -3375,17 +3522,27 @@ function vrRenderResult(){
 
   // 매수 주문
   html += `<div class="vr-order-card">
-    <div class="vr-order-title buy">매수 주문 (${r.buyOrders.length}건) ${r.signal==='buy'?'⬅ 현재 신호':''}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="vr-order-title buy" style="margin:0">매수 주문 (${r.buyOrders.length}건${displayBuyOrders.length!==r.buyOrders.length?' → '+displayBuyOrders.length+'묶음':''}) ${execBuy>0?`<span style="color:var(--green);font-weight:700">${execBuy}건 체결</span>`:''}${r.signal==='buy'?' ⬅ 현재 신호':''}</div>
+      <label style="display:flex;align-items:center;gap:5px;white-space:nowrap">
+        <span style="font-size:11px;color:var(--text-dim);font-weight:600">묶음</span>
+        <select style="${_selStyle}" onchange="vrSetGroupSize('buy',+this.value)">${_gOpts(buyGroupSize)}</select>
+      </label>
     </div>
-    <p style="color:var(--text-dim);font-size:11px;margin:0 0 8px">이 가격 이하로 내려오면 1주씩 체결</p>`;
-  if(r.buyOrders.length > 0){
-    const totalBuy = r.buyOrders.reduce((s,o)=>s+o.price,0);
+    <p style="color:var(--text-dim);font-size:11px;margin:0 0 8px">이 가격 이하로 내려오면 ${buyGroupSize>1?buyGroupSize+'주씩 묶어서':'1주씩'} 체결</p>`;
+  if(displayBuyOrders.length > 0){
+    const totalBuyQty = displayBuyOrders.reduce((s,o)=>s+o.qty,0);
+    const totalBuy = displayBuyOrders.reduce((s,o)=>s+o.price*o.qty,0);
     html += `<table class="vr-order-table">
-      <thead><tr><th>#</th><th>체결 후 보유</th><th>수량</th><th>주문가</th></tr></thead><tbody>`;
-    r.buyOrders.forEach(o => {
-      html += `<tr><td>${o.seq}</td><td>${o.targetQty}주</td><td>1주</td><td style="color:var(--green)">${vrFmt(o.price)}</td></tr>`;
+      <thead><tr><th>#</th><th>체결 후 보유</th><th>수량</th><th>주문가</th><th style="width:32px;text-align:center">✓</th></tr></thead><tbody>`;
+    displayBuyOrders.forEach(o => {
+      const checked = execBuy >= o.lastOrigSeq;
+      const rowStyle = checked ? 'opacity:0.4' : '';
+      const chk = checked ? `<span style="color:var(--green);font-size:15px;cursor:pointer" onclick="vrSetExecutedGroup('buy',${o.firstOrigSeq},${o.lastOrigSeq})">✓</span>`
+                           : `<span style="color:var(--border);font-size:15px;cursor:pointer" onclick="vrSetExecutedGroup('buy',${o.firstOrigSeq},${o.lastOrigSeq})">○</span>`;
+      html += `<tr style="${rowStyle}"><td>${o.seq}</td><td>${o.targetQty}주</td><td>${o.qty}주</td><td style="color:var(--green)">${vrFmt(o.price)}</td><td style="text-align:center">${chk}</td></tr>`;
     });
-    html += `<tr class="total-row"><td></td><td></td><td>${r.buyOrders.length}주</td><td style="color:var(--green)">${vrFmt(totalBuy)}</td></tr>`;
+    html += `<tr class="total-row"><td></td><td></td><td>${totalBuyQty}주</td><td style="color:var(--green)">${vrFmt(totalBuy)}</td><td></td></tr>`;
     html += `</tbody></table>`;
   } else {
     html += `<p style="color:var(--text-dim);font-size:12px">${totalQuantity===0&&pool===0?'보유 수량과 Pool을 입력하세요':'Pool 부족'}</p>`;
@@ -3394,17 +3551,27 @@ function vrRenderResult(){
 
   // 매도 주문
   html += `<div class="vr-order-card">
-    <div class="vr-order-title sell">매도 주문 (${r.sellOrders.length}건) ${r.signal==='sell'?'⬅ 현재 신호':''}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="vr-order-title sell" style="margin:0">매도 주문 (${r.sellOrders.length}건${displaySellOrders.length!==r.sellOrders.length?' → '+displaySellOrders.length+'묶음':''}) ${execSell>0?`<span style="color:var(--red);font-weight:700">${execSell}건 체결</span>`:''}${r.signal==='sell'?' ⬅ 현재 신호':''}</div>
+      <label style="display:flex;align-items:center;gap:5px;white-space:nowrap">
+        <span style="font-size:11px;color:var(--text-dim);font-weight:600">묶음</span>
+        <select style="${_selStyle}" onchange="vrSetGroupSize('sell',+this.value)">${_gOpts(sellGroupSize)}</select>
+      </label>
     </div>
-    <p style="color:var(--text-dim);font-size:11px;margin:0 0 8px">이 가격 이상으로 올라가면 1주씩 체결</p>`;
-  if(r.sellOrders.length > 0){
-    const totalSell = r.sellOrders.reduce((s,o)=>s+o.price,0);
+    <p style="color:var(--text-dim);font-size:11px;margin:0 0 8px">이 가격 이상으로 올라가면 ${sellGroupSize>1?sellGroupSize+'주씩 묶어서':'1주씩'} 체결</p>`;
+  if(displaySellOrders.length > 0){
+    const totalSellQty = displaySellOrders.reduce((s,o)=>s+o.qty,0);
+    const totalSell = displaySellOrders.reduce((s,o)=>s+o.price*o.qty,0);
     html += `<table class="vr-order-table">
-      <thead><tr><th>#</th><th>체결 후 보유</th><th>수량</th><th>주문가</th></tr></thead><tbody>`;
-    r.sellOrders.forEach(o => {
-      html += `<tr><td>${o.seq}</td><td>${o.targetQty}주</td><td>1주</td><td style="color:var(--red)">${vrFmt(o.price)}</td></tr>`;
+      <thead><tr><th>#</th><th>체결 후 보유</th><th>수량</th><th>주문가</th><th style="width:32px;text-align:center">✓</th></tr></thead><tbody>`;
+    displaySellOrders.forEach(o => {
+      const checked = execSell >= o.lastOrigSeq;
+      const rowStyle = checked ? 'opacity:0.4' : '';
+      const chk = checked ? `<span style="color:var(--red);font-size:15px;cursor:pointer" onclick="vrSetExecutedGroup('sell',${o.firstOrigSeq},${o.lastOrigSeq})">✓</span>`
+                           : `<span style="color:var(--border);font-size:15px;cursor:pointer" onclick="vrSetExecutedGroup('sell',${o.firstOrigSeq},${o.lastOrigSeq})">○</span>`;
+      html += `<tr style="${rowStyle}"><td>${o.seq}</td><td>${o.targetQty}주</td><td>${o.qty}주</td><td style="color:var(--red)">${vrFmt(o.price)}</td><td style="text-align:center">${chk}</td></tr>`;
     });
-    html += `<tr class="total-row"><td></td><td></td><td>${r.sellOrders.length}주</td><td style="color:var(--red)">${vrFmt(totalSell)}</td></tr>`;
+    html += `<tr class="total-row"><td></td><td></td><td>${totalSellQty}주</td><td style="color:var(--red)">${vrFmt(totalSell)}</td><td></td></tr>`;
     html += `</tbody></table>`;
   } else {
     html += `<p style="color:var(--text-dim);font-size:12px">${inp.totalQuantity<=0?'보유 수량이 없습니다':'주문 생성 불가'}</p>`;
@@ -3429,7 +3596,14 @@ function vrBuildState(overrides={}){
   const existing = vrGetState();
   return {
     ...inp,
-    cycleStartDate: existing.cycleStartDate || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'}),
+    cycleStartDate: inp.cycleStartDate || existing.cycleStartDate || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'}),
+    strategyStartDate: inp.strategyStartDate || existing.strategyStartDate || existing.cycleStartDate || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'}),
+    currency: existing.currency || 'USD',
+    executedBuyCount: existing.executedBuyCount || 0,
+    executedSellCount: existing.executedSellCount || 0,
+    buyGroupSize: existing.buyGroupSize || 1,
+    sellGroupSize: existing.sellGroupSize || 1,
+    cycleNumber: existing.cycleNumber || 1,
     cycleStatus: 'active',
     lastUpdated: new Date().toISOString(),
     computed: {
@@ -3537,26 +3711,47 @@ async function vrApplyNextCycle(newV, newWeek){
   setVal('vr-totalQuantity', qty);
   setVal('vr-pool', pool);
   setVal('vr-targetValue', newV.toFixed(2));
-  setVal('vr-weekNumber', newWeek);
 
   document.querySelector('.gh-modal-overlay').remove();
-  vrRenderResult();
 
   vrShowToast('저장 중...');
   try{
     const todayKST = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
     const nextBizDay = vrNextBusinessDay(todayKST);
-    await vrPushState(vrBuildState({ cycleStartDate: nextBizDay }));
+    const nextCycleNumber = (vrGetState().cycleNumber || 1) + 1;
+    await vrPushState(vrBuildState({ cycleStartDate: nextBizDay, executedBuyCount: 0, executedSellCount: 0, cycleNumber: nextCycleNumber }));
     vrShowToast('✓ 새 사이클 저장 완료!');
+    await renderVRCalc();
   }catch(e){ vrShowToast(e.message); }
 }
 
 async function vrEndCycle(){
-  if(!confirm('사이클을 종료할까요?\n현재 상태는 저장되고 다음 저장 시 새 사이클로 시작됩니다.')) return;
-  vrShowToast('저장 중...');
+  const removedKey = vrActiveKey;
+  if(!removedKey){ vrShowToast('선택된 종목이 없습니다'); return; }
+  if(!confirm(`사이클을 종료할까요?\n${removedKey} 종목이 목록에서 제거되고 히스토리에 보관됩니다.`)) return;
+  vrShowToast('종료 중...');
   try{
-    await vrPushState(vrBuildState({ cycleStatus: 'ended' }));
-    vrShowToast('✓ 사이클 종료됨');
+    const entry = vrBuildState({ cycleStatus: 'ended', endedAt: new Date().toISOString() });
+    const histRes = await fetch(WORKER_API_URL+'/save-vr-history',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({entry})
+    });
+    if(!histRes.ok) throw new Error('히스토리 저장 실패: '+histRes.status);
+
+    delete vrTrackers[removedKey];
+    const keys = Object.keys(vrTrackers);
+    vrActiveKey = keys[0] || null;
+
+    const res = await fetch(WORKER_API_URL+'/save-vr',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({content: JSON.stringify(vrTrackers, null, 2)})
+    });
+    if(!res.ok) throw new Error('상태 저장 실패: '+res.status);
+
+    vrShowToast(`✓ ${removedKey} 사이클 종료 (히스토리 보관)`);
+    await renderVRCalc();
   }catch(e){ vrShowToast(e.message); }
 }
 
@@ -3583,12 +3778,48 @@ function vrSwitchTab(key){
 }
 
 function vrAddTracker(){
-  const name = prompt('추가할 종목명 입력 (예: SOXL)');
-  if(!name || !name.trim()) return;
-  const key = name.trim().toUpperCase();
+  const today = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'});
+  const inputStyle = 'width:100%;margin-top:4px;padding:8px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;box-sizing:border-box';
+  const labelStyle = 'font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:.5px;text-transform:uppercase';
+  const overlay = document.createElement('div');
+  overlay.className = 'gh-modal-overlay';
+  overlay.innerHTML = `<div class="gh-modal">
+    <h3>새 종목 추가</h3>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+      <div>
+        <label style="${labelStyle}">종목명</label>
+        <input type="text" id="at-ticker" placeholder="예: SOXL" style="${inputStyle}">
+      </div>
+      <div>
+        <label style="${labelStyle}">시작 날짜</label>
+        <input type="date" id="at-startDate" value="${today}" style="${inputStyle}">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="this.closest('.gh-modal-overlay').remove()">취소</button>
+      <button class="btn-save" onclick="vrConfirmAddTracker()">추가</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>{ const el=document.getElementById('at-ticker'); if(el) el.focus(); }, 50);
+}
+
+function vrConfirmAddTracker(){
+  const name = (document.getElementById('at-ticker').value || '').trim();
+  const startDate = document.getElementById('at-startDate').value;
+  document.querySelector('.gh-modal-overlay').remove();
+  if(!name) return;
+  const key = name.toUpperCase();
   if(vrTrackers[key]){ vrSwitchTab(key); return; }
-  vrTrackers[key] = { ticker: key, cycleStartDate: vrNextBusinessDay(new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'})) };
+  vrTrackers[key] = { ticker: key, cycleStartDate: startDate || new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Seoul'}) };
   vrActiveKey = key;
+  renderVRCalc();
+}
+
+function vrToggleCurrency(){
+  const s = vrGetState();
+  s.currency = (s.currency === 'KRW') ? 'USD' : 'KRW';
+  if(vrActiveKey) vrTrackers[vrActiveKey] = s;
   renderVRCalc();
 }
 
@@ -3601,6 +3832,8 @@ async function renderVRCalc(){
     vrLoaded = true;
   }
   const s = vrGetState();
+  const cur = s.currency || 'USD';
+  const cs = cur === 'KRW' ? '₩' : '$';
 
   // 탭 렌더링
   const keys = Object.keys(vrTrackers);
@@ -3608,26 +3841,37 @@ async function renderVRCalc(){
     `<button class="vr-tab${k===vrActiveKey?' active':''}" onclick="vrSwitchTab('${k}')">${k}</button>`
   ).join('') + `<button class="vr-tab-add" onclick="vrAddTracker()">+</button>`;
 
+  const btnBase = 'padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s';
+  const btnUSD = `${btnBase};border:1px solid ${cur==='USD'?'rgba(56,217,192,0.4)':'var(--border)'};background:${cur==='USD'?'rgba(56,217,192,0.15)':'rgba(255,255,255,0.04)'};color:${cur==='USD'?'var(--primary)':'var(--text-dim)'}`;
+  const btnKRW = `${btnBase};border:1px solid ${cur==='KRW'?'rgba(56,217,192,0.4)':'var(--border)'};background:${cur==='KRW'?'rgba(56,217,192,0.15)':'rgba(255,255,255,0.04)'};color:${cur==='KRW'?'var(--primary)':'var(--text-dim)'}`;
+
   {
     container.innerHTML = `
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">${tabsHtml}</div>
-    <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.6px;text-transform:uppercase;margin-bottom:16px">VR (Value Rebalancing) 계산기</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:.6px;text-transform:uppercase">VR (Value Rebalancing) 계산기</div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="font-size:11px;color:var(--text-dim);font-weight:600">통화</span>
+        <button style="${btnUSD}" onclick="vrToggleCurrency()">$ USD</button>
+        <button style="${btnKRW}" onclick="vrToggleCurrency()">₩ KRW</button>
+      </div>
+    </div>
     <div class="vr-input-grid">
       <div class="vr-field">
         <label>종목명</label>
         <input type="text" id="vr-ticker" value="${s.ticker||'QLD'}" placeholder="예: QLD">
       </div>
       <div class="vr-field">
-        <label>현재가 ($)</label>
-        <input type="number" id="vr-currentPrice" value="${s.currentPrice||''}" step="0.01" placeholder="현재 주가">
+        <label>현재가 (${cs})</label>
+        <input type="number" id="vr-currentPrice" value="${s.currentPrice||''}" step="${cur==='KRW'?'1':'0.01'}" placeholder="현재 주가">
       </div>
       <div class="vr-field">
         <label>보유 수량</label>
         <input type="number" id="vr-totalQuantity" value="${s.totalQuantity||0}" step="1" placeholder="보유 주수">
       </div>
       <div class="vr-field">
-        <label>목표 평가금 V ($)</label>
-        <input type="number" id="vr-targetValue" value="${s.targetValue||''}" step="0.01" placeholder="현재 V값">
+        <label>목표 평가금 V (${cs})</label>
+        <input type="number" id="vr-targetValue" value="${s.targetValue||''}" step="${cur==='KRW'?'1':'0.01'}" placeholder="현재 V값">
       </div>
       <div class="vr-field">
         <label>투자 모드</label>
@@ -3638,8 +3882,8 @@ async function renderVRCalc(){
         </select>
       </div>
       <div class="vr-field">
-        <label>Pool ($)</label>
-        <input type="number" id="vr-pool" value="${s.pool||''}" step="0.01" placeholder="USD 현금 잔고">
+        <label>Pool (${cs})</label>
+        <input type="number" id="vr-pool" value="${s.pool||''}" step="${cur==='KRW'?'1':'0.01'}" placeholder="${cur==='KRW'?'KRW 현금 잔고':'USD 현금 잔고'}">
       </div>
       <div class="vr-field">
         <label>기울기 G</label>
@@ -3650,12 +3894,16 @@ async function renderVRCalc(){
         <input type="number" id="vr-bandPercent" value="${s.bandPercent||15}" step="1" placeholder="15">
       </div>
       <div class="vr-field">
-        <label>2주 적립금 ($)</label>
-        <input type="number" id="vr-periodicAmount" value="${s.periodicAmount||0}" step="0.01" placeholder="2주마다 입금액">
+        <label>2주 적립금 (${cs})</label>
+        <input type="number" id="vr-periodicAmount" value="${s.periodicAmount||0}" step="${cur==='KRW'?'1':'0.01'}" placeholder="2주마다 입금액">
       </div>
       <div class="vr-field">
-        <label>현재 주차</label>
-        <input type="number" id="vr-weekNumber" value="${s.weekNumber||0}" step="1" placeholder="경과 주">
+        <label>전략 시작일 <span style="color:var(--text-dim);font-weight:400">(주차 자동계산)</span></label>
+        <input type="date" id="vr-strategyStartDate" value="${s.strategyStartDate||s.cycleStartDate||''}">
+      </div>
+      <div class="vr-field">
+        <label>사이클 시작일</label>
+        <input type="date" id="vr-cycleStartDate" value="${s.cycleStartDate||''}">
       </div>
     </div>
     <div id="vr-result"></div>
@@ -3671,10 +3919,87 @@ async function renderVRCalc(){
   vrRenderResult();
 }
 
+// ===== Expense Detail Panel =====
+async function loadExpenseDetail(){
+  try{const r=await fetch('/expense-detail');if(r.ok)expenseDetailData=await r.json();}catch(e){}
+}
+
+function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function renderExpenseDetailPanel(){
+  const yearData=expenseDetailData[activeYear]||{};
+  const months=Object.keys(yearData).filter(m=>yearData[m]?.items?.length).sort();
+  if(!months.length){
+    return '<div class="exp-detail-panel"><div style="padding:20px;color:var(--text-dim);font-size:13px;text-align:center">영수증 분석 결과가 없습니다. 📎 영수증 분석 버튼을 사용하세요.</div></div>';
+  }
+  if(!expDetailMonth||!yearData[expDetailMonth]){expDetailMonth=months[months.length-1];}
+  const items=(yearData[expDetailMonth]?.items)||[];
+  const monthMemo=(yearData[expDetailMonth]?.메모)||'';
+  const mBtns=months.map(m=>`<button class="exp-m-btn${m===expDetailMonth?' active':''}" onclick="selectExpDetailMonth('${m}')">${parseInt(m)}월</button>`).join('');
+  const rows=items.map((item,i)=>{
+    const ex=item.카테고리==='제외';
+    return `<tr>
+      <td style="color:var(--text-dim);font-family:var(--font-num);white-space:nowrap">${_esc(item.날짜||'')}</td>
+      <td style="color:${ex?'var(--text-dim)':'var(--text)'}">${_esc(item.가맹점||'')}</td>
+      <td style="color:var(--text-dim);white-space:nowrap">${_esc(item.카드||'')}</td>
+      <td style="text-align:right;font-family:var(--font-num);color:${ex?'var(--text-dim)':'#f59e0b'};white-space:nowrap">${item.금액?parseInt(item.금액).toLocaleString()+'원':''}</td>
+      <td style="color:var(--text-muted);white-space:nowrap">${_esc(item.카테고리||'')}</td>
+      <td><textarea class="exp-memo-cell" rows="1" placeholder="메모 입력..." data-year="${activeYear}" data-month="${expDetailMonth}" data-idx="${i}"
+        onblur="updateItemMemo(this)" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${_esc(item.메모||'')}</textarea></td>
+    </tr>`;
+  }).join('');
+  return `<div class="exp-detail-panel">
+    <div class="exp-detail-header">
+      <h4>📋 카드 내역 세부</h4>
+      <div class="exp-detail-months">${mBtns}</div>
+      <button class="btn" style="flex-shrink:0" onclick="saveExpenseDetail()" id="expDetailSaveBtn">저장</button>
+    </div>
+    ${monthMemo?`<div style="padding:8px 16px;font-size:12px;color:var(--text-dim);border-bottom:1px solid var(--border)">📝 ${_esc(monthMemo)}</div>`:''}
+    <div style="overflow-x:auto">
+      <table class="exp-detail-tbl">
+        <thead><tr><th>날짜</th><th>가맹점</th><th>카드</th><th style="text-align:right">금액</th><th>카테고리</th><th>메모</th></tr></thead>
+        <tbody>${rows||'<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text-dim)">이 달 항목 없음</td></tr>'}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function selectExpDetailMonth(m){
+  expDetailMonth=m;
+  const c=document.getElementById('exp-detail-container');
+  if(c)c.innerHTML=renderExpenseDetailPanel();
+}
+
+function updateItemMemo(textarea){
+  const year=textarea.dataset.year,month=textarea.dataset.month,idx=parseInt(textarea.dataset.idx);
+  const value=textarea.value.trim();
+  if(!expenseDetailData[year]?.[month]?.items) return;
+  expenseDetailData[year][month].items[idx].메모=value;
+  const btn=document.getElementById('expDetailSaveBtn');
+  if(btn){btn.textContent='저장*';btn.style.color='#f59e0b';}
+}
+
+async function saveExpenseDetail(){
+  const password=localStorage.getItem('save_password');
+  if(!password){showPasswordModal();return;}
+  const btn=document.getElementById('expDetailSaveBtn');
+  if(btn){btn.textContent='저장 중...';btn.style.color='';}
+  try{
+    const res=await fetch('/save-expense-detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,content:expenseDetailData})});
+    const data=await res.json();
+    if(!res.ok){alert('오류: '+(data.error||res.status));if(btn){btn.textContent='저장';btn.style.color='';}return;}
+    if(btn){btn.textContent='저장 ✓';btn.style.color='var(--primary)';setTimeout(()=>{btn.textContent='저장';btn.style.color='';},2000);}
+  }catch(e){
+    if(btn){btn.textContent='저장';btn.style.color='';}
+    alert('네트워크 오류: '+e.message);
+  }
+}
+
 // ===== Init =====
 async function init(){
   // Load AI summaries
   try{const r=await fetch('./summary.json?t='+Date.now());if(r.ok)aiSummaries=await r.json();}catch(e){}
+  await loadExpenseDetail();
   for(const f of['2025','2026']){try{const r=await fetch(`./${f}.csv?t=`+Date.now());if(r.ok){rawSheets[f]=parseCSV(await r.text());splitSections(f);calcAllTotals(f);splitSections(f);}}catch(e){}}
   if(!Object.keys(rawSheets).length){rawSheets['new']=[Array(20).fill('')];splitSections('new');}
   // Default to year matching today, or latest
