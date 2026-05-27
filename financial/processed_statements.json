@@ -1,0 +1,14 @@
+{
+  "19dfb0a7cc71d4cf": {
+    "billing_date": "20260513",
+    "account": "self",
+    "processed_at": "2026-05-25T14:50:00",
+    "note": "초기 시드 - 가계부 반영 안함 (사용자 요청)"
+  },
+  "19d60873313580cb": {
+    "billing_date": "20260413",
+    "account": "self",
+    "processed_at": "2026-05-25T14:50:00",
+    "note": "초기 시드 - 가계부 반영 안함 (사용자 요청)"
+  }
+}

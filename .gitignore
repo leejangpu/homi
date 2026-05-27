@@ -40,6 +40,12 @@ infinite-buy/state/token.json
 financial/tmp/*
 !financial/tmp/.gitkeep
 
+# financial Gmail OAuth
+financial/credentials.json
+financial/token.json
+financial/.venv/
+financial/logs/
+
 # wrangler files
 .wrangler
 .dev.vars*
