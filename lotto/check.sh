@@ -33,18 +33,17 @@ else
     echo "  [ERROR] .env 파일 없음!" >> "$DIAG_LOG" 2>&1
 fi
 
-# venv 활성화
-if [ -f "$SCRIPT_DIR/.venv/bin/activate" ]; then
-    source "$SCRIPT_DIR/.venv/bin/activate"
-    echo "  venv 활성화 완료: $(which python3)" >> "$DIAG_LOG" 2>&1
-    echo "  Python 버전: $(python3 --version 2>&1)" >> "$DIAG_LOG" 2>&1
-else
-    echo "  [ERROR] venv 없음!" >> "$DIAG_LOG" 2>&1
+# venv python3 절대 경로 사용 (activate 스크립트 경로 하드코딩 문제 우회)
+PYTHON="$SCRIPT_DIR/.venv/bin/python3"
+if [ ! -f "$PYTHON" ]; then
+    echo "  [ERROR] venv 없음: $PYTHON" >> "$DIAG_LOG" 2>&1
     exit 1
 fi
+echo "  venv python: $PYTHON" >> "$DIAG_LOG" 2>&1
+echo "  Python 버전: $($PYTHON --version 2>&1)" >> "$DIAG_LOG" 2>&1
 
 # Playwright 브라우저 확인
-python3 -c "
+$PYTHON -c "
 from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
@@ -55,10 +54,10 @@ if [ $? -ne 0 ]; then
     echo "  [ERROR] Playwright 브라우저 실행 실패!" >> "$DIAG_LOG" 2>&1
 fi
 
-echo "  실행 시작: python3 main.py --check" >> "$DIAG_LOG" 2>&1
+echo "  실행 시작: $PYTHON main.py --check" >> "$DIAG_LOG" 2>&1
 
 # 본 스크립트 실행 (stdout+stderr 모두 캡처)
-python3 main.py --check 2>&1
+$PYTHON main.py --check 2>&1
 EXIT_CODE=$?
 
 {
