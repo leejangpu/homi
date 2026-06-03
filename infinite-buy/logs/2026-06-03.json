@@ -1,0 +1,90 @@
+[
+  {
+    "timestamp": "2026-06-03T19:00:09.635Z",
+    "ticker": "SOXL",
+    "action": "CYCLE_START",
+    "details": {
+      "cycleNumber": 6,
+      "principal": 14176.0329,
+      "buyPerRound": 567.041316,
+      "splitCount": 25,
+      "targetProfit": 0.2,
+      "strategyVersion": "v2.2"
+    }
+  },
+  {
+    "timestamp": "2026-06-03T19:00:09.718Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "type": "FIRST_BUY",
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 308.14,
+      "quantity": 2,
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031386419"
+    }
+  },
+  {
+    "timestamp": "2026-06-03T19:00:10.605Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 76.99,
+      "quantity": 2,
+      "label": "전반전 0% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031386428"
+    }
+  },
+  {
+    "timestamp": "2026-06-03T19:00:11.170Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 86.92,
+      "quantity": 1,
+      "label": "전반전 +12.9% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031386432"
+    }
+  },
+  {
+    "timestamp": "2026-06-03T19:00:11.710Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LOC",
+      "price": 86.93,
+      "quantity": 3,
+      "label": "쿼터매도 +12.9% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031386437"
+    }
+  },
+  {
+    "timestamp": "2026-06-03T19:00:12.249Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LIMIT",
+      "price": 88.54,
+      "quantity": 9,
+      "label": "목표 +15% LIMIT [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031386441"
+    }
+  }
+]
