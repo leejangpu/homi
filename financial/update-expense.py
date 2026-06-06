@@ -7,6 +7,7 @@ import sys
 import json
 import csv
 import os
+from collections import defaultdict
 from datetime import datetime
 from io import StringIO
 
@@ -215,18 +216,32 @@ def recalculate_expense_total(rows: list, col_idx: int):
 
 def main():
     if len(sys.argv) < 4:
-        print("사용법: python3 update-expense.py YEAR MONTH JSON_STRING")
+        print("사용법: python3 update-expense.py YEAR FALLBACK_MONTH JSON_STRING")
         sys.exit(1)
 
     year = sys.argv[1]
-    month = sys.argv[2].zfill(2)
+    fallback_month = sys.argv[2].zfill(2)
     raw_json = sys.argv[3]
 
     items = parse_items(raw_json)
     print(f"✓ 파싱된 항목: {len(items)}개")
 
-    cat_totals = update_expense_detail(year, month, items)
-    update_csv(year, month, cat_totals)
+    # 항목의 날짜(MM)별로 그룹핑 — 한 영수증에 여러 달이 섞여 있어도 각 월 컬럼에 분리해서 넣기
+    groups = defaultdict(list)
+    for item in items:
+        date_str = str(item.get("날짜", ""))
+        if "." in date_str:
+            mm = date_str.split(".")[0].zfill(2)
+        else:
+            mm = fallback_month
+        groups[mm].append(item)
+
+    for mm in sorted(groups.keys()):
+        group_items = groups[mm]
+        if len(groups) > 1:
+            print(f"\n▶ {year}-{mm} 처리: {len(group_items)}개 항목")
+        cat_totals = update_expense_detail(year, mm, group_items)
+        update_csv(year, mm, cat_totals)
 
 
 if __name__ == "__main__":

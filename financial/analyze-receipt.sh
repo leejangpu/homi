@@ -46,32 +46,28 @@ rm -f "$PROMPT_FILE"
 echo "▶ 분석 결과:"
 echo "$RAW"
 
-# 영수증 날짜에서 월 자동 감지 (항목 날짜의 최빈 월 사용)
-DETECTED_MONTH=$(python3 - "$RAW" << 'PYEOF'
+# 영수증 항목에 등장한 모든 월(unique, 정렬) 추출 — 한 영수증에 여러 달 섞여도 분리 처리
+DETECTED_MONTHS=$(python3 - "$RAW" << 'PYEOF'
 import json, sys
-from collections import Counter
 try:
     items = json.loads(sys.argv[1])
-    months = [item['날짜'].split('.')[0].zfill(2) for item in items if '날짜' in item and '.' in item['날짜']]
-    if months:
-        most_common = Counter(months).most_common(1)[0][0]
-        print(most_common)
-    else:
-        import sys as s; s.exit(1)
-except Exception as e:
-    import sys as s; s.exit(1)
+    months = sorted({item['날짜'].split('.')[0].zfill(2) for item in items if '날짜' in item and '.' in item['날짜']})
+    print(' '.join(months))
+except Exception:
+    pass
 PYEOF
 )
 
-if [ -n "$DETECTED_MONTH" ] && [ "$DETECTED_MONTH" != "$MONTH" ]; then
-  echo "▶ 월 자동 감지: 입력값(${MONTH}) → 영수증 날짜 기준(${DETECTED_MONTH})으로 변경"
-  MONTH="$DETECTED_MONTH"
+if [ -z "$DETECTED_MONTHS" ]; then
+  DETECTED_MONTHS="$MONTH"
 fi
 
-echo "▶ expense_detail.json + CSV 업데이트"
+echo "▶ expense_detail.json + CSV 업데이트 (월별 분리: ${DETECTED_MONTHS})"
 python3 "$SCRIPT_DIR/update-expense.py" "$YEAR" "$MONTH" "$RAW"
 
-echo "▶ AI 리포트 재생성"
-bash "$SCRIPT_DIR/generate-report.sh" "$YEAR" "$MONTH"
+for m in $DETECTED_MONTHS; do
+  echo "▶ AI 리포트 재생성: ${YEAR}-${m}"
+  bash "$SCRIPT_DIR/generate-report.sh" "$YEAR" "$m"
+done
 
 echo "✓ 영수증 분석 완료"
