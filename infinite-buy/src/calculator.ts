@@ -305,7 +305,10 @@ function generateBuyOrders(
     }
 
     // 별% LOC 매수
-    const starPrice = calculatePrice(avgPrice, starPercent);
+    // 별% 가격이 절반매수금보다 비싸면 1주도 못 사니까, 가격을 절반매수금으로 캡해서 1주 제출
+    const starPriceRaw = calculatePrice(avgPrice, starPercent);
+    const halfAmountFloor = Math.floor(halfAmount * 100) / 100;
+    const starPrice = Math.min(starPriceRaw, halfAmountFloor);
     const starQty = calculateQuantity(halfAmount, starPrice);
     if (starQty > 0) {
       orders.push({
@@ -313,7 +316,9 @@ function generateBuyOrders(
         price: starPrice,
         quantity: starQty,
         amount: Math.round(starPrice * starQty * 100) / 100,
-        label: `전반전 ${formatStarPercentLabel(starPercent)} LOC [${versionLabel}]`,
+        label: starPrice < starPriceRaw
+          ? `전반전 ${formatStarPercentLabel(starPercent)} LOC (가격 캡 $${starPrice.toFixed(2)}) [${versionLabel}]`
+          : `전반전 ${formatStarPercentLabel(starPercent)} LOC [${versionLabel}]`,
       });
     }
   } else if (phase === 'QUARTER_MODE' && quarterMode?.isActive) {

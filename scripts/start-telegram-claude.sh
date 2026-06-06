@@ -5,6 +5,7 @@
 # - 3시간 초과 또는 기록 없음: 새 세션 시작
 
 SESSION_INFO_FILE="/tmp/homi-tg-session-info"
+GREETED_STAMP_FILE="/tmp/homi-tg-greeted"
 SESSION_DIR="/Users/mac_ad03249840/.claude/projects/-Users-mac-ad03249840-Developer-homi"
 THREE_HOURS=10800
 # --continue 시 "Resume from summary" 확인 모달이 뜨는 임계 (대략 113k 토큰 ≈ 550KB)
@@ -19,6 +20,30 @@ send_msg() {
   curl -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
     -d "chat_id=${CHAT_ID}" \
     --data-urlencode "text=$1" > /dev/null
+}
+
+# 직전에 보낸 인사 이후로 사용자 활동(jsonl mod)이 없었으면 true
+greeted_without_activity() {
+  [ -f "$GREETED_STAMP_FILE" ] || return 1
+  local greeted last
+  greeted=$(cat "$GREETED_STAMP_FILE" 2>/dev/null)
+  [ -n "$greeted" ] || return 1
+  if [ -f "$SESSION_INFO_FILE" ]; then
+    last=$(sed -n '2p' "$SESSION_INFO_FILE")
+    [ -n "$last" ] || last=0
+  else
+    last=0
+  fi
+  [ "$greeted" -ge "$last" ]
+}
+
+greet() {
+  if greeted_without_activity; then
+    echo "[$(date '+%H:%M:%S')] 인사 생략 (직전 인사 이후 사용자 활동 없음)"
+    return
+  fi
+  send_msg "$1"
+  date +%s > "$GREETED_STAMP_FILE"
 }
 
 run_claude() {
@@ -45,7 +70,7 @@ if [ -f "$SESSION_INFO_FILE" ]; then
 
     if [ "$JSONL_SIZE" -gt "$JSONL_SIZE_LIMIT" ]; then
       echo "[$(date '+%H:%M:%S')] 세션 크기 ${JSONL_SIZE}B > ${JSONL_SIZE_LIMIT}B — 모달 회피 위해 새 세션 시작"
-      send_msg "🆕 새 세션 시작 ($(date '+%H:%M'), 이전 세션 ${JSONL_SIZE}B로 너무 커서 --continue 생략)"
+      greet "🆕 새 세션 시작 ($(date '+%H:%M'), 이전 세션 ${JSONL_SIZE}B로 너무 커서 --continue 생략)"
     else
       SHOULD_CONTINUE=true
       echo "[$(date '+%H:%M:%S')] 세션 복원 (--continue, ${DIFF}초 전 활동, ${JSONL_SIZE}B)"
@@ -53,11 +78,11 @@ if [ -f "$SESSION_INFO_FILE" ]; then
     fi
   else
     echo "[$(date '+%H:%M:%S')] 새 세션 시작 (마지막 활동 ${DIFF}초 전 — 3시간 초과)"
-    send_msg "🆕 새 세션 시작 ($(date '+%H:%M'), 이전 대화 3시간 초과)"
+    greet "🆕 새 세션 시작 ($(date '+%H:%M'), 이전 대화 3시간 초과)"
   fi
 else
   echo "[$(date '+%H:%M:%S')] 새 세션 시작"
-  send_msg "🆕 새 세션 시작 ($(date '+%H:%M'))"
+  greet "🆕 새 세션 시작 ($(date '+%H:%M'))"
 fi
 
 if [ "$SHOULD_CONTINUE" = "true" ]; then

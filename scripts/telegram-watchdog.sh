@@ -17,10 +17,72 @@ send_msg() {
     --data-urlencode "text=$1" > /dev/null
 }
 
+NOW=$(date +%s)
+
+# 사용 한도 도달/회복 감지
+# Claude TUI는 "You've hit your limit · resets HH:MMam/pm (Asia/Seoul)" 메시지를 표시
+# - 도달 알림: 5시간 윈도우당 한 번 (date+reset 시각으로 dedup)
+# - 회복 알림: stamp의 reset_epoch 지나면 한 번
+# - LIMIT_ACTIVE=true 인 동안 idle 타이머 일시정지 (아래 idle 체크에서 사용)
+LIMIT_LOG="/Users/mac_ad03249840/Developer/homi/logs/telegram-claude.log"
+LIMIT_STAMP_FILE="/tmp/homi-tg-limit-alerted"
+LIMIT_ACTIVE=false
+
+HIT_LINE=""
+if [ -f "$LIMIT_LOG" ]; then
+  HIT_LINE=$(tail -c 200000 "$LIMIT_LOG" 2>/dev/null \
+    | LC_ALL=C perl -pe 's/\x1b\[[0-9;?]*[A-Za-z]/ /g; s/\x1b\][^\x07]*\x07/ /g; s/[\x00-\x08\x0b-\x1f]/ /g' \
+    | tr -s ' ' \
+    | LC_ALL=C grep -aoE "You.{0,2}ve hit your limit.{0,40}resets [0-9]+:[0-9]+[apm]+ \(Asia/Seoul\)" \
+    | tail -1)
+fi
+
+if [ -n "$HIT_LINE" ]; then
+  RESET_TIME=$(echo "$HIT_LINE" | LC_ALL=C grep -oE "resets [0-9]+:[0-9]+[apm]+" | head -1)
+  RESET_HMP=$(echo "$RESET_TIME" | sed -E 's/resets //')
+  TODAY=$(date '+%Y-%m-%d')
+  RESET_TODAY=$(date -j -f "%I:%M%p %Y-%m-%d" "${RESET_HMP} ${TODAY}" '+%s' 2>/dev/null)
+  # Claude TUI는 항상 미래 시각을 reset으로 표시함.
+  # RESET_TODAY 가 이미 과거면 = (a) 자정 넘는 윈도우 or (b) stale 로그 잔재
+  # (a) 와 (b) 를 구분하려면: 차이가 12시간 안쪽이면 stale (한도 메시지가 화면에 남아있는 것), 12시간 이상이면 자정 넘김
+  RESET_EPOCH=0
+  if [ -n "$RESET_TODAY" ]; then
+    if [ "$RESET_TODAY" -ge "$NOW" ]; then
+      RESET_EPOCH=$RESET_TODAY
+    elif [ $((NOW - RESET_TODAY)) -gt 43200 ]; then
+      # 과거지만 12시간 넘게 차이 → 자정 넘김 (예: 새벽 한도면 다음 날 같은 시각)
+      RESET_EPOCH=$((RESET_TODAY + 86400))
+    fi
+    # 그 외 (12시간 안쪽 과거) = stale → RESET_EPOCH=0 으로 두고 알림 생략
+  fi
+
+  if [ "$RESET_EPOCH" -gt 0 ]; then
+    KEY="${TODAY}-${RESET_TIME}"
+    LAST_KEY=""
+    [ -f "$LIMIT_STAMP_FILE" ] && LAST_KEY=$(sed -n '1p' "$LIMIT_STAMP_FILE")
+    if [ "$LAST_KEY" != "$KEY" ]; then
+      printf '%s\n%s\n' "$KEY" "$RESET_EPOCH" > "$LIMIT_STAMP_FILE"
+      send_msg "🚫 Claude 사용 한도 도달 ($(date '+%H:%M'))
+${HIT_LINE}
+한도 풀린 뒤 다시 메시지 보내."
+    fi
+  fi
+fi
+
+# 회복 감지 + 활성 플래그 갱신
+if [ -f "$LIMIT_STAMP_FILE" ]; then
+  STAMP_RESET_EPOCH=$(sed -n '2p' "$LIMIT_STAMP_FILE")
+  if [ -n "$STAMP_RESET_EPOCH" ] && [ "$STAMP_RESET_EPOCH" -gt 0 ] && [ "$NOW" -ge "$STAMP_RESET_EPOCH" ]; then
+    send_msg "✅ Claude 사용 한도 회복 ($(date '+%H:%M')) — 다시 대화 가능"
+    rm -f "$LIMIT_STAMP_FILE"
+  else
+    LIMIT_ACTIVE=true
+  fi
+fi
+
 # claude --channels plugin:telegram 프로세스 확인
 # 여러 개 떠 있을 수 있으므로 본체 + MCP 자식이 모두 살아있는 "정상" 세션이 하나라도 있는지 검사
 # (좀비: claude 본체는 살아있지만 bun MCP 자식이 죽은 상태 → reply 도구 불가)
-NOW=$(date +%s)
 ALL_PIDS=$(pgrep -f "claude.*plugin:telegram" 2>/dev/null)
 HEALTHY_PID=""
 ZOMBIE_PIDS=""
@@ -81,10 +143,16 @@ if [ -n "$CLAUDE_PID" ]; then
     fi
   done
 
+  # 한도 중이면 LATEST_MOD 를 NOW 로 advance → idle 타이머 일시정지
+  # (대화 도중 한도 걸렸을 때 자동 세션 클리어 방지)
+  if [ "$LIMIT_ACTIVE" = "true" ]; then
+    LATEST_MOD=$NOW
+  fi
+
   if [ -n "$LATEST" ]; then
     SESSION_ID=$(basename "$LATEST" .jsonl)
     printf '%s\n%s\n' "$SESSION_ID" "$LATEST_MOD" > "$SESSION_INFO_FILE"
-  else
+  elif [ "$LIMIT_ACTIVE" != "true" ]; then
     LATEST_MOD=$PROC_START_EPOCH
   fi
 
@@ -92,9 +160,28 @@ if [ -n "$CLAUDE_PID" ]; then
   # 단, 이번 세션에서 한 번도 대화가 없었다면(이전 클리어 직후 재시작된 빈 세션)
   # 메시지 없이 조용히 클리어
   IDLE=$((NOW - LATEST_MOD))
-  if [ "$IDLE" -gt 10800 ]; then
+  if [ "$IDLE" -gt 10800 ] && [ "$LIMIT_ACTIVE" != "true" ]; then
     if [ -n "$LATEST" ]; then
       send_msg "🔄 ${IDLE}초 무대화로 세션 자동 클리어 ($(date '+%H:%M'))"
+    fi
+    # 세션 클리어 전에 워킹트리에 남은 변경이 있으면 자동 커밋·푸시
+    # (-uno 로 untracked 제외, git add -u 로 tracked 수정만 스테이징)
+    HOMI_DIR="/Users/mac_ad03249840/Developer/homi"
+    if cd "$HOMI_DIR" 2>/dev/null && [ -n "$(git status --porcelain -uno 2>/dev/null)" ]; then
+      CHANGED=$(git diff --name-only HEAD 2>/dev/null | tr '\n' ' ')
+      git add -u 2>/dev/null
+      if git commit -m "auto: 세션 자동 클리어 시 워킹트리 커밋 ($(date '+%Y-%m-%d %H:%M'))" >/dev/null 2>&1; then
+        PUSH_OUT=$(git push 2>&1)
+        PUSH_RC=$?
+        if [ "$PUSH_RC" -eq 0 ]; then
+          send_msg "📦 워킹트리 자동 커밋·푸시 완료
+${CHANGED}"
+        else
+          send_msg "📦 워킹트리 자동 커밋 완료, 푸시 실패
+${CHANGED}
+push: ${PUSH_OUT}"
+        fi
+      fi
     fi
     pkill -f "claude.*plugin:telegram"
     exit 0
