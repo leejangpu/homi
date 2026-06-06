@@ -18,6 +18,22 @@ app.use(express.static(ROOT));
 app.use('/infinite-buy', express.static(path.join(ROOT, '../infinite-buy')));
 app.use('/lotto', express.static(path.join(ROOT, '../lotto')));
 
+// 저장 직후 자동 git commit & push (debounce: 같은 파일 5초 내 재저장 시 합침)
+const autoCommitTimers = {};
+function autoCommit(files, message) {
+  const key = files.slice().sort().join('|');
+  clearTimeout(autoCommitTimers[key]);
+  autoCommitTimers[key] = setTimeout(() => {
+    delete autoCommitTimers[key];
+    const addArgs = files.map(f => JSON.stringify(f)).join(' ');
+    const cmd = `git add ${addArgs} && (git diff --staged --quiet || (git commit -m ${JSON.stringify(message)} && (git pull --rebase --autostash || true) && (git push || true)))`;
+    execFile('bash', ['-c', cmd], { cwd: ROOT }, (err, stdout, stderr) => {
+      if (err) console.error('[auto-commit] 실패:', (stderr || err.message).slice(-300));
+      else console.log(`[auto-commit] ${message}`);
+    });
+  }, 5000);
+}
+
 // AI 리포트 생성 상태
 let reportState = { generating: false, current: null, queue: [], lastUpdated: null, error: null };
 
@@ -97,6 +113,7 @@ app.post('/save', (req, res) => {
   try {
     fs.writeFileSync(filePath, bom + content, 'utf8');
     res.json({ ok: true, message: `${year}.csv 저장 완료` });
+    autoCommit([`${year}.csv`], `가계부 ${year}.csv 자동 저장`);
   } catch (e) {
     return res.status(500).json({ error: '파일 저장 실패: ' + e.message });
   }
@@ -110,6 +127,7 @@ app.post('/save-vr', (req, res) => {
   try {
     fs.writeFileSync(filePath, content, 'utf8');
     res.json({ ok: true, message: 'vr-state.json 저장 완료' });
+    autoCommit(['vr-state.json'], 'VR state 자동 저장');
   } catch (e) {
     res.status(500).json({ error: '파일 저장 실패: ' + e.message });
   }
@@ -130,6 +148,7 @@ app.post('/save-vr-history', (req, res) => {
     arr.push(entry);
     fs.writeFileSync(filePath, JSON.stringify(arr, null, 2) + '\n', 'utf8');
     res.json({ ok: true, message: 'vr-history.json append 완료', total: arr.length });
+    autoCommit(['vr-history.json', 'vr-state.json'], 'VR 사이클 종료: history append');
   } catch (e) {
     res.status(500).json({ error: '히스토리 저장 실패: ' + e.message });
   }
@@ -183,6 +202,7 @@ app.post('/save-expense-detail', (req, res) => {
   try {
     fs.writeFileSync(filePath, JSON.stringify(content, null, 2), 'utf8');
     res.json({ ok: true, message: 'expense_detail.json 저장 완료' });
+    autoCommit(['expense_detail.json'], 'expense_detail.json 자동 저장 (메모 포함)');
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

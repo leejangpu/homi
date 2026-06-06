@@ -10,5 +10,13 @@
     "account": "self",
     "processed_at": "2026-05-25T14:50:00",
     "note": "초기 시드 - 가계부 반영 안함 (사용자 요청)"
+  },
+  "19e95df35c503188": {
+    "billing_date": "20260613",
+    "html": "/Users/mac_ad03249840/Developer/homi/financial/tmp/samsungcard_self_20260613.html",
+    "pdf": "/Users/mac_ad03249840/Developer/homi/financial/tmp/samsungcard_self_20260613_decrypted.pdf",
+    "analyzed": true,
+    "processed_at": "2026-06-06T15:57:49",
+    "account": "self"
   }
 }

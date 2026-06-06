@@ -241,7 +241,7 @@ echo "✅ summary.json 업데이트 완료"
 
 # Git commit & push
 cd "$SCRIPT_DIR"
-git add summary.json
+git add summary.json "${YEAR}.csv" expense_detail.json processed_statements.json
 if git diff --staged --quiet; then
   echo "ℹ️ 변경사항 없음"
 else
