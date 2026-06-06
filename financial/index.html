@@ -3140,7 +3140,8 @@ function openReceiptUpload(){
     <h3>📎 영수증 분석</h3>
     <p style="color:var(--text-muted);font-size:13px">${activeYear}년 ${selectedMonthIdx+1}월 카드 명세서를 업로드하면 자동으로 지출내역을 분석합니다.</p>
     ${!password?'<p style="color:#e55;font-size:12px">⚠️ 먼저 저장 비밀번호를 설정하세요 (☁️ 저장 버튼 사용).</p>':''}
-    <input type="file" id="receiptFileInput" accept=".pdf,.jpg,.jpeg,.png,.webp" style="margin:12px 0;width:100%">
+    <input type="file" id="receiptFileInput" accept=".pdf,.jpg,.jpeg,.png,.webp,.html,.htm" style="margin:12px 0;width:100%">
+    <input type="password" id="receiptDecryptPassword" placeholder="복호화 비밀번호 (HTML 첨부일 때만 필요)" style="margin:0 0 12px;width:100%;box-sizing:border-box;padding:8px;background:var(--bg-input,#222);color:inherit;border:1px solid var(--border,#444);border-radius:4px">
     <div class="btn-row">
       <button class="btn-cancel" onclick="document.getElementById('receiptOverlay').remove()">취소</button>
       <button class="btn-save" onclick="submitReceiptUpload()" ${!password?'disabled':''}>분석 시작</button>
@@ -3159,14 +3160,19 @@ async function submitReceiptUpload(){
   const password=localStorage.getItem('save_password');
   if(!password){alert('저장 비밀번호를 먼저 설정하세요');return;}
 
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  const decryptPwd=document.getElementById('receiptDecryptPassword').value;
+  if((ext==='html'||ext==='htm')&&!decryptPwd){alert('HTML 파일은 복호화 비밀번호가 필요합니다');return;}
+
   const month=String(selectedMonthIdx+1).padStart(2,'0');
   const formData=new FormData();
   formData.append('file',file);
   formData.append('year',activeYear);
   formData.append('month',month);
   formData.append('password',password);
+  if(decryptPwd)formData.append('decryptPassword',decryptPwd);
 
-  statusEl.textContent='업로드 중...';
+  statusEl.textContent=(ext==='html'||ext==='htm')?'복호화 중... (5~10초)':'업로드 중...';
   try{
     const res=await fetch(`${WORKER_API_URL}/analyze-receipt`,{method:'POST',body:formData});
     const data=await res.json();

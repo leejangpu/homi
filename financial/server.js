@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
 
 const app = express();
 const PORT = 3000;
@@ -154,14 +156,14 @@ app.post('/save-vr-history', (req, res) => {
   }
 });
 
-// 영수증 분석
-app.post('/analyze-receipt', upload.single('file'), (req, res) => {
-  const { password, year, month } = req.body || {};
+// 영수증 분석 (PDF/이미지 직접 분석 또는 암호 걸린 HTML 복호화 후 분석)
+app.post('/analyze-receipt', upload.single('file'), async (req, res) => {
+  const { password, year, month, decryptPassword } = req.body || {};
   const file = req.file;
   if (!year || !month || !file) return res.status(400).json({ error: 'year, month, file 필드가 필요합니다.' });
   if (!checkPassword(password, res)) { fs.unlinkSync(file.path); return; }
 
-  const allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+  const allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'html', 'htm'];
   const ext = (file.originalname.split('.').pop() || '').toLowerCase();
   if (!allowedExts.includes(ext)) {
     fs.unlinkSync(file.path);
@@ -169,13 +171,45 @@ app.post('/analyze-receipt', upload.single('file'), (req, res) => {
   }
 
   const fileName = `receipt-${Date.now()}.${ext}`;
-  fs.renameSync(file.path, path.join(ROOT, 'tmp', fileName));
+  const filePath = path.join(ROOT, 'tmp', fileName);
+  fs.renameSync(file.path, filePath);
 
-  res.json({ ok: true, message: `${year}년 ${month}월 영수증 분석이 시작되었습니다. 잠시 후 반영됩니다.`, fileName });
+  const env = { ...process.env, HOME: process.env.HOME || '/Users/mac_ad03249840' };
 
-  execFile('bash', [path.join(ROOT, 'analyze-receipt.sh'), year, month.padStart(2, '0'), fileName], {
-    cwd: ROOT,
-    env: { ...process.env, HOME: process.env.HOME || '/Users/mac_ad03249840' },
+  // HTML 첨부면 먼저 복호화 → PDF
+  let analyzeName = fileName;
+  if (ext === 'html' || ext === 'htm') {
+    if (!decryptPassword) {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ error: 'HTML 파일은 복호화 비밀번호가 필요합니다.' });
+    }
+    try {
+      await execFileAsync(path.join(ROOT, '.venv/bin/python'), ['decrypt_samsungcard.py', filePath, decryptPassword], { cwd: ROOT, env });
+    } catch (e) {
+      const errMsg = (e.stderr || e.message || '').toString().slice(-300);
+      console.error('[decrypt] 실패:', errMsg);
+      return res.status(400).json({ error: '복호화 실패: ' + errMsg });
+    }
+    const decryptedPdf = filePath.replace(/\.html?$/i, '_decrypted.pdf');
+    const decryptedTxt = filePath.replace(/\.html?$/i, '_decrypted.txt');
+    if (!fs.existsSync(decryptedPdf)) {
+      return res.status(500).json({ error: '복호화 완료했으나 PDF 생성 실패' });
+    }
+    // decrypt_samsungcard.py가 사이트의 비번 오류 문구 변화로 실패를 못 잡는 경우 대비
+    if (fs.existsSync(decryptedTxt) && fs.readFileSync(decryptedTxt, 'utf8').trim().length < 200) {
+      return res.status(400).json({ error: '복호화 실패: 비밀번호가 잘못되었거나 본문 추출 실패' });
+    }
+    analyzeName = path.basename(decryptedPdf);
+  }
+
+  res.json({
+    ok: true,
+    message: `${year}년 ${month}월 영수증 분석이 시작되었습니다. 잠시 후 반영됩니다.`,
+    fileName: analyzeName,
+  });
+
+  execFile('bash', [path.join(ROOT, 'analyze-receipt.sh'), year, month.padStart(2, '0'), analyzeName], {
+    cwd: ROOT, env,
   }, (err, stdout, stderr) => {
     if (err) console.error('[analyze-receipt] 실패:', stderr || err.message);
     else console.log('[analyze-receipt] 완료:', stdout.slice(-200));
