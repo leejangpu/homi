@@ -289,6 +289,7 @@ function generateBuyOrders(
 
   if (phase === 'FIRST_HALF') {
     // 전반전: 2개 LOC 주문 (0%, 별%) - 각 절반
+    // 절반매수금 < 가격이면 수량 0 → 주문 미제출 (자연스러운 패스)
     const halfAmount = buyPerRound / 2;
 
     // 0% LOC 매수 (평단가)
@@ -305,10 +306,7 @@ function generateBuyOrders(
     }
 
     // 별% LOC 매수
-    // 별% 가격이 절반매수금보다 비싸면 1주도 못 사니까, 가격을 절반매수금으로 캡해서 1주 제출
-    const starPriceRaw = calculatePrice(avgPrice, starPercent);
-    const halfAmountFloor = Math.floor(halfAmount * 100) / 100;
-    const starPrice = Math.min(starPriceRaw, halfAmountFloor);
+    const starPrice = calculatePrice(avgPrice, starPercent);
     const starQty = calculateQuantity(halfAmount, starPrice);
     if (starQty > 0) {
       orders.push({
@@ -316,9 +314,7 @@ function generateBuyOrders(
         price: starPrice,
         quantity: starQty,
         amount: Math.round(starPrice * starQty * 100) / 100,
-        label: starPrice < starPriceRaw
-          ? `전반전 ${formatStarPercentLabel(starPercent)} LOC (가격 캡 $${starPrice.toFixed(2)}) [${versionLabel}]`
-          : `전반전 ${formatStarPercentLabel(starPercent)} LOC [${versionLabel}]`,
+        label: `전반전 ${formatStarPercentLabel(starPercent)} LOC [${versionLabel}]`,
       });
     }
   } else if (phase === 'QUARTER_MODE' && quarterMode?.isActive) {
