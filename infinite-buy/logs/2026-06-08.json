@@ -118,5 +118,33 @@
       "message": "주문 전송 완료 되었습니다.",
       "orderNo": "0030324750"
     }
+  },
+  {
+    "timestamp": "2026-06-08T22:00:10.100Z",
+    "ticker": "SOXL",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 7,
+      "avgPrice": 230.2486,
+      "totalInvested": 1611.7402000000002,
+      "remainingCash": 12564.2927,
+      "todayBuyAmt": 422.88,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -1611.7399999999998
+    }
+  },
+  {
+    "timestamp": "2026-06-08T22:00:10.102Z",
+    "ticker": "TQQQ",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 20,
+      "avgPrice": 77.1821,
+      "totalInvested": 1543.642,
+      "remainingCash": 11795.0079,
+      "todayBuyAmt": 228.81,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -1448.44
+    }
   }
 ]
