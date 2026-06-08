@@ -53,6 +53,36 @@ npx tsx src/main-close.ts   # 장 마감 시 체결 확인
 - **가계부 데이터**: CSV/JSON 파일 (git 관리), 별도 DB 없음
 - **텔레그램 대화**: Claude Code 텔레그램 플러그인으로 직접 대화 (별도 봇 서버 없음)
 
+## 외부 API
+
+### 토스증권 OpenAPI
+
+- **Base URL**: `https://openapi.tossinvest.com`
+- **인증**: OAuth 2.0 Client Credentials Grant. `POST /oauth2/token` 으로 access token 발급 (TTL 86,399초 ≈ 24h)
+- **추가 헤더**: 계좌·자산·주문 카테고리는 `X-Tossinvest-Account: {accountSeq}` 필수. **`accountSeq`(정수 1, 2…)** 이지 `accountNo`(11자리 문자열)가 아님 — 주의
+- **환경 변수** (`infinite-buy/.env`):
+  - `TOSS_API_KEY` — client_id (`tsck_live_*`)
+  - `TOSS_SECRET_KEY` — client_secret (`tssk_live_*`)
+- **⚠️ IPv4 강제 필수**: 토스 콘솔에 등록된 허용 IP는 IPv4 `211.241.110.56`. 이 머신은 dual-stack이라 기본 라우팅이 IPv6 (`2406:5900:11a9:c11:…`, macOS 프라이버시 확장으로 임시 주소 회전)로 나가서 `unidentified-client` 401을 받음. **클라이언트에서 반드시 IPv4 강제** — curl은 `-4`, Node는 `agent: new https.Agent({ family: 4 })`, Python httpx는 `transport=httpx.HTTPTransport(local_address="0.0.0.0")` 또는 `socket.AF_INET` 고정
+- **API 스펙 / 레퍼런스**: `docs/toss-api/`
+  - `openapi.json` — 통합 OpenAPI 3.1 스펙 (소스 오브 트루스, 21개 엔드포인트)
+  - `overview.md` — 가이드 / 빠른 시작 / 에러 코드 표
+  - `api-reference.md` — 마크다운 레퍼런스
+  - `by-tag/*.json` — 섹션별 분리본 (auth, market-data, stock-info, market-info, account, asset, order, order-history, order-info)
+- **카테고리 요약**: Auth / Market Data (호가·가격·체결·캔들) / Stock Info / Market Info (환율·장 운영) / Account / Asset (보유 주식) / Order (생성·정정·취소) / Order History / Order Info (매수가능금액·판매가능수량·수수료)
+- **호출 예시**:
+  ```bash
+  # 토큰 발급 (IPv4 강제)
+  curl -4 -s -X POST 'https://openapi.tossinvest.com/oauth2/token' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -d "grant_type=client_credentials&client_id=$TOSS_API_KEY&client_secret=$TOSS_SECRET_KEY"
+
+  # 보유 주식 조회
+  curl -4 -s 'https://openapi.tossinvest.com/api/v1/holdings' \
+    -H "Authorization: Bearer $TOKEN" \
+    -H 'X-Tossinvest-Account: 1'
+  ```
+
 ## 작업 방식
 
 ### 모델 선택 기준
