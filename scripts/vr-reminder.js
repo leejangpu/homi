@@ -2,9 +2,79 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const url = require('url');
+const { execFileSync } = require('child_process');
 
 const ENV_PATH = path.join(__dirname, '../infinite-buy/.env');
 const STATE_PATH = path.join(__dirname, '../financial/vr-state.json');
+
+const REMINDER_HOUR = 7;
+const REMINDER_MINUTE = 0;
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function reminderExists(name) {
+  const escName = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const script = `tell application "Reminders"
+\tset theList to default list
+\tset existingNames to name of every reminder of theList whose completed is false
+\treturn existingNames contains "${escName}"
+end tell`;
+  try {
+    const result = execFileSync('osascript', ['-e', script], { encoding: 'utf-8' }).trim();
+    return result === 'true';
+  } catch (e) {
+    console.error(`reminderExists 실패: ${e.message}`);
+    return false;
+  }
+}
+
+function addReminder(name, body, year, month, day, hour, minute) {
+  const escName = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const escBody = body.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+  const script = `tell application "Reminders"
+\tset d to current date
+\tset year of d to ${year}
+\tset month of d to ${month}
+\tset day of d to ${day}
+\tset hours of d to ${hour}
+\tset minutes of d to ${minute}
+\tset seconds of d to 0
+\tmake new reminder with properties {name:"${escName}", body:"${escBody}", due date:d}
+end tell`;
+  try {
+    execFileSync('osascript', ['-e', script], { encoding: 'utf-8' });
+    console.log(`✅ 미리알림 등록: ${name} (${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)})`);
+  } catch (e) {
+    console.error(`미리알림 등록 실패 (${name}): ${e.message}`);
+  }
+}
+
+function nextCycleDateFromStart(startStr, todayStr) {
+  // KST 기준 날짜 산술 (UTC 자정 기준으로 일수 계산)
+  const startUtc = Date.UTC(
+    Number(startStr.slice(0, 4)),
+    Number(startStr.slice(5, 7)) - 1,
+    Number(startStr.slice(8, 10))
+  );
+  const todayUtc = Date.UTC(
+    Number(todayStr.slice(0, 4)),
+    Number(todayStr.slice(5, 7)) - 1,
+    Number(todayStr.slice(8, 10))
+  );
+  const diffDays = Math.round((todayUtc - startUtc) / (24 * 3600 * 1000));
+  // 다음 사이클 = 지나간 사이클 수 + 1 (오늘이 사이클 시작일이면 당일 아닌 그 다음 사이클)
+  const cyclesPassed = Math.max(0, Math.floor(diffDays / 14));
+  const nextN = (cyclesPassed + 1) * 14;
+  const nextUtc = startUtc + nextN * 24 * 3600 * 1000;
+  const dt = new Date(nextUtc);
+  return {
+    diffDays,
+    nextDayN: nextN,
+    year: dt.getUTCFullYear(),
+    month: dt.getUTCMonth() + 1,
+    day: dt.getUTCDate(),
+  };
+}
 
 function loadEnv(filePath) {
   const env = {};
@@ -67,7 +137,18 @@ async function main() {
       const text = `⚖️ ${ticker} VR 리밸런싱 알림 (${todayStr})\n\n사이클 시작 ${diffDays}일차 (${weekNum}번째 2주 도래)\n새 V값을 계산하고 주문을 업데이트하세요!\n\n확인할 항목:\n• 현재가, 보유수량, Pool 최신값으로 업데이트\n• 새 V값 및 밴드 범위 확인\n• 매수/매도 주문 가격 업데이트 후 ☁️ 저장`;
       await sendTelegram(token, chatId, text);
     } else {
-      console.log(`[${ticker}] → 알림 불필요`);
+      console.log(`[${ticker}] → 텔레그램 알림 불필요`);
+    }
+
+    // 다음 사이클 시작일 미리알림 등록 (오늘이 사이클일이면 그 다음 사이클, 즉 +14일)
+    const next = nextCycleDateFromStart(startStr.slice(0, 10), todayStr);
+    const dateStr = `${next.year}-${pad(next.month)}-${pad(next.day)}`;
+    const name = `VR 리밸런싱 — ${ticker} (${dateStr})`;
+    const body = `VR 새 V값 계산 및 주문 업데이트 필요\n\n확인할 항목:\n• 현재가, 보유수량, Pool 최신값으로 업데이트\n• 새 V값 및 밴드 범위 확인\n• 매수/매도 주문 가격 업데이트 후 저장\n\n사이클 시작: ${startStr.slice(0,10)} → ${next.nextDayN}일차`;
+    if (reminderExists(name)) {
+      console.log(`[${ticker}] 미리알림 이미 존재: ${name}`);
+    } else {
+      addReminder(name, body, next.year, next.month, next.day, REMINDER_HOUR, REMINDER_MINUTE);
     }
   }
 }
