@@ -101,17 +101,22 @@ for pid in $ALL_PIDS; do
 done
 
 # 좀비가 있으면 즉시 종료 (launchd가 재시작)
+# 알림만 10분 dedup, kill은 매 cycle 실행 — dedup이 kill까지 막으면 좀비가 그대로 방치돼
+# 사용자 메시지를 못 받는 상태가 길어진다.
 if [ -n "$ZOMBIE_PIDS" ]; then
+  SHOULD_ALERT=true
   if [ -f "$ALERT_STAMP_FILE" ]; then
     LAST=$(cat "$ALERT_STAMP_FILE")
     if [ $((NOW - LAST)) -lt 600 ]; then
-      exit 0
+      SHOULD_ALERT=false
     fi
   fi
-  echo "$NOW" > "$ALERT_STAMP_FILE"
-  send_msg "⚠️ Claude Code 텔레그램 MCP 끊김 감지 ($(date '+%H:%M'))
+  if [ "$SHOULD_ALERT" = "true" ]; then
+    echo "$NOW" > "$ALERT_STAMP_FILE"
+    send_msg "⚠️ Claude Code 텔레그램 MCP 끊김 감지 ($(date '+%H:%M'))
 좀비 PID:${ZOMBIE_PIDS} (본체는 살아있지만 bun MCP 자식 없음)
 좀비 종료 → launchd 자동 재시작 대기..."
+  fi
   for zp in $ZOMBIE_PIDS; do
     kill -9 "$zp" 2>/dev/null
   done
