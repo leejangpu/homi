@@ -1,0 +1,90 @@
+[
+  {
+    "timestamp": "2026-06-16T19:00:11.085Z",
+    "ticker": "SOXL",
+    "action": "CYCLE_START",
+    "details": {
+      "cycleNumber": 7,
+      "principal": 14937.1279,
+      "buyPerRound": 597.485116,
+      "splitCount": 25,
+      "targetProfit": 0.2,
+      "strategyVersion": "v2.2"
+    }
+  },
+  {
+    "timestamp": "2026-06-16T19:00:11.154Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "type": "FIRST_BUY",
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 261.3,
+      "quantity": 2,
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030834048"
+    }
+  },
+  {
+    "timestamp": "2026-06-16T19:00:12.512Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 75.93,
+      "quantity": 2,
+      "label": "전반전 0% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030834060"
+    }
+  },
+  {
+    "timestamp": "2026-06-16T19:00:13.078Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 84.59,
+      "quantity": 1,
+      "label": "전반전 +11.4% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030834069"
+    }
+  },
+  {
+    "timestamp": "2026-06-16T19:00:13.617Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LOC",
+      "price": 84.6,
+      "quantity": 6,
+      "label": "쿼터매도 +11.4% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030834074"
+    }
+  },
+  {
+    "timestamp": "2026-06-16T19:00:14.190Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LIMIT",
+      "price": 87.32,
+      "quantity": 15,
+      "label": "목표 +15% LIMIT [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0030834078"
+    }
+  }
+]
