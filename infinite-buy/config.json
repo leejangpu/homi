@@ -7,7 +7,7 @@
   "strategyVersion": "v2.2",
   "tickerConfigs": {
     "SOXL": {
-      "splitCount": 25,
+      "splitCount": 20,
       "targetProfit": 0.20,
       "exchange": "AMEX"
     },
