@@ -77,6 +77,44 @@ def wait_for_statement(page, debug=False) -> str:
     return last
 
 
+def _row_count(page) -> int:
+    """현재 펼쳐진 개별 거래 행 수 추정('내용 더 보기' 토글 개수)."""
+    try:
+        return page.evaluate(
+            r"() => ((document.getElementById('bldFrame')||document.body)"
+            r".innerText.match(/내용\s*더\s*보기/g)||[]).length"
+        )
+    except Exception:
+        return 0
+
+
+def expand_pagination(page, debug=False):
+    """거래목록이 10건 단위로 페이지네이션되어 'more_view_arr' 더보기 버튼 뒤에
+    나머지 거래가 숨는다. 보이는 더보기 버튼을 모두 사라질 때까지 눌러
+    전체 거래가 캡처에 포함되게 한다. (안 누르면 11건 중 대형 1건 누락 사례 발생)"""
+    for i in range(20):  # 안전 상한
+        btn = page.query_selector("#bldFrame button.more_view_arr")
+        if not btn or not btn.is_visible():
+            break
+        before = _row_count(page)
+        try:
+            btn.scroll_into_view_if_needed()
+            btn.click()
+        except Exception:
+            break
+        # 행이 늘어날 때까지 대기 (비동기 로드)
+        grew = False
+        for _ in range(15):
+            page.wait_for_timeout(700)
+            if _row_count(page) > before:
+                grew = True
+                break
+        if debug:
+            print(f"[debug] 더보기 클릭{i+1}: {before} → {_row_count(page)}행", file=sys.stderr)
+        if not grew:
+            break  # 더 안 늘면 중단 (무한루프 방지)
+
+
 def decrypt(html_path: str, password: str, debug: bool = False):
     html_path = os.path.abspath(html_path)
     if not os.path.exists(html_path):
@@ -131,6 +169,23 @@ def decrypt(html_path: str, password: str, debug: bool = False):
                 file=sys.stderr,
             )
             sys.exit(4)
+
+        # 페이지네이션된 나머지 거래까지 모두 펼친 뒤 최종 텍스트 재수집
+        expand_pagination(page, debug=debug)
+        page.wait_for_timeout(1500)
+        text = collect_text(page)
+        amounts = len(AMOUNT_RE.findall(text))
+
+        # 총건수와 실제 펼쳐진 행 수 대조 — 불일치면 누락 경고 (실패 처리는 안 함)
+        m = re.search(r"총\s*([0-9]+)\s*건", text)
+        if m:
+            declared = int(m.group(1))
+            shown = _row_count(page)
+            if shown and shown < declared:
+                print(
+                    f"경고: 명세서 총 {declared}건인데 {shown}건만 펼쳐짐 — 일부 누락 가능",
+                    file=sys.stderr,
+                )
 
         # 결과 저장 — 분석은 PDF(vision)를 쓰므로 PDF가 핵심, txt/html은 보조
         with open(out_text, "w", encoding="utf-8") as f:
