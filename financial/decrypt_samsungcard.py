@@ -19,6 +19,28 @@ from playwright.sync_api import sync_playwright
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
+def safe_evaluate(target, script, retries=6, interval_ms=500):
+    """VestMail이 비번 정답 직후 페이지를 통째로 교체해서
+    evaluate 호출 타이밍에 execution context가 죽는 경우가 있다.
+    짧게 대기하며 몇 번 재시도한다."""
+    last_err = None
+    for _ in range(retries):
+        try:
+            return target.evaluate(script)
+        except Exception as e:
+            if "context was destroyed" in str(e).lower():
+                last_err = e
+                try:
+                    target.wait_for_timeout(interval_ms)
+                except Exception:
+                    pass
+                continue
+            raise
+    if last_err:
+        raise last_err
+    return None
+
+
 def decrypt(html_path: str, password: str, debug: bool = False):
     html_path = os.path.abspath(html_path)
     if not os.path.exists(html_path):
@@ -45,10 +67,14 @@ def decrypt(html_path: str, password: str, debug: bool = False):
         page.click("#confirm")
 
         # 복호화 대기 — VestMail은 페이지 자체를 새 콘텐츠로 교체
-        page.wait_for_timeout(3000)
+        try:
+            page.wait_for_load_state("networkidle", timeout=10000)
+        except Exception:
+            pass
+        page.wait_for_timeout(1500)
 
         # 실패 메시지 검사
-        body_text = page.evaluate("() => document.body.innerText || ''")
+        body_text = safe_evaluate(page, "() => document.body.innerText || ''")
         if "비밀번호 입력이 잘못" in body_text:
             print("오류: 비밀번호가 틀렸습니다.", file=sys.stderr)
             sys.exit(2)
@@ -57,7 +83,7 @@ def decrypt(html_path: str, password: str, debug: bool = False):
         frames_text = []
         for frame in page.frames:
             try:
-                txt = frame.evaluate("() => document.body && document.body.innerText || ''")
+                txt = safe_evaluate(frame, "() => document.body && document.body.innerText || ''")
                 if txt and len(txt) > 50:
                     frames_text.append(txt)
             except Exception:
