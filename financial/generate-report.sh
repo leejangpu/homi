@@ -161,6 +161,7 @@ cat > "$REPORT_PROMPT_FILE" <<PROMPT
 - 섹션 제목: <span class="highlight">📌 제목</span><br> 형식
 - 코드블록·JSON·마크다운 감싸기 없이 본문만 출력
 - 금액: 10,000원 단위 이상은 한글 단위 (100만원, 500만원, 1억원). 단수 금액은 숫자 그대로
+- 절대 금지: 리포트 본문 외 어떤 메타 발언도 하지 마라. summary.json·git·커밋·저장·"진행할까요"·"검토하시겠습니까" 같은 질문이나 확인 요청을 출력하면 안 된다. 오직 브리핑 본문 텍스트만 출력하고 끝내라.
 
 [분량 원칙 — 반드시 준수]
 - 섹션당 핵심 3줄 이내. 장황한 설명 금지.
@@ -193,7 +194,11 @@ ${EXPENSE_MEMO_NOTE}
 
 ${CSV_DATA}
 PROMPT
-if ! REPORT=$(claude -p --setting-sources project,local --model claude-sonnet-4-6 --dangerously-skip-permissions < "$REPORT_PROMPT_FILE" 2>&1); then
+# 순수 텍스트 생성기로 격리: 도구 사용 차단(--allowedTools "")으로 에이전트화 방지,
+# 중립 디렉토리(/tmp)에서 실행해 프로젝트 CLAUDE.md 컨텍스트를 로딩하지 않음.
+# (예전엔 --dangerously-skip-permissions로 도구 무제한이라 모델이 "commit할까요?"
+#  같은 메타 질문을 붙이고 도구 탐색하느라 느려지는 문제가 있었음)
+if ! REPORT=$(cd /tmp && claude -p --model claude-sonnet-4-6 --allowedTools "" < "$REPORT_PROMPT_FILE" 2>&1); then
   echo "❌ Claude CLI 실패:"
   echo "$REPORT"
   rm -f "$REPORT_PROMPT_FILE"
@@ -211,6 +216,8 @@ REPORT=$(echo "$REPORT" | sed '/^```/d')
 REPORT=$(echo "$REPORT" | sed 's/^#{1,4} //g')
 REPORT=$(echo "$REPORT" | sed 's/\*\*\([^*]*\)\*\*/<strong>\1<\/strong>/g')
 REPORT=$(echo "$REPORT" | sed '/^---*$/d')
+# 안전망: 모델이 본문 뒤에 붙일 수 있는 메타 질문/확인 요청 줄 제거
+REPORT=$(echo "$REPORT" | sed -E '/(summary\.json|git commit|commit\/push|진행할까요|검토하시겠습니까|반영할까요)/d')
 
 # trend 판단
 TREND="neutral"

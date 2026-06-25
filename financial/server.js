@@ -55,11 +55,15 @@ function processQueue() {
   if (reportState.generating || reportState.queue.length === 0) return;
   const { year, month } = reportState.queue.shift();
   reportState = { ...reportState, generating: true, current: { year, month }, lastUpdated: Date.now(), error: null };
+  // 타임아웃 안전망: 어떤 이유로든 멈춰도 8분 후 강제 종료해 generating 플래그를 풀어준다
+  // (progress가 영원히 안 끝나는 것 방지)
   execFile('bash', [path.join(ROOT, 'generate-report.sh'), year, month], {
     cwd: ROOT,
     env: { ...process.env, HOME: process.env.HOME || '/Users/mac_ad03249840' },
+    timeout: 8 * 60 * 1000,
+    killSignal: 'SIGKILL',
   }, (err, stdout) => {
-    if (err) console.error('[generate-report] 실패:', err.message);
+    if (err) console.error('[generate-report] 실패:', err.killed ? '타임아웃(8분 초과)' : err.message);
     else console.log('[generate-report] 완료:', stdout.slice(-120));
     reportState = { ...reportState, generating: false, current: null, lastUpdated: Date.now(), error: err?.message || null };
     processQueue();
