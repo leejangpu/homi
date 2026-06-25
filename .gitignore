@@ -49,8 +49,4 @@ financial/token.json
 financial/.venv/
 financial/logs/
 
-# wrangler files
-.wrangler
-.dev.vars*
-!.dev.vars.example
 !.env.example

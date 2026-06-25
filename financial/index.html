@@ -3129,8 +3129,6 @@ function syncSectionsToRaw(year){
   }
 }
 
-const WORKER_API_URL = '';
-
 function openReceiptUpload(){
   const password=localStorage.getItem('save_password');
   const overlay=document.createElement('div');
@@ -3174,7 +3172,7 @@ async function submitReceiptUpload(){
 
   statusEl.textContent=(ext==='html'||ext==='htm')?'복호화 중... (5~10초)':'업로드 중...';
   try{
-    const res=await fetch(`${WORKER_API_URL}/analyze-receipt`,{method:'POST',body:formData});
+    const res=await fetch('/analyze-receipt',{method:'POST',body:formData});
     const data=await res.json();
     if(!res.ok){statusEl.textContent='오류: '+(data.error||res.status);return;}
     statusEl.textContent='✓ '+data.message;
@@ -3225,7 +3223,7 @@ async function doSave(password){
     syncSectionsToRaw(activeYear);
     calcAllTotals(activeYear);
     const csv=toCSV(rawSheets[activeYear]);
-    const res=await fetch(WORKER_API_URL+'/save',{
+    const res=await fetch('/save',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -3626,7 +3624,7 @@ function vrBuildState(overrides={}){
 async function vrPushState(state){
   vrTrackers[vrActiveKey] = state;
   const json = JSON.stringify(vrTrackers, null, 2);
-  const res = await fetch(WORKER_API_URL+'/save-vr',{
+  const res = await fetch('/save-vr',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({content:json})
@@ -3738,7 +3736,7 @@ async function vrEndCycle(){
   vrShowToast('종료 중...');
   try{
     const entry = vrBuildState({ cycleStatus: 'ended', endedAt: new Date().toISOString() });
-    const histRes = await fetch(WORKER_API_URL+'/save-vr-history',{
+    const histRes = await fetch('/save-vr-history',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({entry})
@@ -3749,7 +3747,7 @@ async function vrEndCycle(){
     const keys = Object.keys(vrTrackers);
     vrActiveKey = keys[0] || null;
 
-    const res = await fetch(WORKER_API_URL+'/save-vr',{
+    const res = await fetch('/save-vr',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({content: JSON.stringify(vrTrackers, null, 2)})
