@@ -473,7 +473,17 @@
   .gh-modal .btn-cancel:hover{background:rgba(255,255,255,0.1);}
   .gh-modal .btn-save{background:var(--primary);color:#060a12;box-shadow:0 2px 8px rgba(56,217,192,0.2);}
   .gh-modal .btn-save:hover{box-shadow:0 4px 16px rgba(56,217,192,0.3);}
+  .gh-modal .btn-row button:disabled{opacity:.5;cursor:default;}
   .gh-connected{color:var(--green);font-size:11px;font-weight:600;margin-left:8px;}
+  /* 영수증 분석: 진행 스피너 + 항목별 포함 토글 스위치 */
+  @keyframes rspin{to{transform:rotate(360deg)}}
+  .spin{display:inline-block;animation:rspin 1s linear infinite}
+  .rsw{position:relative;display:inline-block;width:34px;height:20px;cursor:pointer}
+  .rsw input{opacity:0;width:0;height:0;position:absolute}
+  .rsw-s{position:absolute;inset:0;background:rgba(255,255,255,0.15);border-radius:20px;transition:.2s}
+  .rsw-s:before{content:"";position:absolute;height:14px;width:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+  .rsw input:checked + .rsw-s{background:var(--primary)}
+  .rsw input:checked + .rsw-s:before{transform:translateX(14px)}
 
   .filter-bar{display:flex;gap:5px;margin-left:auto;}
   .filter-btn{
@@ -3149,6 +3159,11 @@ function openReceiptUpload(){
   document.body.appendChild(overlay);
 }
 
+// 분석 플로우 상태 (현재 job)
+let _receiptItems=null;
+
+function _receiptModal(){return document.querySelector('#receiptOverlay .gh-modal');}
+
 async function submitReceiptUpload(){
   const fileInput=document.getElementById('receiptFileInput');
   const statusEl=document.getElementById('receiptStatus');
@@ -3162,23 +3177,133 @@ async function submitReceiptUpload(){
   const decryptPwd=document.getElementById('receiptDecryptPassword').value;
   if((ext==='html'||ext==='htm')&&!decryptPwd){alert('HTML 파일은 복호화 비밀번호가 필요합니다');return;}
 
-  const month=String(selectedMonthIdx+1).padStart(2,'0');
   const formData=new FormData();
   formData.append('file',file);
-  formData.append('year',activeYear);
-  formData.append('month',month);
   formData.append('password',password);
   if(decryptPwd)formData.append('decryptPassword',decryptPwd);
 
-  statusEl.textContent=(ext==='html'||ext==='htm')?'복호화·명세서 렌더링 중... (최대 1분, 기다려 주세요)':'업로드 중...';
+  renderReceiptProgress('uploading');
   try{
     const res=await fetch('/analyze-receipt',{method:'POST',body:formData});
     const data=await res.json();
-    if(!res.ok){statusEl.textContent='오류: '+(data.error||res.status);return;}
-    statusEl.textContent='✓ '+data.message;
-    setTimeout(()=>{document.getElementById('receiptOverlay')&&document.getElementById('receiptOverlay').remove();},3000);
+    if(!res.ok){renderReceiptError(data.error||('HTTP '+res.status));return;}
+    pollAnalyzeStatus(data.jobId);
   }catch(e){
-    statusEl.textContent='네트워크 오류: '+e.message;
+    renderReceiptError('네트워크 오류: '+e.message);
+  }
+}
+
+const _STAGE_INFO={
+  uploading:{pct:10,label:'파일 업로드 중'},
+  decrypting:{pct:35,label:'명세서 복호화·여는 중'},
+  converting:{pct:60,label:'PDF 변환 중'},
+  analyzing:{pct:85,label:'AI가 명세서 분석 중'},
+};
+
+function renderReceiptProgress(stage){
+  const m=_receiptModal(); if(!m)return;
+  const steps=[['decrypting','복호화'],['converting','PDF 변환'],['analyzing','AI 분석']];
+  const order=['uploading','decrypting','converting','analyzing'];
+  const cur=order.indexOf(stage);
+  const info=_STAGE_INFO[stage]||_STAGE_INFO.uploading;
+  const stepHtml=steps.map(([k,lbl])=>{
+    const ki=order.indexOf(k);
+    const state=ki<cur?'done':(ki===cur?'active':'todo');
+    const icon=state==='done'?'✓':(state==='active'?'<span class="spin">◐</span>':'○');
+    const col=state==='done'?'#22c55e':(state==='active'?'var(--text)':'var(--text-dim)');
+    return `<div style="display:flex;align-items:center;gap:8px;color:${col};font-size:13px;padding:3px 0">${icon} ${lbl}</div>`;
+  }).join('');
+  m.innerHTML=`<h3>📎 영수증 분석</h3>
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px">${info.label}... <span style="color:var(--text-dim)">(최대 1~2분 소요, 창을 닫지 마세요)</span></p>
+    <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:14px">
+      <div style="height:100%;width:${info.pct}%;background:#22c55e;transition:width .4s"></div>
+    </div>
+    <div style="margin-bottom:8px">${stepHtml}</div>`;
+}
+
+function renderReceiptError(msg){
+  const m=_receiptModal(); if(!m)return;
+  m.innerHTML=`<h3>📎 영수증 분석</h3>
+    <p style="color:#e55;font-size:13px;margin:12px 0;white-space:pre-wrap">⚠️ ${_esc(msg)}</p>
+    <div class="btn-row"><button class="btn-cancel" onclick="document.getElementById('receiptOverlay').remove()">닫기</button></div>`;
+}
+
+async function pollAnalyzeStatus(jobId){
+  try{
+    const res=await fetch('/analyze-status/'+jobId);
+    if(!res.ok){renderReceiptError('상태 조회 실패 (job 만료)');return;}
+    const data=await res.json();
+    if(data.stage==='error'){renderReceiptError(data.error||'분석 실패');return;}
+    if(data.stage==='done'){renderReceiptResults(data.items||[],data.categories||[]);return;}
+    renderReceiptProgress(data.stage);
+    setTimeout(()=>pollAnalyzeStatus(jobId),1500);
+  }catch(e){
+    setTimeout(()=>pollAnalyzeStatus(jobId),2500); // 일시적 네트워크 오류는 재시도
+  }
+}
+
+function renderReceiptResults(items,categories){
+  _receiptItems=items.map(it=>({...it}));
+  const m=_receiptModal(); if(!m)return;
+  if(!_receiptItems.length){
+    m.innerHTML=`<h3>📎 영수증 분석</h3><p style="margin:12px 0;font-size:13px">추출된 지출 항목이 없습니다.</p>
+      <div class="btn-row"><button class="btn-cancel" onclick="document.getElementById('receiptOverlay').remove()">닫기</button></div>`;
+    return;
+  }
+  const opts=cat=>categories.map(c=>`<option value="${_esc(c)}"${c===cat?' selected':''}>${_esc(c)}</option>`).join('');
+  const rows=_receiptItems.map((it,i)=>{
+    const inc=it._include!==false;
+    return `<tr data-i="${i}" style="opacity:${inc?1:.4}">
+      <td style="text-align:center"><label class="rsw"><input type="checkbox" ${inc?'checked':''} onchange="toggleReceiptItem(${i},this.checked)"><span class="rsw-s"></span></label></td>
+      <td style="color:var(--text-dim);white-space:nowrap;font-family:var(--font-num)">${_esc(it.날짜||'')}</td>
+      <td>${_esc(it.가맹점||'')}</td>
+      <td style="text-align:right;font-family:var(--font-num);color:#f59e0b;white-space:nowrap">${it.금액?parseInt(it.금액).toLocaleString():''}</td>
+      <td><select onchange="setReceiptCat(${i},this.value)" style="width:100%;padding:4px 6px;background:var(--bg-input,#222);color:inherit;border:1px solid var(--border,#444);border-radius:4px;font-size:12px">${opts(it.카테고리)}</select></td>
+    </tr>`;
+  }).join('');
+  const total=_receiptItems.length;
+  m.style.maxWidth='620px';
+  m.innerHTML=`<h3>📎 분석 결과 검토 <span style="font-size:13px;color:var(--text-dim);font-weight:400">(${total}건)</span></h3>
+    <p style="color:var(--text-muted);font-size:12px;margin-bottom:10px">스위치로 제외 여부를, 드롭다운으로 카테고리를 조정한 뒤 저장하세요.</p>
+    <div style="max-height:48vh;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
+      <table class="exp-detail-tbl" style="width:100%;font-size:13px">
+        <thead><tr><th style="width:44px">포함</th><th>날짜</th><th>가맹점</th><th style="text-align:right">금액</th><th style="width:130px">카테고리</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn-cancel" onclick="document.getElementById('receiptOverlay').remove()">취소</button>
+      <button class="btn-save" onclick="submitExpenseItems()" id="receiptSaveBtn">시트에 저장</button>
+    </div>
+    <div id="receiptStatus" style="margin-top:8px;font-size:13px;min-height:20px"></div>`;
+}
+
+function toggleReceiptItem(i,checked){
+  if(_receiptItems[i]){_receiptItems[i]._include=checked;}
+  const tr=document.querySelector(`#receiptOverlay tr[data-i="${i}"]`);
+  if(tr)tr.style.opacity=checked?1:.4;
+}
+function setReceiptCat(i,val){ if(_receiptItems[i])_receiptItems[i].카테고리=val; }
+
+async function submitExpenseItems(){
+  const password=localStorage.getItem('save_password');
+  const statusEl=document.getElementById('receiptStatus');
+  const btn=document.getElementById('receiptSaveBtn');
+  const included=_receiptItems.filter(it=>it._include!==false);
+  if(!included.length){alert('포함할 항목이 하나도 없습니다');return;}
+  if(btn){btn.disabled=true;btn.textContent='저장 중...';}
+  if(statusEl)statusEl.textContent='시트 업데이트 중...';
+  try{
+    const res=await fetch('/save-expense-items',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({password,year:String(activeYear),items:_receiptItems})});
+    const data=await res.json();
+    if(!res.ok){if(statusEl)statusEl.textContent='오류: '+(data.error||res.status);if(btn){btn.disabled=false;btn.textContent='시트에 저장';}return;}
+    if(statusEl){statusEl.style.color='#22c55e';statusEl.textContent='✓ 완료됐습니다 ('+data.count+'건 반영)';}
+    try{await loadExpenseDetail();renderView&&renderView();}catch(e){}
+    setTimeout(()=>{const o=document.getElementById('receiptOverlay');if(o)o.remove();},1400);
+  }catch(e){
+    if(statusEl)statusEl.textContent='네트워크 오류: '+e.message;
+    if(btn){btn.disabled=false;btn.textContent='시트에 저장';}
   }
 }
 

@@ -3,9 +3,12 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
+
+// 영수증 분석 카테고리 (analyze-only.sh / analyze-receipt.sh와 동일하게 유지)
+const CANONICAL_CATEGORIES = ['외식/카페', '생활비', '쇼핑', '통신비', '관리비', '도시가스', '유류비', '콘텐츠', '의료', '교통', '경조사비', '여가/레저', '기타(메모입력)'];
 
 const app = express();
 const PORT = 3000;
@@ -156,11 +159,48 @@ app.post('/save-vr-history', (req, res) => {
   }
 });
 
-// 영수증 분석 (PDF/이미지 직접 분석 또는 암호 걸린 HTML 복호화 후 분석)
-app.post('/analyze-receipt', upload.single('file'), async (req, res) => {
-  const { password, year, month, decryptPassword } = req.body || {};
+// ===== 영수증 분석 (대화형: 복호화→분석→검토→저장) =====
+// 진행 단계를 폴링으로 추적하고, 분석 결과를 사용자가 검토/수정 후 저장하는 플로우.
+const analyzeJobs = new Map(); // jobId -> { stage, items, error, warning, fileName, createdAt }
+
+function makeEnv() {
+  return { ...process.env, HOME: process.env.HOME || '/Users/mac_ad03249840' };
+}
+
+// 오래된 job 정리 (30분 경과분)
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, j] of analyzeJobs) {
+    if (now - j.createdAt > 30 * 60 * 1000) analyzeJobs.delete(id);
+  }
+}, 5 * 60 * 1000).unref();
+
+// 사용 가능한 모든 카테고리 (기본 + 기존 데이터에 등장한 것)
+function allCategories() {
+  const set = new Set(CANONICAL_CATEGORIES);
+  try {
+    const d = JSON.parse(fs.readFileSync(path.join(ROOT, 'expense_detail.json'), 'utf8'));
+    for (const y of Object.values(d)) {
+      for (const m of Object.values(y)) {
+        for (const it of (m.items || [])) {
+          const c = it['카테고리'];
+          if (c && c !== '제외') set.add(c);
+        }
+      }
+    }
+  } catch (e) { /* 무시 */ }
+  return [...set];
+}
+
+app.get('/expense-categories', (req, res) => {
+  res.json({ categories: allCategories() });
+});
+
+// 1단계: 분석 시작 → jobId 즉시 반환, 백그라운드에서 복호화+분석 진행
+app.post('/analyze-receipt', upload.single('file'), (req, res) => {
+  const { password, decryptPassword } = req.body || {};
   const file = req.file;
-  if (!year || !month || !file) return res.status(400).json({ error: 'year, month, file 필드가 필요합니다.' });
+  if (!file) return res.status(400).json({ error: 'file 필드가 필요합니다.' });
   if (!checkPassword(password, res)) { fs.unlinkSync(file.path); return; }
 
   const allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'html', 'htm'];
@@ -169,50 +209,130 @@ app.post('/analyze-receipt', upload.single('file'), async (req, res) => {
     fs.unlinkSync(file.path);
     return res.status(400).json({ error: '지원하지 않는 파일 형식입니다.' });
   }
+  if ((ext === 'html' || ext === 'htm') && !decryptPassword) {
+    fs.unlinkSync(file.path);
+    return res.status(400).json({ error: 'HTML 파일은 복호화 비밀번호가 필요합니다.' });
+  }
 
   const fileName = `receipt-${Date.now()}.${ext}`;
   const filePath = path.join(ROOT, 'tmp', fileName);
   fs.renameSync(file.path, filePath);
 
-  const env = { ...process.env, HOME: process.env.HOME || '/Users/mac_ad03249840' };
+  const jobId = crypto.randomBytes(8).toString('hex');
+  analyzeJobs.set(jobId, { stage: 'uploading', items: null, error: null, warning: null, createdAt: Date.now() });
+  res.json({ ok: true, jobId });
 
-  // HTML 첨부면 먼저 복호화 → PDF
-  let analyzeName = fileName;
+  runAnalyzeJob(jobId, filePath, ext, decryptPassword).catch((e) => {
+    const job = analyzeJobs.get(jobId);
+    if (job) { job.stage = 'error'; job.error = (e && e.message) || String(e); }
+  });
+});
+
+async function runAnalyzeJob(jobId, filePath, ext, decryptPassword) {
+  const job = analyzeJobs.get(jobId);
+  const env = makeEnv();
+  let analyzePath = filePath;
+
   if (ext === 'html' || ext === 'htm') {
-    if (!decryptPassword) {
-      fs.unlinkSync(filePath);
-      return res.status(400).json({ error: 'HTML 파일은 복호화 비밀번호가 필요합니다.' });
-    }
-    try {
-      await execFileAsync(path.join(ROOT, '.venv/bin/python'), ['decrypt_samsungcard.py', filePath, decryptPassword], { cwd: ROOT, env });
-    } catch (e) {
-      const errMsg = (e.stderr || e.message || '').toString().slice(-300);
-      console.error('[decrypt] 실패:', errMsg);
-      return res.status(400).json({ error: '복호화 실패: ' + errMsg });
-    }
+    job.stage = 'decrypting';
+    // decrypt가 stdout으로 @@STAGE:rendering / @@STAGE:pdf 를 흘려보냄 → job.stage 갱신
+    await new Promise((resolve, reject) => {
+      const p = spawn(path.join(ROOT, '.venv/bin/python'), ['decrypt_samsungcard.py', filePath, decryptPassword], { cwd: ROOT, env });
+      let stderr = '';
+      let buf = '';
+      p.stdout.on('data', (d) => {
+        buf += d.toString();
+        let idx;
+        while ((idx = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, idx); buf = buf.slice(idx + 1);
+          const m = line.match(/^@@STAGE:(\w+)/);
+          if (m) job.stage = m[1] === 'pdf' ? 'converting' : 'decrypting';
+        }
+      });
+      p.stderr.on('data', (d) => { stderr += d.toString(); });
+      p.on('close', (code) => {
+        if (code === 0) return resolve();
+        const tail = stderr.trim().split('\n').pop() || '';
+        if (code === 2) return reject(new Error('복호화 실패: 비밀번호가 틀렸습니다.'));
+        reject(new Error('복호화 실패: ' + (tail || ('exit ' + code)).slice(-200)));
+      });
+    });
     const decryptedPdf = filePath.replace(/\.html?$/i, '_decrypted.pdf');
     const decryptedTxt = filePath.replace(/\.html?$/i, '_decrypted.txt');
-    if (!fs.existsSync(decryptedPdf)) {
-      return res.status(500).json({ error: '복호화 완료했으나 PDF 생성 실패' });
-    }
-    // decrypt_samsungcard.py가 사이트의 비번 오류 문구 변화로 실패를 못 잡는 경우 대비
+    if (!fs.existsSync(decryptedPdf)) throw new Error('복호화 완료했으나 PDF 생성 실패');
     if (fs.existsSync(decryptedTxt) && fs.readFileSync(decryptedTxt, 'utf8').trim().length < 200) {
-      return res.status(400).json({ error: '복호화 실패: 비밀번호가 잘못되었거나 본문 추출 실패' });
+      throw new Error('복호화 실패: 본문 추출이 비어있습니다.');
     }
-    analyzeName = path.basename(decryptedPdf);
+    analyzePath = decryptedPdf;
   }
 
-  res.json({
-    ok: true,
-    message: `${year}년 ${month}월 영수증 분석이 시작되었습니다. 잠시 후 반영됩니다.`,
-    fileName: analyzeName,
+  // 분석 (Claude vision → JSON 항목)
+  job.stage = 'analyzing';
+  const analyzeName = path.basename(analyzePath);
+  const stdout = await new Promise((resolve, reject) => {
+    execFile('bash', [path.join(ROOT, 'analyze-only.sh'), analyzeName], { cwd: ROOT, env, maxBuffer: 10 * 1024 * 1024 }, (err, out, serr) => {
+      if (err) return reject(new Error('분석 실패: ' + ((serr || err.message) || '').toString().slice(-200)));
+      resolve(out);
+    });
   });
 
-  execFile('bash', [path.join(ROOT, 'analyze-receipt.sh'), year, month.padStart(2, '0'), analyzeName], {
-    cwd: ROOT, env,
-  }, (err, stdout, stderr) => {
-    if (err) console.error('[analyze-receipt] 실패:', stderr || err.message);
-    else console.log('[analyze-receipt] 완료:', stdout.slice(-200));
+  let items;
+  try {
+    let raw = stdout.trim();
+    if (raw.startsWith('```')) raw = raw.split('\n').slice(1, -1).join('\n');
+    items = JSON.parse(raw);
+    if (!Array.isArray(items)) throw new Error('배열이 아님');
+  } catch (e) {
+    throw new Error('분석 결과 파싱 실패: ' + stdout.slice(0, 200));
+  }
+
+  // 각 항목에 기본 포함 상태 부여
+  job.items = items.map((it) => ({ ...it, _include: it['카테고리'] !== '제외' }));
+  job.stage = 'done';
+}
+
+// 2단계: 진행 상태 폴링
+app.get('/analyze-status/:jobId', (req, res) => {
+  const job = analyzeJobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'job 없음 (만료되었거나 잘못된 id)' });
+  res.json({
+    stage: job.stage,
+    items: job.stage === 'done' ? job.items : null,
+    error: job.error,
+    categories: job.stage === 'done' ? allCategories() : null,
+  });
+});
+
+// 3단계: 사용자가 검토·수정한 항목을 시트에 반영
+app.post('/save-expense-items', (req, res) => {
+  const { password, year, items } = req.body || {};
+  if (!checkPassword(password, res)) return;
+  if (!year || !Array.isArray(items)) return res.status(400).json({ error: 'year, items 필드가 필요합니다.' });
+
+  // 제외(_include=false)된 항목은 빼고, 내부 필드 정리
+  const clean = items
+    .filter((it) => it && it._include !== false)
+    .map(({ 날짜, 가맹점, 카드, 금액, 카테고리, 메모 }) => ({ 날짜, 가맹점, 카드, 금액: parseInt(금액) || 0, 카테고리, ...(메모 ? { 메모 } : {}) }));
+
+  if (!clean.length) return res.json({ ok: true, message: '반영할 항목이 없습니다.', count: 0 });
+
+  const months = [...new Set(clean.map((it) => (it.날짜 || '').split('.')[0].padStart(2, '0')).filter(Boolean))];
+  const defaultMonth = months[0] || '01';
+  const env = makeEnv();
+
+  execFile('python3', [path.join(ROOT, 'update-expense.py'), String(year), defaultMonth, JSON.stringify(clean)], { cwd: ROOT, env }, (err, stdout, stderr) => {
+    if (err) {
+      console.error('[save-expense-items] 실패:', stderr || err.message);
+      return res.status(500).json({ error: '시트 반영 실패: ' + ((stderr || err.message) || '').toString().slice(-200) });
+    }
+    res.json({ ok: true, message: `${clean.length}개 항목 반영 완료`, count: clean.length, months });
+    autoCommit(['expense_detail.json', `${year}.csv`], `영수증 분석 반영: ${clean.length}건`);
+    // 리포트는 백그라운드 재생성 (시트 반영 완료 후)
+    for (const m of months) {
+      execFile('bash', [path.join(ROOT, 'generate-report.sh'), String(year), m], { cwd: ROOT, env }, (e) => {
+        if (e) console.error('[generate-report] 실패:', e.message);
+      });
+    }
   });
 });
 

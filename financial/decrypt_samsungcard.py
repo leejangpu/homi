@@ -28,6 +28,12 @@ from playwright.sync_api import sync_playwright
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+def stage(name: str):
+    """진행 단계를 stdout으로 알림 (server.js가 파싱해 UI에 표시). 즉시 flush."""
+    print(f"@@STAGE:{name}", flush=True)
+
+
 AMOUNT_RE = re.compile(r"[0-9]{1,3}(?:,[0-9]{3})+\s*원")
 RENDER_TIMEOUT_S = 90      # 렌더 완료까지 최대 대기 (느린 뷰어 대비 넉넉히)
 MIN_AMOUNTS = 5            # 이 개수 이상의 금액이 보이면 '본문 채워짐'으로 판정
@@ -160,6 +166,7 @@ def decrypt(html_path: str, password: str, debug: bool = False):
             sys.exit(3)
 
         # 명세서 본문이 채워질 때까지 대기 (실제 금액 출현 기준 폴링)
+        stage("rendering")
         text = wait_for_statement(page, debug=debug)
         amounts = len(AMOUNT_RE.findall(text))
         if amounts < MIN_AMOUNTS:
@@ -188,6 +195,7 @@ def decrypt(html_path: str, password: str, debug: bool = False):
                 )
 
         # 결과 저장 — 분석은 PDF(vision)를 쓰므로 PDF가 핵심, txt/html은 보조
+        stage("pdf")
         with open(out_text, "w", encoding="utf-8") as f:
             f.write(text)
         try:
