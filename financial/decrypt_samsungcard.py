@@ -5,6 +5,13 @@
 사용법:
     python decrypt_samsungcard.py tmp/samsungcard_20260513.html 890902
     python decrypt_samsungcard.py tmp/samsungcard_20260513.html 890902 --debug
+
+동작 원리 (타이밍 추측이 아니라 페이지 자체의 신호를 따른다):
+- VestMail은 비번 제출 시 워커로 복호화하며 `#progressdlg` 스피너를 띄운다.
+- 복호화가 끝나면 페이지 스크립트의 `hubmail_onend(isSuccess)`가 호출되어
+  `#progressdlg`를 제거하고, 성공이면 `#print` 버튼을 visible로 만든다.
+- 복호화된 명세서 본문은 `<iframe id="cipher">`의 contentDocument에 써진다.
+따라서 "복호화 완료"는 시간이 아니라 위 DOM 상태 전이로 정확히 판정한다.
 """
 from __future__ import annotations
 
@@ -18,56 +25,47 @@ from playwright.sync_api import sync_playwright
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# 복호화 완료/실패를 판정하는 JS. 아직 진행 중이면 '' (falsy)를 돌려 계속 대기,
+# 끝나면 'done'/'error'를 돌려 wait_for_function이 resolve 되게 한다.
+COMPLETION_JS = """
+() => {
+  const bodyText = document.body ? (document.body.innerText || '') : '';
+  if (bodyText.indexOf('비밀번호 입력이 잘못') !== -1) return 'error';
 
-def safe_evaluate(target, script, retries=6, interval_ms=500):
-    """VestMail이 비번 정답 직후 페이지를 통째로 교체해서
-    evaluate 호출 타이밍에 execution context가 죽는 경우가 있다.
-    짧게 대기하며 몇 번 재시도한다."""
-    last_err = None
-    for _ in range(retries):
-        try:
-            return target.evaluate(script)
-        except Exception as e:
-            if "context was destroyed" in str(e).lower():
-                last_err = e
-                try:
-                    target.wait_for_timeout(interval_ms)
-                except Exception:
-                    pass
-                continue
-            raise
-    if last_err:
-        raise last_err
-    return None
+  // 복호화된 본문은 #cipher iframe 안에 써진다
+  let cipherLen = 0;
+  const ifr = document.getElementById('cipher');
+  if (ifr) {
+    try {
+      const doc = ifr.contentDocument || (ifr.contentWindow && ifr.contentWindow.document);
+      if (doc && doc.body) cipherLen = (doc.body.innerText || '').length;
+    } catch (e) {}
+  }
+
+  // hubmail_onend(true)가 #print를 visible로 만든다 = 복호화 성공 신호
+  const printBtn = document.getElementById('print');
+  const printVisible = printBtn && getComputedStyle(printBtn).visibility === 'visible';
+
+  if (printVisible || cipherLen > 200) return 'done';
+  return '';
+}
+"""
 
 
-def total_text_length(page):
-    """page + 모든 frame의 본문 텍스트 길이 합산 (외부 리소스 로딩 진행도 판별용)."""
-    total = 0
+def extract_cipher_content(page):
+    """#cipher iframe(=복호화된 명세서)의 텍스트/HTML을 추출. 없으면 (None, None)."""
+    cipher_el = page.query_selector("#cipher")
+    if not cipher_el:
+        return None, None
+    frame = cipher_el.content_frame()
+    if not frame:
+        return None, None
     try:
-        total += safe_evaluate(page, "() => (document.body && document.body.innerText || '').length") or 0
+        text = frame.evaluate("() => document.body ? (document.body.innerText || '') : ''")
+        html = frame.content()
+        return text, html
     except Exception:
-        pass
-    for frame in page.frames:
-        try:
-            total += safe_evaluate(frame, "() => (document.body && document.body.innerText || '').length") or 0
-        except Exception:
-            pass
-    return total
-
-
-def wait_for_content(page, min_length=1000, timeout_ms=30000, interval_ms=500):
-    """본문이 일정 길이 이상 채워질 때까지 폴링.
-    networkidle만으론 외부 리소스(rMateChart 등) 로드 전에 풀려서 빈 페이지를 캡처할 수 있다."""
-    elapsed = 0
-    last = 0
-    while elapsed < timeout_ms:
-        last = total_text_length(page)
-        if last >= min_length:
-            return last
-        page.wait_for_timeout(interval_ms)
-        elapsed += interval_ms
-    return last
+        return None, None
 
 
 def decrypt(html_path: str, password: str, debug: bool = False):
@@ -95,46 +93,53 @@ def decrypt(html_path: str, password: str, debug: bool = False):
         page.fill("#password", password)
         page.click("#confirm")
 
-        # 복호화 대기 — VestMail은 페이지 자체를 새 콘텐츠로 교체
+        # 복호화 완료를 페이지 신호로 대기 (타이밍 추측 없음).
+        # 성공('done')/비번오류('error')가 나올 때까지 최대 60초.
         try:
-            page.wait_for_load_state("networkidle", timeout=15000)
+            handle = page.wait_for_function(COMPLETION_JS, timeout=60000, polling=300)
+            status = handle.json_value()
         except Exception:
-            pass
+            status = "timeout"
 
-        # 본문이 일정 길이 이상 채워질 때까지 폴링 (외부 차트 JS 등 로드 대기)
-        content_len = wait_for_content(page, min_length=1000, timeout_ms=30000)
         if debug:
-            print(f"[debug] 최종 본문 길이: {content_len}자", file=sys.stderr)
+            print(f"[debug] 복호화 상태: {status}", file=sys.stderr)
 
-        # 실패 메시지 검사
-        body_text = safe_evaluate(page, "() => document.body.innerText || ''")
-        if "비밀번호 입력이 잘못" in body_text:
+        if status == "error":
             print("오류: 비밀번호가 틀렸습니다.", file=sys.stderr)
             sys.exit(2)
+        if status == "timeout":
+            print("오류: 복호화 완료 신호를 받지 못했습니다 (타임아웃).", file=sys.stderr)
+            sys.exit(3)
 
-        # iframe 안에 명세서가 렌더링되는 경우를 대비
-        frames_text = []
-        for frame in page.frames:
-            try:
-                txt = safe_evaluate(frame, "() => document.body && document.body.innerText || ''")
-                if txt and len(txt) > 50:
-                    frames_text.append(txt)
-            except Exception:
-                pass
+        # 복호화된 본문 추출 — #cipher iframe 우선, 없으면 전체 프레임 스캔
+        text, inner_html = extract_cipher_content(page)
+        if not text or len(text) < 50:
+            frames_text = []
+            for frame in page.frames:
+                try:
+                    txt = frame.evaluate("() => document.body && document.body.innerText || ''")
+                    if txt and len(txt) > 50:
+                        frames_text.append(txt)
+                except Exception:
+                    pass
+            if frames_text:
+                text = "\n\n----- frame separator -----\n\n".join(frames_text)
 
-        full_text = "\n\n----- frame separator -----\n\n".join(frames_text) if frames_text else body_text
+        if not text or len(text) < 50:
+            print("오류: 복호화는 완료됐으나 본문 추출 실패 (빈 명세서).", file=sys.stderr)
+            sys.exit(4)
 
         # 결과 저장
         with open(out_text, "w", encoding="utf-8") as f:
-            f.write(full_text)
+            f.write(text)
         with open(out_html, "w", encoding="utf-8") as f:
-            f.write(page.content())
+            f.write(inner_html if inner_html else page.content())
         try:
             page.pdf(path=out_pdf, format="A4", print_background=True)
         except Exception as e:
             print(f"PDF 저장 실패(헤드풀 모드에서는 비활성): {e}", file=sys.stderr)
 
-        print(f"✓ 텍스트:  {out_text}  ({len(full_text)}자)")
+        print(f"✓ 텍스트:  {out_text}  ({len(text)}자)")
         print(f"✓ HTML:    {out_html}")
         if os.path.exists(out_pdf):
             print(f"✓ PDF:     {out_pdf}")
