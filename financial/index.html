@@ -3170,7 +3170,7 @@ async function submitReceiptUpload(){
   formData.append('password',password);
   if(decryptPwd)formData.append('decryptPassword',decryptPwd);
 
-  statusEl.textContent=(ext==='html'||ext==='htm')?'복호화 중... (5~10초)':'업로드 중...';
+  statusEl.textContent=(ext==='html'||ext==='htm')?'복호화·명세서 렌더링 중... (최대 1분, 기다려 주세요)':'업로드 중...';
   try{
     const res=await fetch('/analyze-receipt',{method:'POST',body:formData});
     const data=await res.json();

@@ -6,18 +6,21 @@
     python decrypt_samsungcard.py tmp/samsungcard_20260513.html 890902
     python decrypt_samsungcard.py tmp/samsungcard_20260513.html 890902 --debug
 
-동작 원리 (타이밍 추측이 아니라 페이지 자체의 신호를 따른다):
-- VestMail은 비번 제출 시 워커로 복호화하며 `#progressdlg` 스피너를 띄운다.
-- 복호화가 끝나면 페이지 스크립트의 `hubmail_onend(isSuccess)`가 호출되어
-  `#progressdlg`를 제거하고, 성공이면 `#print` 버튼을 visible로 만든다.
-- 복호화된 명세서 본문은 `<iframe id="cipher">`의 contentDocument에 써진다.
-따라서 "복호화 완료"는 시간이 아니라 위 DOM 상태 전이로 정확히 판정한다.
+동작 원리 (타이밍 추측이 아니라 '실제 데이터가 나타났는지'로 판정):
+- 비번 제출(#confirm) 시 폼(#decForm)이 bill.samsungcard.com 명세서 뷰어로 navigate 한다.
+- 뷰어 페이지의 #bldFrame div에 명세서 본문이 비동기로 채워진다. 외부 JS 체인을
+  거치느라 **렌더 완료까지 30~60초**가 걸린다(빠른 PC라도 느림).
+- 따라서 고정 대기시간이 아니라, #bldFrame에 실제 금액(예: "12,345원")이
+  N건 이상 나타날 때까지 폴링한다. 비번이 틀리면 navigate 자체가 안 되고
+  같은 페이지에 오류 문구가 뜬다 → 그걸로 구분.
 """
 from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
+import time
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -25,47 +28,53 @@ from playwright.sync_api import sync_playwright
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 복호화 완료/실패를 판정하는 JS. 아직 진행 중이면 '' (falsy)를 돌려 계속 대기,
-# 끝나면 'done'/'error'를 돌려 wait_for_function이 resolve 되게 한다.
-COMPLETION_JS = """
-() => {
-  const bodyText = document.body ? (document.body.innerText || '') : '';
-  if (bodyText.indexOf('비밀번호 입력이 잘못') !== -1) return 'error';
-
-  // 복호화된 본문은 #cipher iframe 안에 써진다
-  let cipherLen = 0;
-  const ifr = document.getElementById('cipher');
-  if (ifr) {
-    try {
-      const doc = ifr.contentDocument || (ifr.contentWindow && ifr.contentWindow.document);
-      if (doc && doc.body) cipherLen = (doc.body.innerText || '').length;
-    } catch (e) {}
-  }
-
-  // hubmail_onend(true)가 #print를 visible로 만든다 = 복호화 성공 신호
-  const printBtn = document.getElementById('print');
-  const printVisible = printBtn && getComputedStyle(printBtn).visibility === 'visible';
-
-  if (printVisible || cipherLen > 200) return 'done';
-  return '';
-}
-"""
+AMOUNT_RE = re.compile(r"[0-9]{1,3}(?:,[0-9]{3})+\s*원")
+RENDER_TIMEOUT_S = 90      # 렌더 완료까지 최대 대기 (느린 뷰어 대비 넉넉히)
+MIN_AMOUNTS = 5            # 이 개수 이상의 금액이 보이면 '본문 채워짐'으로 판정
+POLL_INTERVAL_MS = 2000
 
 
-def extract_cipher_content(page):
-    """#cipher iframe(=복호화된 명세서)의 텍스트/HTML을 추출. 없으면 (None, None)."""
-    cipher_el = page.query_selector("#cipher")
-    if not cipher_el:
-        return None, None
-    frame = cipher_el.content_frame()
-    if not frame:
-        return None, None
+def collect_text(page) -> str:
+    """#bldFrame(신규 뷰어) 우선, 없으면 body + 모든 frame 텍스트(구 자체완결형)."""
+    parts = []
     try:
-        text = frame.evaluate("() => document.body ? (document.body.innerText || '') : ''")
-        html = frame.content()
-        return text, html
+        bld = page.evaluate(
+            "() => {const d=document.getElementById('bldFrame');return d?(d.innerText||''):''}"
+        )
+        if bld:
+            parts.append(bld)
     except Exception:
-        return None, None
+        pass
+    if not parts:
+        try:
+            parts.append(page.evaluate("() => document.body ? (document.body.innerText||'') : ''"))
+        except Exception:
+            pass
+        for frame in page.frames:
+            try:
+                t = frame.evaluate("() => document.body ? (document.body.innerText||'') : ''")
+                if t and len(t) > 50:
+                    parts.append(t)
+            except Exception:
+                pass
+    return "\n".join(parts)
+
+
+def wait_for_statement(page, debug=False) -> str:
+    """본문에 실제 금액이 MIN_AMOUNTS건 이상 나타날 때까지 폴링. 채워진 텍스트 반환."""
+    t0 = time.time()
+    last = ""
+    while time.time() - t0 < RENDER_TIMEOUT_S:
+        page.wait_for_timeout(POLL_INTERVAL_MS)
+        last = collect_text(page)
+        n = len(AMOUNT_RE.findall(last))
+        if debug:
+            print(f"[debug] {time.time()-t0:4.0f}s  텍스트{len(last)}자  금액{n}건", file=sys.stderr)
+        if n >= MIN_AMOUNTS:
+            # 채워진 직후 잔여 행이 더 붙을 수 있어 한 번 더 안정화
+            page.wait_for_timeout(3000)
+            return collect_text(page)
+    return last
 
 
 def decrypt(html_path: str, password: str, debug: bool = False):
@@ -84,62 +93,59 @@ def decrypt(html_path: str, password: str, debug: bool = False):
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=not debug)
-        ctx = browser.new_context()
+        ctx = browser.new_context(locale="ko-KR", viewport={"width": 1280, "height": 2200})
         page = ctx.new_page()
         page.goto(file_url)
 
         # 비밀번호 입력 + 제출
         page.wait_for_selector("#password", timeout=5000)
         page.fill("#password", password)
-        page.click("#confirm")
 
-        # 복호화 완료를 페이지 신호로 대기 (타이밍 추측 없음).
-        # 성공('done')/비번오류('error')가 나올 때까지 최대 60초.
+        # 정답이면 뷰어로 navigate, 오답이면 같은 페이지에 오류 문구가 남는다.
+        navigated = True
         try:
-            handle = page.wait_for_function(COMPLETION_JS, timeout=60000, polling=300)
-            status = handle.json_value()
+            with page.expect_navigation(timeout=25000):
+                page.click("#confirm")
         except Exception:
-            status = "timeout"
+            navigated = False
 
-        if debug:
-            print(f"[debug] 복호화 상태: {status}", file=sys.stderr)
-
-        if status == "error":
-            print("오류: 비밀번호가 틀렸습니다.", file=sys.stderr)
-            sys.exit(2)
-        if status == "timeout":
-            print("오류: 복호화 완료 신호를 받지 못했습니다 (타임아웃).", file=sys.stderr)
+        if not navigated:
+            body = ""
+            try:
+                body = page.evaluate("() => document.body ? (document.body.innerText||'') : ''")
+            except Exception:
+                pass
+            if "비밀번호 입력이 잘못" in body:
+                print("오류: 비밀번호가 틀렸습니다.", file=sys.stderr)
+                sys.exit(2)
+            print("오류: 비번 제출 후 명세서 뷰어로 진입하지 못했습니다.", file=sys.stderr)
             sys.exit(3)
 
-        # 복호화된 본문 추출 — #cipher iframe 우선, 없으면 전체 프레임 스캔
-        text, inner_html = extract_cipher_content(page)
-        if not text or len(text) < 50:
-            frames_text = []
-            for frame in page.frames:
-                try:
-                    txt = frame.evaluate("() => document.body && document.body.innerText || ''")
-                    if txt and len(txt) > 50:
-                        frames_text.append(txt)
-                except Exception:
-                    pass
-            if frames_text:
-                text = "\n\n----- frame separator -----\n\n".join(frames_text)
-
-        if not text or len(text) < 50:
-            print("오류: 복호화는 완료됐으나 본문 추출 실패 (빈 명세서).", file=sys.stderr)
+        # 명세서 본문이 채워질 때까지 대기 (실제 금액 출현 기준 폴링)
+        text = wait_for_statement(page, debug=debug)
+        amounts = len(AMOUNT_RE.findall(text))
+        if amounts < MIN_AMOUNTS:
+            print(
+                f"오류: {RENDER_TIMEOUT_S}초 내 명세서 본문이 채워지지 않았습니다 "
+                f"(금액 {amounts}건).",
+                file=sys.stderr,
+            )
             sys.exit(4)
 
-        # 결과 저장
+        # 결과 저장 — 분석은 PDF(vision)를 쓰므로 PDF가 핵심, txt/html은 보조
         with open(out_text, "w", encoding="utf-8") as f:
             f.write(text)
-        with open(out_html, "w", encoding="utf-8") as f:
-            f.write(inner_html if inner_html else page.content())
+        try:
+            with open(out_html, "w", encoding="utf-8") as f:
+                f.write(page.content())
+        except Exception:
+            pass
         try:
             page.pdf(path=out_pdf, format="A4", print_background=True)
         except Exception as e:
             print(f"PDF 저장 실패(헤드풀 모드에서는 비활성): {e}", file=sys.stderr)
 
-        print(f"✓ 텍스트:  {out_text}  ({len(text)}자)")
+        print(f"✓ 텍스트:  {out_text}  ({len(text)}자, 금액 {amounts}건)")
         print(f"✓ HTML:    {out_html}")
         if os.path.exists(out_pdf):
             print(f"✓ PDF:     {out_pdf}")

@@ -29,7 +29,8 @@ from pathlib import Path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from playwright.sync_api import sync_playwright
+
+from decrypt_samsungcard import decrypt as decrypt_statement
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -134,29 +135,21 @@ def download_attachment(service, message_id: str, label: str) -> tuple[str, str]
 
 
 def decrypt_html(html_path: str, password: str) -> str | None:
+    """웹 업로드 경로(decrypt_samsungcard.py)와 동일한 복호화 로직을 재사용.
+    삼성카드가 라이브 명세서 뷰어로 바뀌어 본문 렌더에 30~60초가 걸리므로
+    고정 대기가 아니라 실제 금액이 나타날 때까지 폴링한다."""
+    try:
+        decrypt_statement(html_path, password)
+    except SystemExit as e:
+        # decrypt_statement는 실패 시 sys.exit(코드)로 끝난다
+        log(f"복호화 실패 (exit {e.code}): {html_path}")
+        return None
+    except Exception as e:
+        log(f"복호화 예외: {e}")
+        return None
     base = os.path.splitext(html_path)[0]
     out_pdf = f"{base}_decrypted.pdf"
-    file_url = Path(html_path).as_uri()
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        ctx = browser.new_context()
-        page = ctx.new_page()
-        page.goto(file_url)
-        page.wait_for_selector("#password", timeout=5000)
-        page.fill("#password", password)
-        page.click("#confirm")
-        page.wait_for_timeout(3000)
-
-        body_text = page.evaluate("() => document.body.innerText || ''")
-        if "비밀번호 입력이 잘못" in body_text:
-            log("복호화 실패: 비밀번호가 틀렸습니다.")
-            browser.close()
-            return None
-
-        page.pdf(path=out_pdf, format="A4", print_background=True)
-        browser.close()
-    return out_pdf
+    return out_pdf if os.path.exists(out_pdf) else None
 
 
 def analyze_and_update(pdf_path: str, billing_date: str):
