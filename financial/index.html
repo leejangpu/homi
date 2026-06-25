@@ -477,7 +477,7 @@
   .gh-connected{color:var(--green);font-size:11px;font-weight:600;margin-left:8px;}
   /* 영수증 분석: 진행 스피너 + 항목별 포함 토글 스위치 */
   @keyframes rspin{to{transform:rotate(360deg)}}
-  .spin{display:inline-block;animation:rspin 1s linear infinite}
+  .rspinner{display:inline-block;width:13px;height:13px;box-sizing:border-box;border:2px solid rgba(255,255,255,0.18);border-top-color:var(--primary);border-radius:50%;animation:rspin .7s linear infinite;vertical-align:-2px}
   .rsw{position:relative;display:inline-block;width:34px;height:20px;cursor:pointer}
   .rsw input{opacity:0;width:0;height:0;position:absolute}
   .rsw-s{position:absolute;inset:0;background:rgba(255,255,255,0.15);border-radius:20px;transition:.2s}
@@ -3209,7 +3209,7 @@ function renderReceiptProgress(stage){
   const stepHtml=steps.map(([k,lbl])=>{
     const ki=order.indexOf(k);
     const state=ki<cur?'done':(ki===cur?'active':'todo');
-    const icon=state==='done'?'✓':(state==='active'?'<span class="spin">◐</span>':'○');
+    const icon=state==='done'?'✓':(state==='active'?'<span class="rspinner"></span>':'○');
     const col=state==='done'?'#22c55e':(state==='active'?'var(--text)':'var(--text-dim)');
     return `<div style="display:flex;align-items:center;gap:8px;color:${col};font-size:13px;padding:3px 0">${icon} ${lbl}</div>`;
   }).join('');
@@ -3298,8 +3298,11 @@ async function submitExpenseItems(){
       body:JSON.stringify({password,year:String(activeYear),items:_receiptItems})});
     const data=await res.json();
     if(!res.ok){if(statusEl)statusEl.textContent='오류: '+(data.error||res.status);if(btn){btn.disabled=false;btn.textContent='시트에 저장';}return;}
-    if(statusEl){statusEl.style.color='#22c55e';statusEl.textContent='✓ 완료됐습니다 ('+data.count+'건 반영)';}
-    try{await loadExpenseDetail();renderView&&renderView();}catch(e){}
+    const cnt=(data.count!=null?data.count:included.length);
+    if(statusEl)statusEl.textContent='시트 새로고침 중...';
+    // 시트(CSV)와 카드내역(expense_detail) 모두 메모리 갱신 후 재렌더 → 수동 새로고침 불필요
+    try{await reloadFinancialData();}catch(e){}
+    if(statusEl){statusEl.style.color='#22c55e';statusEl.textContent='✓ 완료됐습니다 ('+cnt+'건 반영)';}
     setTimeout(()=>{const o=document.getElementById('receiptOverlay');if(o)o.remove();},1400);
   }catch(e){
     if(statusEl)statusEl.textContent='네트워크 오류: '+e.message;
@@ -4051,6 +4054,17 @@ async function renderVRCalc(){
 // ===== Expense Detail Panel =====
 async function loadExpenseDetail(){
   try{const r=await fetch('/expense-detail');if(r.ok)expenseDetailData=await r.json();}catch(e){}
+}
+
+// 영수증 저장 후 시트(CSV)+카드내역을 다시 읽어 메모리 갱신 후 재렌더 (수동 새로고침 불필요)
+async function reloadFinancialData(){
+  const f=String(activeYear);
+  try{
+    const r=await fetch(`./${f}.csv?t=`+Date.now());
+    if(r.ok){rawSheets[f]=parseCSV(await r.text());splitSections(f);calcAllTotals(f);splitSections(f);}
+  }catch(e){}
+  await loadExpenseDetail();
+  try{renderView();}catch(e){}
 }
 
 function _esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
