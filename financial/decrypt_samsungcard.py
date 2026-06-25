@@ -35,7 +35,7 @@ def stage(name: str):
 
 
 AMOUNT_RE = re.compile(r"[0-9]{1,3}(?:,[0-9]{3})+\s*원")
-RENDER_TIMEOUT_S = 90      # 렌더 완료까지 최대 대기 (느린 뷰어 대비 넉넉히)
+RENDER_TIMEOUT_S = 180     # 렌더 완료까지 최대 대기 (느린 뷰어 대비 넉넉히)
 MIN_AMOUNTS = 5            # 이 개수 이상의 금액이 보이면 '본문 채워짐'으로 판정
 POLL_INTERVAL_MS = 2000
 
@@ -148,7 +148,7 @@ def decrypt(html_path: str, password: str, debug: bool = False):
         # 정답이면 뷰어로 navigate, 오답이면 같은 페이지에 오류 문구가 남는다.
         navigated = True
         try:
-            with page.expect_navigation(timeout=25000):
+            with page.expect_navigation(timeout=40000):
                 page.click("#confirm")
         except Exception:
             navigated = False
