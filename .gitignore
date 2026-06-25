@@ -16,6 +16,9 @@ next-env.d.ts
 .DS_Store
 *.pem
 
+# claude code local settings (hooks, permissions, worktrees)
+.claude/
+
 # server secrets & logs
 server/credentials.json
 server/token.json
