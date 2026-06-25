@@ -41,6 +41,35 @@ def safe_evaluate(target, script, retries=6, interval_ms=500):
     return None
 
 
+def total_text_length(page):
+    """page + 모든 frame의 본문 텍스트 길이 합산 (외부 리소스 로딩 진행도 판별용)."""
+    total = 0
+    try:
+        total += safe_evaluate(page, "() => (document.body && document.body.innerText || '').length") or 0
+    except Exception:
+        pass
+    for frame in page.frames:
+        try:
+            total += safe_evaluate(frame, "() => (document.body && document.body.innerText || '').length") or 0
+        except Exception:
+            pass
+    return total
+
+
+def wait_for_content(page, min_length=1000, timeout_ms=30000, interval_ms=500):
+    """본문이 일정 길이 이상 채워질 때까지 폴링.
+    networkidle만으론 외부 리소스(rMateChart 등) 로드 전에 풀려서 빈 페이지를 캡처할 수 있다."""
+    elapsed = 0
+    last = 0
+    while elapsed < timeout_ms:
+        last = total_text_length(page)
+        if last >= min_length:
+            return last
+        page.wait_for_timeout(interval_ms)
+        elapsed += interval_ms
+    return last
+
+
 def decrypt(html_path: str, password: str, debug: bool = False):
     html_path = os.path.abspath(html_path)
     if not os.path.exists(html_path):
@@ -68,10 +97,14 @@ def decrypt(html_path: str, password: str, debug: bool = False):
 
         # 복호화 대기 — VestMail은 페이지 자체를 새 콘텐츠로 교체
         try:
-            page.wait_for_load_state("networkidle", timeout=10000)
+            page.wait_for_load_state("networkidle", timeout=15000)
         except Exception:
             pass
-        page.wait_for_timeout(1500)
+
+        # 본문이 일정 길이 이상 채워질 때까지 폴링 (외부 차트 JS 등 로드 대기)
+        content_len = wait_for_content(page, min_length=1000, timeout_ms=30000)
+        if debug:
+            print(f"[debug] 최종 본문 길이: {content_len}자", file=sys.stderr)
 
         # 실패 메시지 검사
         body_text = safe_evaluate(page, "() => document.body.innerText || ''")
