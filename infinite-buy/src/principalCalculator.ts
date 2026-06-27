@@ -39,7 +39,7 @@ export interface PrincipalCalculationResult {
  * 공식: 추가입금 = accountCash - Σ(기존 배분 자금)
  *
  * 기존 배분 자금:
- * - 진행 중인 사이클: remainingCash (Firestore 저장값)
+ * - 진행 중인 사이클: remainingCash (state/{ticker}.json 저장값)
  * - 종료된 사이클: nextPrincipal (다음 사이클 원금)
  *
  * 주의: accountCash는 순수 현금(KIS API)이므로 holdingValue(주식)는 포함하지 않음
