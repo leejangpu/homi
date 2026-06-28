@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>무한매수법 V4.0 동작 플로우</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#181b22; --line:#2a2f3a; --txt:#e6e9ef; --mut:#9aa3b2;
+    --normal:#2ecc71; --reverse:#f0932b; --cycle:#7f8c9b; --newc:#4aa3ff;
+    --buy:#3ba776; --sell:#e06c5b; --warn:#e84118; --dry:#f1c40f; --wait:#5b6472;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px}
+  h1{font-size:26px;margin:0 0 4px}
+  .sub{color:var(--mut);margin:0 0 28px;font-size:14px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 22px 26px;margin:18px 0}
+  h2{font-size:18px;margin:0 0 16px;display:flex;align-items:center;gap:10px}
+  .num{display:inline-flex;width:26px;height:26px;border-radius:8px;background:#222732;
+    align-items:center;justify-content:center;font-size:14px;color:var(--newc);font-weight:700}
+  .flow{display:flex;flex-direction:column;align-items:center;gap:0}
+  .box{background:#1f242e;border:1px solid var(--line);border-radius:12px;padding:12px 18px;
+    text-align:center;min-width:200px;max-width:520px}
+  .box .t{font-weight:700}
+  .box .d{color:var(--mut);font-size:13px;margin-top:3px}
+  .box.lead{border-color:var(--newc)}
+  .arrow{color:var(--mut);font-size:22px;line-height:1;margin:7px 0}
+  .arrow.s{margin:5px 0;font-size:18px}
+  .row{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;width:100%}
+  .col{flex:1;min-width:230px;display:flex;flex-direction:column;align-items:center}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;margin-bottom:8px}
+  .tag.wait{background:rgba(91,100,114,.25);color:#aeb6c2}
+  .tag.go{background:rgba(74,163,255,.18);color:var(--newc)}
+  .mode{border-radius:12px;padding:13px 16px;min-width:230px;max-width:540px;text-align:center}
+  .mode .h{font-weight:800;letter-spacing:.3px}
+  .mode .b{font-size:13px;color:var(--mut);margin-top:5px;text-align:left;display:inline-block}
+  .mode.normal{background:rgba(46,204,113,.10);border:1px solid var(--normal)}
+  .mode.normal .h{color:var(--normal)}
+  .mode.reverse{background:rgba(240,147,43,.10);border:1px solid var(--reverse)}
+  .mode.reverse .h{color:var(--reverse)}
+  .mode.cycle{background:rgba(127,140,155,.12);border:1px solid var(--cycle)}
+  .mode.cycle .h{color:#b9c2cf}
+  .mode.newc{background:rgba(74,163,255,.10);border:1px solid var(--newc)}
+  .mode.newc .h{color:var(--newc)}
+  .lbl{font-size:12px;color:var(--mut);margin:2px 0}
+  .lbl b{color:var(--txt)}
+  table{width:100%;border-collapse:collapse;margin-top:4px;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#1f242e;color:#cfd6e0;font-weight:700}
+  td .buy{color:var(--buy);font-weight:600}
+  td .sell{color:var(--sell);font-weight:600}
+  .pill{display:inline-block;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:700;margin-right:4px}
+  .pill.loc{background:rgba(59,167,118,.18);color:#5fd29e}
+  .pill.lim{background:rgba(224,108,91,.18);color:#f0958a}
+  .pill.moc{background:rgba(241,196,15,.16);color:#f3d35b}
+  .gate{display:flex;flex-direction:column;align-items:center}
+  .gate .q{background:#1f242e;border:1px dashed var(--line);border-radius:10px;padding:10px 16px;text-align:center}
+  .gate .no{color:var(--mut);font-size:12px}
+  .result{border-radius:10px;padding:9px 16px;font-weight:700;text-align:center}
+  .result.dry{background:rgba(241,196,15,.12);border:1px solid var(--dry);color:var(--dry)}
+  .result.live{background:rgba(232,17,49,.14);border:1px solid var(--warn);color:#ff7a6b}
+  .result.stop{background:rgba(127,140,155,.14);border:1px solid var(--cycle);color:#b9c2cf}
+  .branchwrap{display:flex;gap:14px;align-items:flex-start;justify-content:center;width:100%;flex-wrap:wrap}
+  .note{color:var(--mut);font-size:13px;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:10px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>무한매수법 V4.0 동작 플로우</h1>
+  <p class="sub">라오어 언이시트(Apps Script) 1:1 포팅 · 기존 v2.2/v3.0과 완전 분리된 별도 모듈 · 현재 <b>enabled=false</b>(미가동·안전)</p>
+
+  <!-- 1. 전환 -->
+  <section>
+    <h2><span class="num">1</span> 전환 — 딱 한 번 (종목별 독립)</h2>
+    <div class="flow">
+      <div class="box lead"><div class="t">"4.0으로 전환" 명령</div></div>
+      <div class="arrow">↓</div>
+      <div class="box">
+        <div class="t">스위치 ON</div>
+        <div class="d"><code>config.json</code> autoRestart=<b>false</b> · <code>config-v4.json</code> enabled=<b>true</b></div>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="lbl">TQQQ · SOXL <b>각각 따로</b> 판단</div>
+      <div class="arrow s">↓</div>
+      <div class="branchwrap">
+        <div class="col">
+          <span class="tag wait">v2.2 아직 보유中</span>
+          <div class="box"><div class="t">⏳ v4 대기</div><div class="d">기존 사이클 끝날 때까지 건드리지 않음</div></div>
+        </div>
+        <div class="col">
+          <span class="tag go">v2.2 종료 (보유 0)</span>
+          <div class="box" style="border-color:var(--newc)"><div class="t">★ v4 인수 시작</div><div class="d">원금 = 그 순간 빈 <b>예수금</b> ÷ 미시작 종목수<br>(이후 사이클은 복리)</div></div>
+        </div>
+      </div>
+    </div>
+    <p class="note">두 종목이 동시에 갈아탈 필요 없음 — 끝나는 순서대로 하나씩 넘어갑니다.</p>
+  </section>
+
+  <!-- 2. 매일 루프 -->
+  <section>
+    <h2><span class="num">2</span> 매일 도는 하루 루프</h2>
+    <div class="row" style="align-items:stretch">
+      <div class="col">
+        <div class="lbl">① 장 개시 전 — <b>open-v4</b></div>
+        <div class="box"><div class="t">어제 계산한<br>"다음 주문" 제출</div><div class="d">DRY-RUN이면 로그만 (실주문 X)</div></div>
+      </div>
+      <div class="col" style="justify-content:center"><div class="arrow">→</div></div>
+      <div class="col">
+        <div class="lbl">② 장 중</div>
+        <div class="box"><div class="t">KIS에서<br>체결 / 미체결 결정</div><div class="d">LOC=종가 · 지정가=장중 · MOC=종가</div></div>
+      </div>
+      <div class="col" style="justify-content:center"><div class="arrow">→</div></div>
+      <div class="col">
+        <div class="lbl">③ 장 마감 후 — <b>close-v4</b></div>
+        <div class="box"><div class="t">실제 보유 읽기<br>→ updateDaily</div><div class="d">T·모드 갱신 · 잔금 계산 · 다음주문 생성 → 저장</div></div>
+      </div>
+    </div>
+    <div class="flow" style="margin-top:14px">
+      <div class="lbl">저장된 다음주문을 → 다음날 ①이 다시 제출 <b>(↺ 반복)</b></div>
+    </div>
+    <p class="note">언이시트와 동일하게 <b>체결을 추정하지 않고 KIS 실제 보유수량/평단을 입력</b>으로 사용합니다. (추측 없음)</p>
+  </section>
+
+  <!-- 3. 모드 상태 머신 -->
+  <section>
+    <h2><span class="num">3</span> 모드 상태 머신 (V4 핵심)</h2>
+    <div class="flow">
+      <div class="mode newc">
+        <div class="h">🆕 새 사이클</div>
+        <div class="b">T=0 · 보유 0 · 원금=예수금/복리<br>큰수매수 = <b>종가 × 1.10</b> 에 LOC</div>
+      </div>
+      <div class="arrow">↓ <span class="lbl">매수 체결</span></div>
+      <div class="mode normal">
+        <div class="h">NORMAL (일반)</div>
+        <div class="b">
+          • 전반전 (T &lt; 분할/2): <b>별지점</b> + <b>평단</b> LOC<br>
+          • 후반전 (T ≥ 분할/2): <b>별지점</b> LOC<br>
+          • + 대폭락 5단 티어<br>
+          • 매도: 1/4 별지점 LOC + 3/4 목표가 지정가
+        </div>
+      </div>
+      <div class="arrow s">↓</div>
+      <div class="branchwrap">
+        <div class="col">
+          <span class="tag wait" style="background:rgba(127,140,155,.2)">보유 0</span>
+          <div class="mode cycle"><div class="h">🏁 사이클 종료</div><div class="b">실현손익 확정 → <b>복리</b>로 새 사이클 재시작 (위로)</div></div>
+        </div>
+        <div class="col">
+          <span class="tag" style="background:rgba(240,147,43,.18);color:var(--reverse)">T &gt; 분할수−1 (1회분 미만)</span>
+          <div class="mode reverse">
+            <div class="h">REVERSE (소진 후)</div>
+            <div class="b">
+              • 기준선 = <b>직전 5일 종가평균</b><br>
+              • 매도: 1일차 MOC → 이후 LOC 등분<br>
+              • 매수: (잔금+매도금)/4 쿼터<br>
+              • T: 매도 ×(1−2/n) · 매수 +(n−T)×0.25
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="arrow s">↑ <span class="lbl">종가 &gt; 평단 ×(1−목표%) 회복 → NORMAL 복귀 (T 그대로 승계)</span></div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--newc)"></i>새 사이클</span>
+      <span><i class="dot" style="background:var(--normal)"></i>NORMAL</span>
+      <span><i class="dot" style="background:var(--reverse)"></i>REVERSE</span>
+      <span><i class="dot" style="background:var(--cycle)"></i>사이클 종료</span>
+    </div>
+  </section>
+
+  <!-- 4. 주문 표 -->
+  <section>
+    <h2><span class="num">4</span> 국면별 주문 요약</h2>
+    <table>
+      <tr><th>국면</th><th>매수</th><th>매도</th></tr>
+      <tr>
+        <td>새 사이클 (T=0)</td>
+        <td><span class="buy">큰수 = 종가×1.10</span> <span class="pill loc">LOC</span> + 하방 5단 티어</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>전반전 (T &lt; 분할/2)</td>
+        <td>1금 절반 <span class="buy">별지점</span>, 절반 <span class="buy">평단</span> <span class="pill loc">LOC</span> + 티어</td>
+        <td>1/4 별지점 <span class="pill loc">LOC</span> + 3/4 목표가 <span class="pill lim">지정가</span></td>
+      </tr>
+      <tr>
+        <td>후반전 (T ≥ 분할/2)</td>
+        <td>1금 전액 <span class="buy">별지점</span> <span class="pill loc">LOC</span> + 티어</td>
+        <td>〃</td>
+      </tr>
+      <tr>
+        <td>리버스 1일차</td>
+        <td>🚫 매수 금지</td>
+        <td>보유 ÷(분할/2) <span class="pill moc">MOC</span></td>
+      </tr>
+      <tr>
+        <td>리버스 2일차~</td>
+        <td>(잔금+매도금)/4 → 5일평균 아래 <span class="pill loc">LOC</span></td>
+        <td>보유 ÷(분할/2) → 5일평균 위 <span class="pill loc">LOC</span></td>
+      </tr>
+    </table>
+    <p class="note">별% = 목표 − (2·목표/분할수)·T · 별지점 = 평단×(1+별%) · 매수는 별지점−$0.01 · 1회매수금 = 잔금/(분할수−T)</p>
+  </section>
+
+  <!-- 5. 안전 게이트 -->
+  <section>
+    <h2><span class="num">5</span> 실주문 안전 게이트 (3중)</h2>
+    <div class="gate flow">
+      <div class="box"><div class="t">주문 계산됨</div></div>
+      <div class="arrow s">↓</div>
+      <div class="q">config-v4 <b>enabled = true?</b> <span class="no">— No →</span></div>
+      <div class="row" style="margin:6px 0"><div class="result stop">⛔ 즉시 종료 (아무것도 안 함) &nbsp;←&nbsp; 지금 여기</div></div>
+      <div class="arrow s">↓ Yes</div>
+      <div class="q"><b>V4_LIVE_ORDERS = YES_REALLY?</b> <span class="no">— No →</span></div>
+      <div class="row" style="margin:6px 0"><div class="result dry">🟡 DRY-RUN (로그만, 실주문 X)</div></div>
+      <div class="arrow s">↓ Yes</div>
+      <div class="result live">🔴 실제 KIS 주문 제출</div>
+    </div>
+    <p class="note">현재는 맨 위 <code>enabled=false</code>에서 막혀 있는 상태입니다. "4.0으로 전환" 하면 1번 스위치가 켜지고, 실주문(<code>V4_LIVE_ORDERS</code>)은 따로 확인받고 엽니다.</p>
+  </section>
+
+</div>
+</body>
+</html>
