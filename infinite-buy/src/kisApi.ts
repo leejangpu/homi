@@ -409,6 +409,8 @@ export class KisApiClient {
   /**
    * 해외주식 기간별 일봉 종가 조회 (V4 리버스 5일평균용 — 추가 메서드, 기존 동작 무영향)
    * 반환: 시간순(오래된→최근) 종가 배열.
+   * 스펙 확인: KIS 공식 샘플 koreainvestment/open-trading-api
+   *   examples_llm/overseas_stock/dailyprice — 엔드포인트/tr_id/params(AUTH·EXCD·SYMB·GUBN·BYMD·MODP)/output2.xymd.clos 일치 확인.
    */
   async getDailyClosingPrices(
     appKey: string, appSecret: string, accessToken: string, ticker: string, exchange: string, count: number = 6
