@@ -1,0 +1,9 @@
+{
+  "_comment": "V4.0 전용 설정. 기존 config.json(v2.2 실거래)과 완전 분리. enabled=false 이면 v4 결선은 동작 안 함. 실주문은 추가로 환경변수 V4_LIVE_ORDERS=YES_REALLY 필요(이중 가드).",
+  "enabled": false,
+  "tickers": ["TQQQ", "SOXL"],
+  "tickerConfigs": {
+    "TQQQ": { "splitCount": 40, "targetYield": 15, "largeNumPct": 10, "exchange": "NASD", "principal": 10000 },
+    "SOXL": { "splitCount": 40, "targetYield": 20, "largeNumPct": 10, "exchange": "AMEX", "principal": 10000 }
+  }
+}

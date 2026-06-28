@@ -1,0 +1,3 @@
+# 언이시트 무한매수법 V4 Apps Script 원본 (2026/06/11 by 언이)
+# 이 파일은 V4.0 구현의 권위 있는 출처(source of truth)다. src/v4/ 는 이 스크립트를 1:1 포팅한다.
+# (전체 소스는 대화 기록 참조 — 핵심 함수: startCycle, updateDaily)
