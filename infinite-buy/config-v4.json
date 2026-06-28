@@ -4,7 +4,7 @@
   "capitalSource": "account",
   "tickers": ["TQQQ", "SOXL"],
   "tickerConfigs": {
-    "TQQQ": { "splitCount": 40, "targetYield": 15, "largeNumPct": 10, "exchange": "NASD", "principal": 10000 },
-    "SOXL": { "splitCount": 40, "targetYield": 20, "largeNumPct": 10, "exchange": "AMEX", "principal": 10000 }
+    "TQQQ": { "splitCount": 30, "targetYield": 15, "largeNumPct": 10, "exchange": "NASD", "principal": 10000 },
+    "SOXL": { "splitCount": 30, "targetYield": 20, "largeNumPct": 10, "exchange": "AMEX", "principal": 10000 }
   }
 }
