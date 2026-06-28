@@ -406,6 +406,38 @@ export class KisApiClient {
     return response.json();
   }
 
+  /**
+   * 해외주식 기간별 일봉 종가 조회 (V4 리버스 5일평균용 — 추가 메서드, 기존 동작 무영향)
+   * 반환: 시간순(오래된→최근) 종가 배열.
+   */
+  async getDailyClosingPrices(
+    appKey: string, appSecret: string, accessToken: string, ticker: string, exchange: string, count: number = 6
+  ): Promise<number[]> {
+    const quoteExchange = QUOTE_EXCHANGE_MAP[exchange] ?? exchange;
+    const response = await fetch(
+      `${BASE_URL}/uapi/overseas-price/v1/quotations/dailyprice?` +
+        new URLSearchParams({ AUTH: '', EXCD: quoteExchange, SYMB: ticker, GUBN: '0', BYMD: '', MODP: '1' }),
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          authorization: `Bearer ${accessToken}`,
+          appkey: appKey, appsecret: appSecret,
+          tr_id: 'HHDFS76240000',
+        },
+      }
+    );
+    if (!response.ok) throw new Error(`Daily price request failed for ${ticker}: ${response.status}`);
+    const data = await response.json();
+    const rows: Array<{ xymd?: string; clos?: string }> = data.output2 || [];
+    // output2는 최신→과거 순. 종가 파싱 후 시간순 정렬, 최근 count개.
+    const parsed = rows
+      .map(r => ({ d: r.xymd || '', c: parseFloat(r.clos || '0') }))
+      .filter(r => r.c > 0)
+      .sort((a, b) => a.d.localeCompare(b.d));
+    return parsed.slice(-count).map(r => r.c);
+  }
+
 }
 
 function delay(ms: number): Promise<void> {

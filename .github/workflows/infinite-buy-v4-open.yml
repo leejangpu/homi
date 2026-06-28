@@ -1,0 +1,61 @@
+name: Infinite Buy V4 - Market Open
+
+# V4.0 전용. 기존 infinite-buy-open.yml(v2.2/v3.0)과 독립.
+# 장 개시: close가 계산해둔 다음주문 제출.
+# ⚠️ 실주문은 env V4_LIVE_ORDERS=YES_REALLY 가 있어야만 나감. 없으면 DRY-RUN(로그만).
+on:
+  # schedule:
+  #   - cron: '30 13 * * 1-5'  # 미국 프리장/장초반. 실가동 시 활성화/launchd 전환
+  workflow_dispatch:
+    inputs:
+      live_orders:
+        description: '실주문 제출 (YES_REALLY 입력 시에만 실제 주문). 비워두면 DRY-RUN.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  submit-orders:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: infinite-buy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install --silent
+
+      - name: Run V4 open (submit orders)
+        id: run
+        env:
+          V4_LIVE_ORDERS: ${{ github.event.inputs.live_orders }}
+        run: |
+          if [ -f .env ]; then set -a && source .env && set +a; fi
+          echo "▶ main-open-v4.ts at $(date '+%Y-%m-%d %H:%M:%S') | LIVE=${V4_LIVE_ORDERS:-(none/DRY-RUN)}"
+          npx tsx src/v4/main-open-v4.ts 2>&1 | tee /tmp/v4-open.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit $EXIT_CODE
+
+      - name: Commit V4 logs
+        run: |
+          git config user.name "infinite-buy-bot"
+          git config user.email "bot@infinite-buy.local"
+          git add logs/
+          if git diff --staged --quiet; then echo "▶ No changes"; else
+            git commit -m "infinite-buy v4: open orders $(date '+%Y-%m-%d')"
+            git pull --rebase && git push
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Infinite Buy V4 — Open" >> $GITHUB_STEP_SUMMARY
+          echo "- LIVE: ${{ github.event.inputs.live_orders || 'DRY-RUN' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Exit: ${{ steps.run.outputs.exit_code || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/v4-open.log ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY; cat /tmp/v4-open.log >> $GITHUB_STEP_SUMMARY; echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

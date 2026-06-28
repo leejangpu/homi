@@ -1,0 +1,54 @@
+name: Infinite Buy V4 - Market Close
+
+# V4.0 전용. 기존 infinite-buy-close.yml(v2.2/v3.0)과 독립.
+# 장 마감 후: 실제 보유 동기화 → updateDaily → 상태/다음주문 영속화. (주문 제출 없음)
+on:
+  # schedule:
+  #   - cron: '5 21 * * 1-5'  # 미국 장마감 후 (서머타임 기준). 실가동 시 활성화/launchd 전환
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync-close:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: infinite-buy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install --silent
+
+      - name: Run V4 close sync
+        id: run
+        run: |
+          if [ -f .env ]; then set -a && source .env && set +a; fi
+          echo "▶ main-close-v4.ts at $(date '+%Y-%m-%d %H:%M:%S')"
+          npx tsx src/v4/main-close-v4.ts 2>&1 | tee /tmp/v4-close.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit $EXIT_CODE
+
+      - name: Commit V4 state
+        run: |
+          git config user.name "infinite-buy-bot"
+          git config user.email "bot@infinite-buy.local"
+          git add state/ logs/ history/ config-v4.json
+          if git diff --staged --quiet; then
+            echo "▶ No changes"
+          else
+            git commit -m "infinite-buy v4: close sync $(date '+%Y-%m-%d')"
+            git pull --rebase && git push
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Infinite Buy V4 — Close" >> $GITHUB_STEP_SUMMARY
+          echo "- Exit: ${{ steps.run.outputs.exit_code || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/v4-close.log ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY; cat /tmp/v4-close.log >> $GITHUB_STEP_SUMMARY; echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

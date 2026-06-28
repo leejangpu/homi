@@ -1,6 +1,7 @@
 {
-  "_comment": "V4.0 전용 설정. 기존 config.json(v2.2 실거래)과 완전 분리. enabled=false 이면 v4 결선은 동작 안 함. 실주문은 추가로 환경변수 V4_LIVE_ORDERS=YES_REALLY 필요(이중 가드).",
+  "_comment": "V4.0 전용 설정. 기존 config.json(v2.2 실거래)과 완전 분리. enabled=false면 v4 결선 미동작. 실주문은 추가로 환경변수 V4_LIVE_ORDERS=YES_REALLY 필요(이중 가드). capitalSource=account면 첫 v4 사이클 원금을 실계좌 예수금(USD)/미시작종목수 로 배분, 이후 복리.",
   "enabled": false,
+  "capitalSource": "account",
   "tickers": ["TQQQ", "SOXL"],
   "tickerConfigs": {
     "TQQQ": { "splitCount": 40, "targetYield": 15, "largeNumPct": 10, "exchange": "NASD", "principal": 10000 },

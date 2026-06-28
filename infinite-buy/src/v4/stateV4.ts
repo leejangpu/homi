@@ -74,6 +74,16 @@ export function nextV4CycleNumber(ticker: string): number {
   return nums.length ? Math.max(...nums) + 1 : 1;
 }
 
+/**
+ * 기존 v2.2/v3.0 사이클 상태 조회 (전환 가드용, 읽기 전용).
+ * state/{ticker}.json 이 active 이거나 보유수량>0 이면 v4가 아직 그 종목을 건드리면 안 됨.
+ */
+export function readV2Status(ticker: string): { active: boolean; shares: number } | null {
+  const s = readJson<{ status?: string; totalQuantity?: number }>(path.join(ROOT, 'state', `${ticker}.json`));
+  if (!s) return null;
+  return { active: s.status === 'active', shares: Number(s.totalQuantity) || 0 };
+}
+
 /** 초기 사이클 상태 생성 (startCycle 상당) */
 export function initV4State(cfg: {
   ticker: string; splitCount: number; targetYield: number; largeNumPct: number;

@@ -41,6 +41,16 @@ export async function buildRealDeps(cfg: V4Config, creds: ReturnType<typeof load
     async getCurrentPrice(ticker, exchange) {
       return kis.getCurrentPrice(creds.appKey, creds.appSecret, token, ticker, exchange);
     },
+    async getDailyCloses(ticker, exchange, count) {
+      return kis.getDailyClosingPrices(creds.appKey, creds.appSecret, token, ticker, exchange, count);
+    },
+    async getAvailableCashUSD() {
+      // 외화 주문가능금액(USD 예수금 상당). 임의 종목/가격으로 조회 (금액은 종목 무관).
+      const t = cfg.tickers[0];
+      const ex = cfg.tickerConfigs[t].exchange;
+      const r = await kis.getBuyableAmount(creds.appKey, creds.appSecret, token, creds.accountNo, t, 1, ex);
+      return parseFloat(r.output?.frcr_ord_psbl_amt1 || r.output?.ovrs_ord_psbl_amt || '0');
+    },
     async submitOrder(o) {
       const desc = `${o.side} ${o.orderType} ${o.ticker} ${o.quantity}주 @ $${o.price}`;
       if (!isLive()) {

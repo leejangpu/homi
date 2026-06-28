@@ -17,12 +17,13 @@ const N = Number(process.argv[2] || 120);
 const ohlc: OHLC[] = JSON.parse(fs.readFileSync(path.join(DATA, 'TQQQ.json'), 'utf-8')).slice(0, N);
 
 const cfg: V4Config = {
-  enabled: true, tickers: ['TQQQ'],
+  enabled: true, tickers: ['TQQQ'], capitalSource: 'fixed', // 백테스트와 동일 원금 비교 위해 고정
   tickerConfigs: { TQQQ: { splitCount: 40, targetYield: 15, largeNumPct: 10, exchange: 'NASD', principal: 10000 } },
 };
 
 // ── 목 KIS: 보유/체결/주문을 메모리로 시뮬 (DRY-RUN: submit은 기록만) ──
 let mock = { shares: 0, avg: 0, cash: 10000, curClose: 0 };
+let curIdx = 0;
 let pending: UniOrder[] = [];
 let realSubmits = 0, dryLogged = 0;
 
@@ -50,6 +51,8 @@ function mockFill(day: OHLC) {
 const deps: V4Deps = {
   async getBalances() { return mock.shares > 0 ? [{ ticker: 'TQQQ', shares: mock.shares, avgPrice: mock.avg, currentPrice: mock.curClose }] : []; },
   async getCurrentPrice() { return mock.curClose; },
+  async getDailyCloses(_t, _e, count) { return ohlc.slice(0, curIdx + 1).map(d => d.close).slice(-count); },
+  async getAvailableCashUSD() { return 10000; },
   async submitOrder(o) {
     // DRY-RUN 게이트 모사: 실제 제출하지 않고 pending에만 적재
     dryLogged++;
@@ -68,6 +71,7 @@ function readCycle(): number {
   let prevCycle = 0;
   for (let i = 0; i < ohlc.length; i++) {
     const day = ohlc[i];
+    curIdx = i;
     mock.curClose = day.close;
     await runOpenV4(cfg, deps);   // 어제 close가 만든 다음주문 제출(→pending)
     mockFill(day);                // 당일 체결

@@ -83,8 +83,9 @@ export function runBacktest(cfg: SimConfig, ohlc: OHLC[]): BacktestResult {
 
   for (let i = 0; i < ohlc.length; i++) {
     const day = ohlc[i];
-    const sma5 = i >= 5
-      ? (ohlc.slice(i - 5, i).reduce((s, d) => s + d.close, 0) / 5)
+    // 언이시트 D8: 최근 5거래일 종가 평균 (오늘 포함). i-4..i
+    const sma5 = i >= 4
+      ? (ohlc.slice(i - 4, i + 1).reduce((s, d) => s + d.close, 0) / 5)
       : day.close;
 
     // 1) 직전 주문 체결 → 오늘 보유
