@@ -1,3 +1,46 @@
-# 언이시트 무한매수법 V4 Apps Script 원본 (2026/06/11 by 언이)
-# 이 파일은 V4.0 구현의 권위 있는 출처(source of truth)다. src/v4/ 는 이 스크립트를 1:1 포팅한다.
-# (전체 소스는 대화 기록 참조 — 핵심 함수: startCycle, updateDaily)
+/**
+ * 언이시트 무한매수법 V4 Apps Script — 포팅 근거/규칙 요약 (2026/06/11 by 언이)
+ * ─────────────────────────────────────────────────────────────
+ * V4.0 구현의 권위 있는 출처(source of truth). src/v4/unisheet.ts 가 이 스크립트의
+ * updateDaily/startCycle 을 1:1 포팅. 전체 원본 코드는 시트 → 확장프로그램 → Apps Script.
+ * (사용자 공유 Google Sheets "무매 v4 자동계산 언이시트_1.1"의 바운드 스크립트)
+ *
+ * 셀 매핑: B2종목 B3분할수(n) B4원금 B5종가 B6보유 B7평단 B8큰수기준
+ *          D2모드 D3T D4P(별%) D5잔금 D6목표수익률 D8 직전5일평균(A)
+ *
+ * 버전: 26/04/01 큰수기준 추가 / 26/05/08 지정가매도 후 LOC매수 / 26/06/11 리버스진입 T>n-1
+ */
+
+// ── T값 갱신 (updateDaily) ──
+// BUY  NORMAL: oldShares==0 → T+1 / T<n/2(전반): 종가>평단 ? T+0.5 : T+1 / 후반(T≥n/2): T+1
+//      REVERSE: T + (n-T)*0.25
+// SELL 100%매도 → 사이클종료(T=0)
+//      newShares ≤ oldShares*0.60 (3/4지정가 체결+1/4잔여+LOC매수):
+//          newShares>qQty(=floor(old*0.25)) 면 종가>평단 ? oldT*0.25+0.5 : oldT*0.25+1.0, 아니면 oldT*0.25
+//      일반 1/4 쿼터: NORMAL oldT*0.75 / REVERSE oldT*(1-2/n)
+//
+// 모드: NORMAL & T>n-1 → REVERSE / REVERSE & 종가 > 평단*(1-목표%/100) → NORMAL
+// P(별%): NORMAL  target - (target/(n/2))*T   / REVERSE 0
+// 1회매수금 amt: REVERSE balance/4 / NORMAL balance/max(0.1, n-T) / 새사이클 principal/n
+// 잔금 balance = principal - 보유*평단 + 누적실현손익 + 당일손익
+// 당일손익: 100%매도 = 1/4*(종가-평단)+3/4*(평단*(1+목표)-평단) / 쿼터 = soldQty*(종가-평단)
+//
+// ── 매수 주문 (전부 LOC) ──
+// largeNum(큰수) = 종가 * (1 + 큰수기준%/100)        // 큰수기준 기본 10
+// 새사이클(보유0): baseQty=floor(amt/largeNum) @ largeNum
+// REVERSE(2일차+): floor(amt/(sma5-0.01)) @ (sma5-0.01)
+// 전반(T<n/2): price1=min(별지점-0.01, 큰수), price2=min(평단, 큰수)
+//              q1=floor(amt*0.5/price1) @ price1 ; totalQty=floor(amt/price2) ; q2=max(0,totalQty-q1) @ price2
+// 후반(T≥n/2): finalPrice=min(별지점-0.01, 큰수) ; floor(amt/finalPrice) @ finalPrice
+// 대폭락 티어: checkQty=baseQty+1.. ; tierPrice=amt/checkQty ; tierPrice<큰수 동안 1주씩, 최대 5단
+// (리버스 진입 1일차는 매수 금지)
+//
+// ── 매도 주문 ──
+// 쿼터 qQty=floor(보유*0.25): LOC 별지점(=평단*(1+P/100)) qQty / LIMIT 평단*(1+목표%/100) (보유-qQty)
+// REVERSE: 1일차 MOC floor(보유/(n/2)) / 2일차+ LOC sma5 floor(보유/(n/2))
+//
+// ── 리버스 5일평균(별지점) ──
+// 직전 5거래일 종가 평균 (시트 D8: GOOGLEFINANCE 최근 5종가, 오늘 포함).
+// 프로덕션: KIS 일봉 HHDFS76240000 으로 조회 — docs/kis-api/dailyprice 참고.
+//
+// 코드 동작의 단일 진실원천: src/v4/unisheet.ts (본 규칙의 정확한 구현). 검증: src/v4/test-port.ts.
