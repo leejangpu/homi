@@ -999,11 +999,77 @@
       "result": "미확인",
       "winnings": 0,
       "winDetail": "미확인"
+    },
+    {
+      "round": 1231,
+      "buyDate": "2026-06-29",
+      "drawDate": "2026-07-04",
+      "tickets": [
+        {
+          "numbers": [
+            9,
+            17,
+            27,
+            35,
+            41,
+            43
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            13,
+            18,
+            28,
+            30,
+            42,
+            43
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            10,
+            14,
+            25,
+            29,
+            31,
+            34
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            3,
+            7,
+            13,
+            25,
+            26,
+            39
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            6,
+            12,
+            14,
+            27,
+            40,
+            44
+          ],
+          "mode": "random"
+        }
+      ],
+      "totalAmount": 5000,
+      "result": "pending",
+      "winnings": 0,
+      "winDetail": ""
     }
   ],
   "stats": {
-    "totalSpent": 80000,
+    "totalSpent": 85000,
     "totalWon": 10000,
-    "totalRounds": 16
+    "totalRounds": 17
   }
 }
