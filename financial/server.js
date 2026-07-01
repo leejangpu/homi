@@ -19,6 +19,10 @@ const RECORD_TOKEN = process.env.RECORD_TOKEN;
 const upload = multer({ dest: path.join(ROOT, 'tmp') });
 
 app.use(express.json({ limit: '10mb' }));
+
+// DB 기반 읽기 API (P2~). 기존 파일 경로와 병행, 라이브 전환은 P4에서.
+app.use('/api', require('./api'));
+
 app.use(express.static(ROOT));
 app.use('/infinite-buy', express.static(path.join(ROOT, '../infinite-buy')));
 app.use('/lotto', express.static(path.join(ROOT, '../lotto')));
