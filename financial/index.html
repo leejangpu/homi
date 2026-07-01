@@ -1451,6 +1451,11 @@ let activeFilter='all';
 let jexcelInstance=null;
 let _isFormatting=false;
 let expenseDetailData={};
+// ===== 실시간(DB) 레이어 상태 =====
+const cellVersions={};   // {year: {"r,c": version}}  낙관적 잠금용 셀 버전
+let vrVersions={};       // {ticker: version}
+let expenseVersions={};  // {"YYYY-MM": version}
+const clientId='c'+Math.random().toString(36).slice(2)+Date.now().toString(36); // SSE 자기이벤트 무시용
 let expDetailMonth=null;
 let chartInstances=[];
 function _krConvert(n){
@@ -2645,7 +2650,7 @@ function renderSpreadsheet(container,key){
     tableOverflow:true, tableWidth:(document.getElementById('spreadsheet').offsetWidth||window.innerWidth)+'px', tableHeight:(window.innerHeight-280)+'px',
     allowInsertRow:true, allowDeleteRow:true, columnSorting:false,
     contextMenu:(el,x,y)=>[{title:'위에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,true)},{title:'아래에 행 삽입',onclick:()=>jexcelInstance.insertRow(1,y,false)},{type:'line'},{title:'행 삭제',onclick:()=>jexcelInstance.deleteRow(y)}],
-    onchange:(instance,cell,x,y,value)=>{if(_isFormatting)return;sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);setTimeout(applyCompactDisplay,150);if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){_isFormatting=true;jexcelInstance.setValueFromCoords(x,y,formatted,true);_isFormatting=false;}}},
+    onchange:(instance,cell,x,y,value)=>{if(_isFormatting)return;sec[key].data=jexcelInstance.getData();showSS('수정됨');setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);setTimeout(applyCompactDisplay,150);let fin=value;if(x>=4){const formatted=autoFormatAmount(value);if(formatted!==value){fin=formatted;_isFormatting=true;jexcelInstance.setValueFromCoords(x,y,formatted,true);_isFormatting=false;}}dbPatchCell(key,x,y,fin);},
     oninsertrow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);setTimeout(applyCompactDisplay,150);},
     ondeleterow:()=>{sec[key].data=jexcelInstance.getData();setTimeout(applyCellStyles,50);setTimeout(applyFilter,100);setTimeout(applyCompactDisplay,150);},
     onselection:(instance,x1,y1,x2,y2)=>{showCellTooltip(x1,y1);},
@@ -3346,19 +3351,16 @@ async function confirmPassword(){
 }
 
 async function doSave(password){
-  showSS('저장 중...');
+  // 실시간 저장이 기본(셀 편집 즉시 PATCH). 이 버튼은 전체 시트 동기(구조 변경 반영 + 강제 전체저장).
+  showSS('전체 저장 중...');
   try{
     syncSectionsToRaw(activeYear);
     calcAllTotals(activeYear);
-    const csv=toCSV(rawSheets[activeYear]);
-    const res=await fetch('/save',{
-      method:'POST',
+    const grid=rawSheets[activeYear];
+    const res=await fetch('/api/budget/'+encodeURIComponent(activeYear)+'/sheet',{
+      method:'PUT',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        password:password,
-        year:String(activeYear),
-        content:csv
-      })
+      body:JSON.stringify({password:password, grid:grid, clientId:clientId})
     });
     if(!res.ok){
       if(res.status===401){
@@ -3367,10 +3369,11 @@ async function doSave(password){
         showSS('비밀번호 오류 — 다시 시도하세요');
         return;
       }
+      if(res.status===409){showSS('⚠️ 구조 충돌 — 새로고침 후 재시도');return;}
       const err=await res.text();
       throw new Error(err||'저장 실패: '+res.status);
     }
-    splitSections(activeYear);
+    await reloadBudgetYear(activeYear); // 버전/그리드 최신화
     renderView();
     showSS('저장 완료 ✓');
     startReportPoll();
@@ -3404,20 +3407,30 @@ let vrActiveKey = null;
 let vrLoaded = false;
 
 async function loadVRState(){
+  // DB(/api/vr) 우선
+  try{
+    const r = await fetch('/api/vr');
+    if(r.ok){
+      const j = await r.json();
+      vrTrackers = j.trackers || {};
+      vrVersions = j.versions || {};
+      vrActiveKey = Object.keys(vrTrackers)[0] || null;
+      return;
+    }
+  }catch(e){}
+  // 파일 폴백
   try{
     const r = await fetch('./vr-state.json?t='+Date.now());
     if(r.ok){
       const data = await r.json();
       if(data && typeof data === 'object'){
-        // 구버전 단일 객체 포맷 자동 마이그레이션 (root에 ticker 문자열이 있으면 구버전)
         if(typeof data.ticker === 'string'){
           if(!data.cycleStartDate) data.cycleStartDate = (data.lastUpdated||'').slice(0,10) || new Date().toISOString().slice(0,10);
           vrTrackers = {[data.ticker || 'QLD']: data};
         } else {
           vrTrackers = data;
         }
-        const keys = Object.keys(vrTrackers);
-        vrActiveKey = keys[0] || null;
+        vrActiveKey = Object.keys(vrTrackers)[0] || null;
       }
     }
   }catch(e){ vrTrackers = {}; vrActiveKey = null; }
@@ -3751,13 +3764,16 @@ function vrBuildState(overrides={}){
 
 async function vrPushState(state){
   vrTrackers[vrActiveKey] = state;
-  const json = JSON.stringify(vrTrackers, null, 2);
-  const res = await fetch('/save-vr',{
-    method:'POST',
+  const pw = localStorage.getItem('save_password') || '';
+  const res = await fetch('/api/vr/'+encodeURIComponent(vrActiveKey),{
+    method:'PATCH',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({content:json})
+    body:JSON.stringify({password:pw, data:state, baseVersion:(vrVersions[vrActiveKey]||0), clientId})
   });
+  if(res.status===401){ showPasswordModal(); throw new Error('비밀번호 필요'); }
+  if(res.status===409){ const j=await res.json(); if(j.current)vrTrackers[vrActiveKey]=j.current; vrVersions[vrActiveKey]=j.currentVersion; throw new Error('충돌: 다른 곳에서 먼저 수정됨 — 새로고침'); }
   if(!res.ok) throw new Error('저장 실패: '+res.status);
+  const j = await res.json(); vrVersions[vrActiveKey] = j.version;
   vrUpdateActions();
 }
 
@@ -3864,23 +3880,26 @@ async function vrEndCycle(){
   vrShowToast('종료 중...');
   try{
     const entry = vrBuildState({ cycleStatus: 'ended', endedAt: new Date().toISOString() });
-    const histRes = await fetch('/save-vr-history',{
+    const pw = localStorage.getItem('save_password') || '';
+    const histRes = await fetch('/api/vr/history',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({entry})
+      body:JSON.stringify({password:pw, entry, clientId})
     });
+    if(histRes.status===401){ showPasswordModal(); throw new Error('비밀번호 필요'); }
     if(!histRes.ok) throw new Error('히스토리 저장 실패: '+histRes.status);
 
     delete vrTrackers[removedKey];
     const keys = Object.keys(vrTrackers);
     vrActiveKey = keys[0] || null;
 
-    const res = await fetch('/save-vr',{
-      method:'POST',
+    const res = await fetch('/api/vr/'+encodeURIComponent(removedKey),{
+      method:'DELETE',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({content: JSON.stringify(vrTrackers, null, 2)})
+      body:JSON.stringify({password:pw, clientId})
     });
-    if(!res.ok) throw new Error('상태 저장 실패: '+res.status);
+    if(!res.ok && res.status!==404) throw new Error('상태 저장 실패: '+res.status);
+    delete vrVersions[removedKey];
 
     vrShowToast(`✓ ${removedKey} 사이클 종료 (히스토리 보관)`);
     await renderVRCalc();
@@ -4128,6 +4147,7 @@ async function saveExpenseDetail(){
   const btn=document.getElementById('expDetailSaveBtn');
   if(btn){btn.textContent='저장 중...';btn.style.color='';}
   try{
+    // 영수증/메모는 파일 기반(P5 import 브리지가 DB로 흡수). CI·영수증도 파일을 쓰므로 단일 경로 유지.
     const res=await fetch('/save-expense-detail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,content:expenseDetailData})});
     const data=await res.json();
     if(!res.ok){alert('오류: '+(data.error||res.status));if(btn){btn.textContent='저장';btn.style.color='';}return;}
@@ -4138,12 +4158,96 @@ async function saveExpenseDetail(){
   }
 }
 
+// ===== 실시간(DB) 저장 레이어 =====
+let _pwWarned=false;
+// 셀 1개 편집 → PATCH (낙관적 잠금). 편집 셀 + 재계산된 합계까지 서버가 changed로 반환.
+function dbPatchCell(key,x,y,value){
+  if(y<1)return; // 헤더행
+  const sec=sections[activeYear]; if(!sec||!sec[key]||!sec[key].rows)return;
+  const gridRow=sec[key].rows[y-1]; if(gridRow==null)return;
+  const gridCol=x, year=String(activeYear), vkey=gridRow+','+gridCol;
+  const base=(cellVersions[year]&&cellVersions[year][vkey])||0;
+  if(rawSheets[year]&&rawSheets[year][gridRow])rawSheets[year][gridRow][gridCol]=value; // 로컬 낙관적 반영
+  const pw=localStorage.getItem('save_password');
+  if(!pw){if(!_pwWarned){_pwWarned=true;showPasswordModal();}return;}
+  fetch('/api/budget/cell',{method:'PATCH',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({password:pw,year:Number(year),r:gridRow,c:gridCol,raw:value,baseVersion:base,clientId})})
+  .then(async r=>{
+    if(r.status===401){localStorage.removeItem('save_password');showSS('비밀번호 오류 — 다시 저장하세요');return;}
+    if(r.status===409){const j=await r.json();showSS('⚠️ 충돌: 다른 곳에서 먼저 수정됨 — 최신값 반영');applyServerCell(year,gridRow,gridCol,j.current.raw,j.current.version);return;}
+    if(!r.ok){showSS('저장 실패 ('+r.status+')');return;}
+    const j=await r.json();
+    (j.changed||[]).forEach(ch=>applyServerCell(year,ch.r,ch.c,ch.raw,ch.version));
+    showSS('저장됨 ✓');
+  }).catch(e=>showSS('저장 실패: '+e.message));
+}
+// 서버가 확정한 셀값/버전을 로컬(그리드+버전+화면)에 반영
+function applyServerCell(year,r,c,raw,version){
+  year=String(year); raw=raw||'';
+  if(!cellVersions[year])cellVersions[year]={};
+  const vkey=r+','+c;
+  if(version)cellVersions[year][vkey]=version; else delete cellVersions[year][vkey];
+  if(rawSheets[year]&&rawSheets[year][r])rawSheets[year][r][c]=raw;
+  if(year===String(activeYear)&&jexcelInstance){
+    const sec=sections[activeYear];
+    for(const key of['income','savings','expense','asset']){
+      const rows=sec&&sec[key]&&sec[key].rows; if(!rows)continue;
+      const idx=rows.indexOf(r); if(idx<0)continue;
+      if(sec[key].data&&sec[key].data[idx+1])sec[key].data[idx+1][c]=raw;
+      if(activeSection===key){try{_isFormatting=true;jexcelInstance.setValueFromCoords(c,idx+1,raw,true);_isFormatting=false;}catch(e){_isFormatting=false;}}
+    }
+  }
+}
+// 연도 시트 전체 재로드(구조 변경/충돌 후)
+async function reloadBudgetYear(year){
+  year=String(year);
+  try{const r=await fetch('/api/budget/'+year);if(r.ok){const j=await r.json();rawSheets[year]=j.grid;cellVersions[year]=j.versions||{};splitSections(year);calcAllTotals(year);splitSections(year);}}catch(e){}
+}
+// SSE: 다른 탭/기기의 변경 실시간 수신
+function initRealtime(){
+  try{
+    const es=new EventSource('/api/stream');
+    es.onmessage=(e)=>{let evt;try{evt=JSON.parse(e.data);}catch(_){return;}onRealtimeEvent(evt);};
+    es.onerror=()=>{/* 브라우저가 자동 재연결 */};
+  }catch(e){}
+}
+function onRealtimeEvent(evt){
+  if(!evt||evt.clientId===clientId)return; // 내가 낸 이벤트는 무시
+  if(evt.type==='budget-cell'){
+    const year=String(evt.year);
+    (evt.changed||[]).forEach(ch=>applyServerCell(year,ch.r,ch.c,ch.raw,ch.version));
+    if(year===String(activeYear)){try{setTimeout(applyCellStyles,30);if(activeSection==='dashboard')renderView();}catch(_){}}
+    showSS('🔄 다른 곳의 변경 반영됨');
+  }else if(evt.type==='budget-sheet'){
+    reloadBudgetYear(evt.year).then(()=>{try{renderView();}catch(_){}});
+  }else if(evt.type==='vr'||evt.type==='vr-history'){
+    loadVrFromDb().then(()=>{try{if(activeSection==='vr')renderView();}catch(_){}});
+  }else if(evt.type==='expense'){
+    loadExpenseFromDb().then(()=>{try{renderView();}catch(_){}});
+  }
+}
+// VR/영수증 DB 로드 (SSE 리로드 및 init 공용)
+async function loadVrFromDb(){
+  try{const r=await fetch('/api/vr');if(r.ok){const j=await r.json();vrTrackers=j.trackers||{};vrVersions=j.versions||{};if(!vrActiveKey||!vrTrackers[vrActiveKey])vrActiveKey=Object.keys(vrTrackers)[0]||null;}}catch(e){}
+}
+async function loadExpenseFromDb(){
+  try{const r=await fetch('/api/expense');if(r.ok){const j=await r.json();expenseDetailData=j.data||{};expenseVersions=j.versions||{};}}catch(e){}
+}
+
 // ===== Init =====
 async function init(){
-  // Load AI summaries
+  // AI 요약/영수증은 파일 기반(CI·영수증이 파일을 쓰는 경로. P5 브리지가 DB와 동기)
   try{const r=await fetch('./summary.json?t='+Date.now());if(r.ok)aiSummaries=await r.json();}catch(e){}
   await loadExpenseDetail();
-  for(const f of['2025','2026']){try{const r=await fetch(`./${f}.csv?t=`+Date.now());if(r.ok){rawSheets[f]=parseCSV(await r.text());splitSections(f);calcAllTotals(f);splitSections(f);}}catch(e){}}
+  // 가계부 시트: DB(/api/budget) 우선, 실패 시 CSV 파일 폴백
+  let years=['2025','2026'];
+  try{const r=await fetch('/api/budget');if(r.ok){const j=await r.json();if(j.years&&j.years.length)years=j.years;}}catch(e){}
+  for(const f of years){
+    let loaded=false;
+    try{const r=await fetch('/api/budget/'+f);if(r.ok){const j=await r.json();rawSheets[f]=j.grid;cellVersions[f]=j.versions||{};splitSections(f);calcAllTotals(f);splitSections(f);loaded=true;}}catch(e){}
+    if(!loaded){try{const r=await fetch(`./${f}.csv?t=`+Date.now());if(r.ok){rawSheets[f]=parseCSV(await r.text());cellVersions[f]={};splitSections(f);calcAllTotals(f);splitSections(f);}}catch(e){}}
+  }
+  initRealtime(); // SSE 구독 시작
   if(!Object.keys(rawSheets).length){rawSheets['new']=[Array(20).fill('')];splitSections('new');}
   // Default to year matching today, or latest
   activeYear=rawSheets[String(THIS_YEAR)]?String(THIS_YEAR):Object.keys(rawSheets).pop();

@@ -20,8 +20,11 @@ const upload = multer({ dest: path.join(ROOT, 'tmp') });
 
 app.use(express.json({ limit: '10mb' }));
 
-// DB 기반 읽기 API (P2~). 기존 파일 경로와 병행, 라이브 전환은 P4에서.
+// DB 기반 API (P2~). 읽기/쓰기(낙관적 잠금)/SSE.
 app.use('/api', require('./api'));
+
+// P5: Git 동기화 브리지 — DB변경→export→commit, 외부(CI·영수증·타기기)→import. 부팅 시 시작.
+try { require('./gitsync').startPeriodicSync(); } catch (e) { console.error('[gitsync] 시작 실패:', e.message); }
 
 app.use(express.static(ROOT));
 app.use('/infinite-buy', express.static(path.join(ROOT, '../infinite-buy')));
@@ -115,57 +118,15 @@ app.post('/trigger-report', (req, res) => {
   res.json({ ok: true, message: `${y}년 ${m}월 리포트 생성 시작` });
 });
 
-// 가계부 CSV 저장
-app.post('/save', (req, res) => {
-  const { password, year, content } = req.body || {};
-  if (!year || !content) return res.status(400).json({ error: 'year, content 필드가 필요합니다.' });
-  if (!checkPassword(password, res)) return;
-
-  const bom = '﻿';
-  const filePath = path.join(ROOT, `${year}.csv`);
-  try {
-    fs.writeFileSync(filePath, bom + content, 'utf8');
-    res.json({ ok: true, message: `${year}.csv 저장 완료` });
-    autoCommit([`${year}.csv`], `가계부 ${year}.csv 자동 저장`);
-  } catch (e) {
-    return res.status(500).json({ error: '파일 저장 실패: ' + e.message });
-  }
-});
-
-// VR 계산기 상태 저장
-app.post('/save-vr', (req, res) => {
-  const { content } = req.body || {};
-  if (!content) return res.status(400).json({ error: 'content 필드가 필요합니다.' });
-  const filePath = path.join(ROOT, 'vr-state.json');
-  try {
-    fs.writeFileSync(filePath, content, 'utf8');
-    res.json({ ok: true, message: 'vr-state.json 저장 완료' });
-    autoCommit(['vr-state.json'], 'VR state 자동 저장');
-  } catch (e) {
-    res.status(500).json({ error: '파일 저장 실패: ' + e.message });
-  }
-});
-
-// VR 사이클 종료 시 히스토리에 append
-app.post('/save-vr-history', (req, res) => {
-  const { entry } = req.body || {};
-  if (!entry || typeof entry !== 'object') return res.status(400).json({ error: 'entry 필드가 필요합니다.' });
-  const filePath = path.join(ROOT, 'vr-history.json');
-  try {
-    let arr = [];
-    if (fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, 'utf8').trim();
-      if (raw) arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) arr = [];
-    }
-    arr.push(entry);
-    fs.writeFileSync(filePath, JSON.stringify(arr, null, 2) + '\n', 'utf8');
-    res.json({ ok: true, message: 'vr-history.json append 완료', total: arr.length });
-    autoCommit(['vr-history.json', 'vr-state.json'], 'VR 사이클 종료: history append');
-  } catch (e) {
-    res.status(500).json({ error: '히스토리 저장 실패: ' + e.message });
-  }
-});
+// [폐기됨 P6] 전체파일 덮어쓰기 저장은 DB(셀 단위 낙관적 잠금)로 대체됨.
+// 이 엔드포인트로 통째 저장하면 DB를 우회해 clobber(원래 버그) 위험 → 410으로 차단.
+// 신규: PATCH /api/budget/cell, PUT /api/budget/:year/sheet, PATCH /api/vr/:ticker 등
+function gone(_req, res) {
+  res.status(410).json({ error: '이 저장 방식은 폐기되었습니다(DB 실시간 저장으로 전환). 페이지를 새로고침하세요.' });
+}
+app.post('/save', gone);
+app.post('/save-vr', gone);
+app.post('/save-vr-history', gone);
 
 // ===== 영수증 분석 (대화형: 복호화→분석→검토→저장) =====
 // 진행 단계를 폴링으로 추적하고, 분석 결과를 사용자가 검토/수정 후 저장하는 플로우.
