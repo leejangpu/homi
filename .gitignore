@@ -49,4 +49,9 @@ financial/token.json
 financial/.venv/
 financial/logs/
 
+# financial SQLite DB (authoritative runtime store; git holds readable exports instead)
+financial/data/*.db
+financial/data/*.db-wal
+financial/data/*.db-shm
+
 !.env.example
