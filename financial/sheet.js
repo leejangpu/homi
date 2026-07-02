@@ -70,7 +70,7 @@ function analyzeSections(grid) {
   for (let r = 0; r < data.length; r++) {
     const c1 = (data[r][1] || '').trim(), joined = data[r].join('').trim();
     if (!joined) { mode = ''; continue; }
-    if (c1.includes('급여') || c1 === '순애 (90%)' || c1 === '장훈 (90%)' || c1 === '금융소득' || c1 === '배당소득' || c1 === '기타소득' || c1 === '기타') { if (mode !== 'savings' && mode !== 'expense' && mode !== 'asset') mode = 'income'; }
+    if (c1.includes('급여') || c1 === '정기소득' || c1 === '비정기소득' || c1 === '순애 (90%)' || c1 === '장훈 (90%)' || c1 === '금융소득' || c1 === '배당소득' || c1 === '기타소득' || c1 === '기타') { if (mode !== 'savings' && mode !== 'expense' && mode !== 'asset') mode = 'income'; }
     if ((c1 === '저축' || (c1 === '비상금' && mode !== 'expense')) && mode !== 'asset') mode = 'savings';
     if (c1 === '지출' || c1 === '고정지출' || c1 === '변동지출' || c1 === '비정기지출') mode = 'expense';
     if (c1.includes('자산') || c1 === '부동산' || c1 === '대출' || c1 === '유동자산계') mode = 'asset';
