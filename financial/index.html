@@ -1173,6 +1173,7 @@ function closeDrawer(){
 }
 
 function switchApp(app){
+  deselectSheetCell();
   activeApp = app;
   closeDrawer();
   // Update nav active state
@@ -1901,6 +1902,7 @@ function switchYear(y){activeYear=y;activeSection='dashboard';selectedMonthIdx=-
 function switchSection(s){activeSection=s;activeFilter='all';renderSectionTabs();renderView();}
 
 function renderView(){
+  deselectSheetCell();
   destroyCharts();
   const el=document.getElementById('content');
   if(activeSection==='dashboard'){
@@ -3056,6 +3058,13 @@ function showCellTooltip(x, y) {
 function hideCellTooltip() {
   const tip = document.getElementById('cellTooltip');
   if (tip) { tip.style.display = 'none'; tip.style.transform = ''; }
+}
+
+// 현재 시트를 벗어날 때(화면/시트/연도 이동 등) 셀 선택을 해제하고 MoM 비교 팝업을 닫는다.
+// 모바일에서 onblur가 발화하지 않아 팝업이 남는 문제 방지.
+function deselectSheetCell() {
+  try { if (jexcelInstance && jexcelInstance.resetSelection) jexcelInstance.resetSelection(); } catch (_) {}
+  hideCellTooltip();
 }
 
 function calcAllTotals(year){
