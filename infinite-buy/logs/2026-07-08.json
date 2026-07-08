@@ -118,5 +118,33 @@
       "message": "주문 전송 완료 되었습니다.",
       "orderNo": "0031056166"
     }
+  },
+  {
+    "timestamp": "2026-07-08T22:00:07.483Z",
+    "ticker": "SOXL",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 22,
+      "avgPrice": 218.2055,
+      "totalInvested": 4800.521,
+      "remainingCash": 10314.257099999999,
+      "todayBuyAmt": 349.64,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -4800.52
+    }
+  },
+  {
+    "timestamp": "2026-07-08T22:00:07.486Z",
+    "ticker": "TQQQ",
+    "action": "SYNC",
+    "details": {
+      "totalQuantity": 56,
+      "avgPrice": 75.1474,
+      "totalInvested": 4208.2544,
+      "remainingCash": 9130.3955,
+      "todayBuyAmt": 290.88,
+      "todaySellAmt": 0,
+      "totalRealizedProfit": -4052.46
+    }
   }
 ]
