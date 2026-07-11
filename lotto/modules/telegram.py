@@ -95,3 +95,20 @@ def send_error_alert(error_msg: str) -> None:
     """오류 발생 시 텔레그램으로 알림을 보낸다."""
     message = f"<b>⚠️ 로또 구매 오류</b>\n\n{error_msg}"
     send_telegram(message)
+
+
+def send_deposit_fail_alert(retry_msg: str) -> None:
+    """예치금 부족으로 구매 실패 시 알림을 보낸다.
+
+    Args:
+        retry_msg: 재시도 안내 문구 (예: "내일 같은 시간에 다시 시도합니다.")
+    """
+    lines = [
+        "<b>⚠️ 로또 구매 실패</b>",
+        "",
+        "예치금 부족으로 이번 구매에 실패했습니다.",
+        retry_msg,
+        "",
+        "예치금을 충전해 주세요. 🔋",
+    ]
+    send_telegram("\n".join(lines))

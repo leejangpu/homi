@@ -45,7 +45,7 @@ def _register_game(page: Page) -> None:
     page.wait_for_timeout(1000)
 
 
-def purchase_lotto_auto(page: Page, ticket_count: int = 5) -> tuple[bool, int]:
+def purchase_lotto_auto(page: Page, ticket_count: int = 5) -> tuple[bool, int, str]:
     """자동번호로 로또를 구매한다."""
     ticket_count = max(1, min(5, ticket_count))
     logger.info("로또 구매 페이지로 이동 중...")
@@ -72,7 +72,7 @@ def purchase_lotto_auto(page: Page, ticket_count: int = 5) -> tuple[bool, int]:
     return _do_purchase(page, ticket_count)
 
 
-def purchase_lotto_manual(page: Page, games: list[list[int]]) -> tuple[bool, int]:
+def purchase_lotto_manual(page: Page, games: list[list[int]]) -> tuple[bool, int, str]:
     """수동번호로 로또를 구매한다.
 
     Args:
@@ -103,8 +103,15 @@ def purchase_lotto_manual(page: Page, games: list[list[int]]) -> tuple[bool, int
     return _do_purchase(page, len(games))
 
 
-def _do_purchase(page: Page, ticket_count: int) -> tuple[bool, int]:
-    """등록된 게임을 구매 처리한다 (공통 로직)."""
+def _do_purchase(page: Page, ticket_count: int) -> tuple[bool, int, str]:
+    """등록된 게임을 구매 처리한다 (공통 로직).
+
+    Returns:
+        (success, balance, reason)
+        - success=True: 구매 성공, reason=""
+        - success=False, reason="insufficient_deposit": 예치금 부족
+        - success=False, reason="purchase_error": 그 외 구매 오류
+    """
     # 등록 상태 로깅
     game_labels = ["A", "B", "C", "D", "E"]
     for i in range(ticket_count):
@@ -135,12 +142,42 @@ def _do_purchase(page: Page, ticket_count: int) -> tuple[bool, int]:
 
     _save_screenshot(page, "purchase_result")
 
+    # 구매 오류 팝업 감지 (예: "구매시 오류가 발생하였습니다. 오류메시지:[예치금] 초과되었습니다.")
+    reason = _detect_purchase_error(page)
+    if reason:
+        balance = _get_balance(page)
+        logger.warning("구매 실패 감지: %s (잔액: %s원)", reason, balance)
+        return False, balance, reason
+
     # 잔액 확인
     balance = _get_balance(page)
     logger.info("구매 후 잔액: %s원", balance)
 
     logger.info("로또 %d게임 구매 프로세스 완료", ticket_count)
-    return True, balance
+    return True, balance, ""
+
+
+def _detect_purchase_error(page: Page) -> str:
+    """구매 결과 화면에서 오류 팝업을 감지한다.
+
+    Returns:
+        "" 오류 없음 (정상), "insufficient_deposit" 예치금 부족,
+        "purchase_error" 그 외 구매 오류.
+    """
+    try:
+        body_text = page.inner_text("body")
+    except Exception as e:
+        logger.warning("구매 결과 텍스트 확인 실패: %s", e)
+        return ""
+
+    # 오류 팝업 특유의 문구로 판별 (정상 페이지의 "보유예치금" 라벨과 구분)
+    is_error = ("구매시 오류" in body_text) or ("초과되었습니다" in body_text)
+    if not is_error:
+        return ""
+
+    if ("예치금" in body_text) and ("초과" in body_text):
+        return "insufficient_deposit"
+    return "purchase_error"
 
 
 def _get_balance(page: Page) -> int:

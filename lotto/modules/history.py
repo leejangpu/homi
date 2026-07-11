@@ -131,6 +131,24 @@ def _get_lotto_round_for_date(buy_date_str: str) -> int:
         return 0
 
 
+def is_round_purchased(round_no: int) -> bool:
+    """해당 회차가 이미 구매 완료되어 history.json에 있는지 확인한다.
+
+    구매 성공 시에만 history에 저장되므로, 존재하면 재구매/재시도 불필요.
+    """
+    if not round_no:
+        return False
+    data = _load_history()
+    return any(p.get("round") == round_no for p in data.get("purchases", []))
+
+
+def get_target_round(buy_date_str: str = "") -> int:
+    """구매일(기본: 오늘) 기준 목표 회차를 반환한다."""
+    if not buy_date_str:
+        buy_date_str = datetime.now().strftime("%Y-%m-%d")
+    return _get_lotto_round_for_date(buy_date_str)
+
+
 def save_purchase_to_history(
     tickets: list[list[int]],
     mode: str,

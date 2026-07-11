@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import sys
 import argparse
+from datetime import datetime
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright
 
@@ -19,12 +20,20 @@ from modules.logger import setup_logger
 from modules.auth import login_with_retry, save_session, is_logged_in, COOKIE_PATH
 from modules.number_generator import generate_lotto_numbers
 from modules.purchase import purchase_lotto_auto, purchase_lotto_manual, handle_purchase_error
-from modules.telegram import send_purchase_result, send_purchase_auto_result, send_error_alert, send_telegram
+from modules.telegram import (
+    send_purchase_result,
+    send_purchase_auto_result,
+    send_error_alert,
+    send_deposit_fail_alert,
+    send_telegram,
+)
 from modules.history import (
     get_purchase_history,
     format_history_message,
     save_purchase_to_history,
     update_result_in_history,
+    is_round_purchased,
+    get_target_round,
 )
 
 # .env 파일 로드 (스크립트 디렉토리 기준)
@@ -68,6 +77,18 @@ def parse_manual_numbers(manual_str: str) -> list[list[int]]:
     return games
 
 
+def _retry_message() -> str:
+    """오늘 요일 기준 재시도 안내 문구를 만든다.
+
+    일요일은 스케줄에서 제외되므로 여기 도달하지 않음.
+    토요일(추첨일)에 실패하면 이번 회차는 마감 → 다음 주 월요일 재시도.
+    """
+    weekday = datetime.now().weekday()  # 0=월 ... 5=토
+    if weekday == 5:
+        return "이번 회차는 오늘 추첨이라, 다음 주 월요일 같은 시간에 다시 시도합니다."
+    return "내일 같은 시간에 다시 시도합니다."
+
+
 def run(dry_run: bool = False, auto: bool = False, numbers: str | None = None) -> None:
     """메인 실행 로직."""
     logger.info("=" * 50)
@@ -76,6 +97,21 @@ def run(dry_run: bool = False, auto: bool = False, numbers: str | None = None) -
 
     user_id, user_pw = get_credentials()
     ticket_count = int(os.environ.get("LOTTO_TICKET_COUNT", "5"))
+
+    # 구매 게이트: 매일 실행되므로, 이미 구매했거나 구매일이 아니면 스킵.
+    # (실패 시 다음날 같은 시간에 자동 재시도 → 성공하면 재시도 중단)
+    if not dry_run:
+        today = datetime.now()
+        if today.weekday() == 6:  # 일요일: 다음 회차 조기구매 방지
+            logger.info("일요일은 구매 스케줄 아님 - 종료")
+            return
+        target_round = get_target_round()
+        if is_round_purchased(target_round):
+            logger.info("회차 %d 이미 구매 완료 - 재시도 불필요, 종료", target_round)
+            return
+        logger.info("목표 회차: %d (미구매) - 구매 진행", target_round)
+    else:
+        target_round = 0
 
     logger.info("Playwright 초기화 중...")
     with sync_playwright() as p:
@@ -124,30 +160,31 @@ def run(dry_run: bool = False, auto: bool = False, numbers: str | None = None) -
                 if auto:
                     # 사이트 자동선택 기능 사용
                     logger.info("사이트 자동선택 모드: %d게임", ticket_count)
-                    success, balance = purchase_lotto_auto(page, ticket_count)
+                    success, balance, reason = purchase_lotto_auto(page, ticket_count)
                 elif numbers:
                     # 직접 지정한 번호
                     purchased_games = parse_manual_numbers(numbers)
                     logger.info("지정번호 모드: %d게임", len(purchased_games))
-                    success, balance = purchase_lotto_manual(page, purchased_games)
+                    success, balance, reason = purchase_lotto_manual(page, purchased_games)
                 else:
                     # 기본: 랜덤 번호 생성 → 수동 클릭
                     purchased_games = [generate_lotto_numbers() for _ in range(ticket_count)]
                     logger.info("랜덤번호 모드: %d게임", len(purchased_games))
                     for i, g in enumerate(purchased_games, 1):
                         logger.info("  게임 %d: %s", i, g)
-                    success, balance = purchase_lotto_manual(page, purchased_games)
+                    success, balance, reason = purchase_lotto_manual(page, purchased_games)
 
                 if success:
                     logger.info("구매 프로세스 정상 완료")
                     # 텔레그램 알림
                     if purchased_games:
                         send_purchase_result(purchased_games, len(purchased_games) * 1000, balance)
-                        # history.json 저장
+                        # history.json 저장 (성공 시에만 저장 → 재시도 게이트 기준)
                         save_purchase_to_history(
                             tickets=purchased_games,
                             mode="auto" if auto else "random",
                             total_amount=len(purchased_games) * 1000,
+                            round_no=target_round,
                         )
                     else:
                         send_purchase_auto_result(ticket_count, balance)
@@ -156,9 +193,15 @@ def run(dry_run: bool = False, auto: bool = False, numbers: str | None = None) -
                             tickets=[],
                             mode="auto",
                             total_amount=ticket_count * 1000,
+                            round_no=target_round,
                         )
+                elif reason == "insufficient_deposit":
+                    # 예치금 부족 → history 미저장(성공 아님) → 다음날 같은 시간 재시도
+                    logger.warning("예치금 부족으로 구매 실패 (회차 %d) - 다음 스케줄에 재시도", target_round)
+                    send_deposit_fail_alert(_retry_message())
                 else:
-                    logger.warning("구매 결과 확인 필요 - 스크린샷을 확인하세요")
+                    logger.warning("구매 결과 확인 필요 - 스크린샷을 확인하세요 (reason=%s)", reason)
+                    send_error_alert("구매 결과를 확인하지 못했습니다. 스크린샷을 확인하세요.")
 
 
             except Exception as e:
