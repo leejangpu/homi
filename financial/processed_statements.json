@@ -18,5 +18,13 @@
     "analyzed": true,
     "processed_at": "2026-06-06T15:57:49",
     "account": "self"
+  },
+  "19f3552cb55dbef9": {
+    "billing_date": "20260713",
+    "html": "/Users/mac_ad03249840/Developer/homi/financial/tmp/samsungcard_self_20260713.html",
+    "pdf": "/Users/mac_ad03249840/Developer/homi/financial/tmp/samsungcard_self_20260713_decrypted.pdf",
+    "analyzed": true,
+    "processed_at": "2026-07-07T09:06:50",
+    "account": "self"
   }
 }
