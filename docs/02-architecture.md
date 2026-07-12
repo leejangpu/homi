@@ -72,9 +72,17 @@ python main.py --dry-run    # 로그인 테스트
 ```
 
 **스케줄**:
-- `com.homi.lotto-purchase.plist` — 매주 월요일 10:00 KST
+- `com.homi.lotto-purchase.plist` — **매일 10:00 KST** (구매 여부는 `main.py`가 판단)
 - `com.homi.lotto-check.plist` — 매주 토요일 22:00 KST
 - plist 위치: `~/Library/LaunchAgents/`
+
+**구매 게이트 / 재시도 로직** (`main.py run()`):
+- 매일 10:00 실행되지만 실제 구매는 아래 조건에서만 수행
+  - 일요일은 스킵 (다음 회차 조기구매 방지)
+  - 목표 회차(`get_target_round`)가 이미 `history.json`에 있으면 스킵 → **구매 성공 시 재시도 안 함**
+  - 미구매 회차면 구매 진행
+- **예치금 부족 등 실패 시** history 미저장 + 텔레그램 알림("내일 같은 시간에 다시 시도") → **다음날 같은 시간 자동 재시도**, 성공할 때까지 반복 (그 주 토요일 추첨 전까지)
+- 실패 판별: `purchase.py`의 `_detect_purchase_error()`가 구매 오류 팝업(`[예치금] 초과되었습니다` 등)을 감지. 성공했을 때만 `history.json`에 저장하므로 history 존재 = 재시도 불필요의 단일 기준
 
 ## 4. infinite-buy/ — 무한매수법 자동매매
 
