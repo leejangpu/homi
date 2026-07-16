@@ -136,6 +136,58 @@ cd signal-alert && ./run.sh --sample both   # 가짜 데이터로 매수/매도 
 - **영수증/summary**: 파일 기반 유지(CI·영수증이 파일을 씀). gitsync import 브리지가 DB로 동기
 - **텔레그램 대화**: Claude Code 텔레그램 플러그인으로 직접 대화 (별도 봇 서버 없음)
 
+## 가계부 데이터 조회 (자산·지출·소득·저축)
+
+> **사용자가 자산/지출/소득/저축 등 가계부 수치를 물으면 여기부터 본다.**
+> **CSV(`financial/2026.csv` 등)는 gitsync가 내보낸 사람이 읽는 사본일 뿐, stale일 수 있다. 단일 진실원은 SQLite DB `financial/data/homi.db`. 항상 DB를 직접 쿼리해서 답한다.**
+
+**접근**: `cd financial && node -e "const db=require('better-sqlite3')('data/homi.db',{readonly:true}); ...(쿼리)..."` — 반드시 `readonly:true`. better-sqlite3는 이미 `financial/node_modules`에 설치돼 있음(node@20 ABI). WAL 모드라 `homi.db-wal`에 최신 미체크포인트 변경이 있을 수 있으나 better-sqlite3로 열면 자동 반영됨.
+
+### 가계부 시트 = `budget_cell` (셀 단위 저장)
+스프레드시트를 셀 하나=한 행으로 저장. 컬럼: `year, r(행0-based), c(열0-based), raw(원본문자열), version, updated_at`.
+
+- **연도별 시트**: `budget_sheet`에 `year, n_rows, n_cols`. 현재 2025, 2026 존재.
+- **열(c) 매핑** (2026 기준):
+  - `c=1` **통장분류** (섹션 라벨: 정기소득/비정기소득/저축/고정지출/변동지출/비정기지출/자산/부동산/연금저축/주식/대출 등)
+  - `c=2` **상세항목** (예: 급여소득, 용인 수지구, 카카오페이…)
+  - `c=3` **분류** (사람: 순애/장훈/공통, 또는 배당주/직투/VR 등 태그)
+  - `c=4`부터 **월별 값**: `c=4`→01월, `c=5`→02월, … `c=9`→06월, `c=10`→07월 … (즉 `c = 3 + 월`)
+- **행(r) 구조는 연도마다 다르므로 하드코딩 금지.** 섹션은 `c=1`의 라벨로 식별한다. 2026 레이아웃 예: r0 헤더, 소득 계=r7, 저축 계=r19, 지출 계=r49, `급여소득 대비 잔액`=r50, **`자산(월말업데이트)` 헤더=r53**, 자산 항목 r54~r89, **`유동자산계`=r90, 순자산 `계`=r92**. 자산 항목 아래 홀수행(r55,57…)은 전월대비 증감률(▲▼%)이라 값이 아님 — 건너뛴다.
+- **raw 값 파싱 주의**:
+  - `₩`, 쉼표, 공백 포함 → 숫자화 전에 제거.
+  - **`=`로 시작하면 수식**(예: `=6857412+18397815`, `=582200+5869360`) → 평가해서 합산. 여러 계좌 합을 한 셀에 적은 것.
+  - 대출은 음수(`-₩429,665,732`). 총자산(gross) 계산 시 대출 제외, **순자산**은 대출까지 더함.
+- **최신 월 판단**: 자산 행에서 값이 채워진 가장 큰 `c`. 자산은 "월말업데이트"라 당월이 비어있을 수 있음 → 값 있는 마지막 달로 답하고 기준 월을 명시.
+
+### 자산 분류 (사용자 합의 기준, 2026-06 검증됨)
+- **부동산**: `통장분류=부동산`
+- **금융자산(투자·연금)**: 연금저축 + 주택청약 + ISA + 주식(전 계좌)
+- **현금성자산**: 파킹통장 + 나눠모으기 + 저축(예금)
+- **대출**(부채, 자산 아님): 주택담보대출 + 어머님대출 — 총자산에서 제외, 순자산에서 차감
+- 경계 항목(주택청약·예금)은 관점 따라 현금성으로 재분류 가능 — 답변 시 언급.
+
+### 지출 상세 = `expense_month`
+`year, month, data(JSON)`. `data.items[]` = `{날짜, 가맹점, 카드, 금액, 카테고리, source}`. 영수증/삼성카드 동기화로 채워지는 **거래 단위** 명세. 시트의 변동지출 합계와 별개의 원천 데이터.
+
+### 기타 테이블
+- `ai_summary` — 월별 AI 리포트 JSON (`generate-report.sh` 산출, `summary.json`의 DB판).
+- `vr_tracker` / `vr_history` — VR(무한매수법 관련) 계산기 상태.
+- `ext_mirror` — 외부(영수증/summary 등) 파일 미러 (gitsync import 에코 방지용).
+- `meta` — 키/값 메타.
+
+### 조회 레시피 (자산 구성 예)
+```bash
+cd financial && node -e '
+const db=require("better-sqlite3")("data/homi.db",{readonly:true});
+const Y=2026, MON=6, C=3+MON;  // 원하는 연/월
+const cells=db.prepare("SELECT r,c,raw FROM budget_cell WHERE year=?").all(Y);
+const g={}; for(const {r,c,raw} of cells) g[r+"_"+c]=raw;
+const num=s=>{ if(!s) return 0; s=String(s).replace(/[₩,\s]/g,""); if(s.startsWith("=")) return s.slice(1).split("+").reduce((a,b)=>a+(+b||0),0); return +s||0; };
+// c=1 라벨로 자산 섹션(자산 헤더 아래)만 순회하는 식으로 분류·합산
+'
+```
+(실제 답변 시엔 위 패턴으로 `c=1` 섹션 라벨을 읽어 부동산/금융/현금성으로 분류·합산하고, 대출은 음수로 순자산 계산에 반영.)
+
 ## 외부 API
 
 ### 토스증권 OpenAPI
