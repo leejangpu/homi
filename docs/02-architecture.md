@@ -8,7 +8,6 @@
 ```
 homi/
 ├── financial/          # 가계부 대시보드 (로컬 Express + SQLite DB) + VR 계산기 + AI 리포트 + 삼성카드 동기화
-├── server/             # 독립 API 서버 (포트 3456, VR state 파일 API — 레거시)
 ├── lotto/              # 로또 자동구매 (Python + Playwright, 로컬 launchd)
 ├── infinite-buy/       # 무한매수법 자동매매 (TypeScript). v2.2/v3.0 + v4.0(src/v4/) 공존
 ├── signal-alert/       # 시장 신호 알림 (Python, 공포탐욕+VIX+RSI 교집합, launchd)
@@ -88,9 +87,9 @@ homi/
 - **저장(현행)**: `financial/api.js` `/api/vr*`(GET/PATCH/DELETE/history) → DB `vr_tracker`/`vr_history`, 낙관적 잠금 + SSE
 - **파일 미러**: gitsync가 DB→`financial/vr-state.json`·`vr-history.json` export(사람이 읽는 사본 + 리마인더 소비원)
 - **리마인더**: `scripts/vr-reminder.js`가 `vr-state.json` 읽어 macOS 미리알림 등록(리밸런싱 상기). launchd `com.homi.vr-reminder.plist` + `vr-reminder.yml`
-- **레거시**: `server/api.js`(포트 3456)는 DB 이전 시절의 파일 기반 VR API. 현행 가계부 웹은 이걸 쓰지 않음
 
 > 공식·필드·사이클 상세: `financial/docs/vr-calculator.md`
+> (참고: DB 이전 시절의 파일 기반 VR API `server/`(포트 3456)는 2026-07 제거됨 — 기능은 `financial/`로 흡수)
 
 ## 4. lotto/ — 로또 자동구매
 
