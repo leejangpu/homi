@@ -7,7 +7,8 @@
 
 ```
 homi/
-├── financial/          # 가계부 대시보드 (로컬 Express + SQLite DB) + VR 계산기 + AI 리포트 + 삼성카드 동기화
+├── financial/          # 가계부 대시보드 (로컬 Express + SQLite DB) + VR 계산기 + AI 리포트 + 카드 명세서 지출 반영(데일리 루틴)
+├── daily-routine/      # 데일리 루틴 개념·규약 (매일 도는 개인 자동화 모음; 향후 루틴 코드 거처)
 ├── lotto/              # 로또 자동구매 (Python + Playwright, 로컬 launchd)
 ├── infinite-buy/       # 무한매수법 자동매매 (TypeScript). v2.2/v3.0 + v4.0(src/v4/) 공존
 ├── signal-alert/       # 시장 신호 알림 (Python, 공포탐욕+VIX+RSI 교집합, launchd)
@@ -41,7 +42,7 @@ homi/
 
 **폐기된 경로**: 전체파일 덮어쓰기 `/save`·`/save-vr`·`/save-vr-history`는 **410**(clobber 방지). 신규는 전부 `/api/*`.
 
-**부속 기능**: AI 리포트(`generate-report.sh` → Claude CLI sonnet → `summary.json`), 삼성카드 동기화(`sync_samsungcard.py`), 영수증 분석(`analyze-receipt.sh`, same-origin `/analyze-receipt`), **VR 계산기**(→ 아래 3항 및 `financial/docs/vr-calculator.md`).
+**부속 기능**: AI 리포트(`generate-report.sh` → Claude CLI sonnet → `summary.json`), 카드 명세서 지출 반영(`sync_samsungcard.py` — **데일리 루틴**, → `daily-routine/README.md`), 영수증 분석(`analyze-receipt.sh`, same-origin `/analyze-receipt`), **VR 계산기**(→ 아래 3항 및 `financial/docs/vr-calculator.md`).
 
 > 설계·런북: `financial/docs/db-migration-plan.md`, DB 조회법: `CLAUDE.md` "가계부 데이터 조회" 절.
 > **런타임 주의**: node는 Homebrew `node@20`. better-sqlite3는 node20 ABI 프리빌트.
