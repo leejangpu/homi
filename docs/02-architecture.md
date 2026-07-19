@@ -49,7 +49,7 @@ homi/
 
 ## 2. infinite-buy/ — 무한매수법 자동매매
 
-**실행**: GitHub Actions **self-hosted runner**(집 맥 — KIS API가 IP 등록 방식이라 고정 IP 필요).
+**실행**: 집 맥의 **macOS launchd**(KIS API가 IP 등록 방식이라 고정 IP 필요). v2.2/v3.0은 launchd가 직접 `npx tsx` 실행. (v4.0은 GH Actions self-hosted runner 워크플로에 수동 트리거로 잔존 — 아래.)
 
 두 세대가 **완전 분리되어 공존**한다:
 
@@ -63,7 +63,7 @@ homi/
 | `config.json` | 종목·분할수·목표수익률(`strategyVersion`) |
 | `state/` | 사이클 상태 JSON (ticker별) |
 
-- 스케줄: `infinite-buy-open.yml`(평일 00:00 KST), `infinite-buy-close.yml`(평일 07:00 KST), `infinite-buy-toggle.yml`(수동 on/off)
+- 스케줄: **macOS launchd** `com.homi.infinite-buy-{open,close}.plist` → `open.sh`(KST 04:00, 마감 1h 전)/`close.sh`(KST 07:00, 마감 후). 각 래퍼가 실행 후 `infinite-buy-bot` 신원으로 state/logs/history를 자체 커밋·푸시. GH Actions 워크플로(`infinite-buy-{open,close,toggle}.yml`)는 `cron` 주석 처리, `workflow_dispatch` 수동용으로만 잔존
 - 보유종목 조회는 토스증권 OpenAPI 병행(→ 5항)
 
 ### v4.0 (라오어 언이시트 포팅, 별도 모듈 `src/v4/`)
@@ -127,7 +127,7 @@ homi/
 
 ## 6. 외부 API 연동
 
-- **한국투자증권(KIS) OpenAPI** — 무한매수법 주문/체결(`infinite-buy/src/kisApi.ts`). IP 등록 방식이라 self-hosted runner 필수
+- **한국투자증권(KIS) OpenAPI** — 무한매수법 주문/체결(`infinite-buy/src/kisApi.ts`). IP 등록 방식이라 반드시 집 맥에서 실행(launchd)
 - **토스증권 OpenAPI** — 보유종목 조회. **IPv4 강제 필수**(dual-stack IPv6 나가면 `unidentified-client` 401), `X-Tossinvest-Account`는 accountSeq. 스펙 `docs/toss-api/`
 - **텔레그램** — 알림 전부 **Alram🔔**(`@idca_local_bot`) 한 봇으로 통합(infinite-buy/signal-alert/lotto 공유). 대화형은 Claude Code 텔레그램 플러그인(별도 봇 서버 없음)
 - **Claude CLI** — 가계부 AI 리포트 생성(sonnet)
@@ -137,14 +137,14 @@ homi/
 - **Backend**: Node.js 20(financial, server, infinite-buy), Python 3.11(lotto, signal-alert)
 - **Frontend**: 순수 HTML/JS(financial, ECharts + jSpreadsheet)
 - **데이터 저장**: **SQLite DB**(가계부 `financial/data/homi.db`, 단일 진실원) + git 관리 파일(export 사본·상태 JSON)
-- **자동화**: macOS launchd(가계부 서버·로또·signal-alert·VR 리마인더·삼성카드·LAN IP), GitHub Actions self-hosted runner(무한매수법·리포트)
+- **자동화**: macOS launchd(가계부 서버·로또·signal-alert·VR 리마인더·삼성카드·LAN IP·**무한매수법 v2.2/v3.0**), GitHub Actions(가계부 리포트/영수증; 무한매수법 v4는 self-hosted runner 수동 트리거)
 - **배포**: 로컬 Express(financial, LAN 전용), 로컬 실행(lotto, signal-alert)
 
 ## GitHub Actions 워크플로우 현황
 
 | 워크플로우 | 스케줄 | 상태 |
 |-----------|--------|------|
-| `infinite-buy-open.yml` / `close.yml` | 평일 00:00 / 07:00 KST | 활성(`config.json` enabled로 제어) |
+| `infinite-buy-open.yml` / `close.yml` | `cron` 주석 처리(수동 `workflow_dispatch`만) | **비활성** — 실운영은 launchd(`open.sh`/`close.sh`, KST 04:00/07:00) |
 | `infinite-buy-toggle.yml` | 수동 | 활성 |
 | `infinite-buy-v4-open.yml` / `close.yml` | 수동(스케줄 주석) | `config-v4.json` enabled=false면 미동작 |
 | `financial-report.yml` | 매달 1일 | 활성(월간 AI 리포트) |
