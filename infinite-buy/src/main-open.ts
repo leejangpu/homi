@@ -17,7 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { KisApiClient } from './kisApi.js';
-import { calculate, calculateDecreaseRate } from './calculator.js';
+import { calculate, calculateDecreaseRate, applyLargeNumberBuy } from './calculator.js';
 import type { StrategyVersion, QuarterModeState } from './calculator.js';
 import { calculatePrincipal } from './principalCalculator.js';
 import type { CycleStatus } from './principalCalculator.js';
@@ -248,6 +248,7 @@ async function processTickerOrders(
   const splitCount = tickerConfig.splitCount;
   const targetProfit = tickerConfig.targetProfit;
   const exchange = tickerConfig.exchange;
+  const largeNumPct = tickerConfig.largeNumPct ?? 10;
   const starDecreaseRate = calculateDecreaseRate(targetProfit, splitCount);
   console.log(`[Open]   설정: split=${splitCount}, target=${(targetProfit * 100).toFixed(1)}%, decrease=${(starDecreaseRate * 100).toFixed(3)}%`);
 
@@ -392,15 +393,13 @@ async function processTickerOrders(
 
   console.log(`[Open]     매수 주문 ${buyOrders.length}건, 매도 주문 ${sellOrders.length}건`);
 
-  // 매수가 상한: 현재가 +10% 캡 (LOC 거부 방지)
-  const buyPriceCap = Math.round(currentPrice * 1.10 * 100) / 100;
-  for (const bo of buyOrders) {
-    if (bo.price > buyPriceCap) {
-      console.log(`[Open]     매수가 상한 캡: ${fmtUSD(bo.price)} → ${fmtUSD(buyPriceCap)} (현재가 ${fmtUSD(currentPrice)} +10%)`);
-      bo.price = buyPriceCap;
-      bo.amount = Math.round(bo.price * bo.quantity * 100) / 100;
-    }
+  // 큰수 매수: 가격을 큰수(현재가 +largeNumPct%)로 클램프 + 그 가격에서 수량 재계산
+  //           + 큰수 아래로 대폭락 티어(1주씩 최대 5단). LOC 거부 회피 & 무조건 매수 보장.
+  const lnb = applyLargeNumberBuy(buyOrders, currentPrice, largeNumPct, cycleData.buyPerRound);
+  if (lnb.clampedCount > 0 || lnb.tierCount > 0) {
+    console.log(`[Open]     큰수매수: 기준 ${fmtUSD(lnb.largeNum)} (현재가 +${largeNumPct}%), 클램프 ${lnb.clampedCount}건, 대폭락 티어 ${lnb.tierCount}건`);
   }
+  buyOrders = lnb.orders;
 
   // 자전거래 방지: 매수/매도 가격 겹치면 매수 -0.01
   if (buyOrders.length > 0 && sellOrders.length > 0) {

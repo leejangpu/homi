@@ -591,6 +591,75 @@ export function calculate(params: CalculateParams): CalculateResult {
   };
 }
 
+// ==================== 큰수 매수 (LOC 거부 회피 & 무조건 매수 보장) ====================
+
+export interface LargeNumberBuyResult {
+  orders: BuyOrder[];   // 클램프·티어가 반영된 매수 주문
+  largeNum: number;     // 큰수 자리 가격 = 기준가 × (1 + pct/100)
+  clampedCount: number; // 큰수로 눌린 주문 수
+  tierCount: number;    // 추가된 대폭락 티어 수
+}
+
+/**
+ * 큰수 매수 후처리 — v4 언이시트(unisheet.ts) 큰수 로직을 v2/v3 실행부에 이식.
+ *
+ * 증권사는 기준가 대비 크게 벗어난 LOC 주문을 거부한다. 큰 하락 시 별지점/평단
+ * 주문이 거부되어 "쌀 때 못 사는" 사고를 막기 위해:
+ *   1) 각 매수 주문 가격을 큰수(=기준가×(1+pct))로 클램프하고, **그 가격에서 수량을
+ *      재계산**한다(의도 금액 유지 → 가격만 눌러 매수량이 줄던 기존 결함 교정).
+ *   2) 큰수 아래로 1주씩 최대 5단 '대폭락 티어'를 깔아 더 큰 하락에도 무조건 매수.
+ *
+ * 기준가(basePrice)는 실행부에서 전달(장중 실행 시 현재가 = 당일 종가 근사, LOC는 종가 체결).
+ * 매수 주문이 하나도 없으면(수량 0 자연 패스) 티어도 깔지 않는다.
+ *
+ * ⚠️ calculate() 코어는 건드리지 않는 순수 후처리 함수. v2/v3 기존 계산 결과에 덧씌운다.
+ */
+export function applyLargeNumberBuy(
+  buyOrders: BuyOrder[],
+  basePrice: number,
+  largeNumPct: number,
+  buyPerRound: number,
+  maxTiers: number = 5,
+): LargeNumberBuyResult {
+  const largeNum = Math.round(basePrice * (1 + largeNumPct / 100) * 100) / 100;
+  const orders = buyOrders.map(o => ({ ...o }));
+
+  let clampedCount = 0;
+  let baseQty = 0;
+  for (const bo of orders) {
+    if (largeNum > 0 && bo.price > largeNum) {
+      const budget = bo.amount > 0 ? bo.amount : bo.price * bo.quantity;
+      const newQty = Math.floor(budget / largeNum);
+      bo.price = largeNum;
+      bo.quantity = newQty;
+      bo.amount = Math.round(largeNum * newQty * 100) / 100;
+      clampedCount++;
+    }
+    baseQty += bo.quantity;
+  }
+
+  // 대폭락 티어: 큰수 아래로 1주씩. 실제 매수가 발생할 때만(baseQty>0) 깐다.
+  let tierCount = 0;
+  if (largeNum > 0 && buyPerRound > 0 && baseQty > 0) {
+    let checkQty = baseQty + 1;
+    for (let i = 0; i < 15 && tierCount < maxTiers; i++, checkQty++) {
+      const tierPrice = Math.round((buyPerRound / checkQty) * 100) / 100;
+      if (tierPrice > 0 && tierPrice < largeNum) {
+        orders.push({
+          orderType: 'LOC',
+          price: tierPrice,
+          quantity: 1,
+          amount: tierPrice,
+          label: `대폭락 티어 ${tierCount + 1}`,
+        });
+        tierCount++;
+      }
+    }
+  }
+
+  return { orders, largeNum, clampedCount, tierCount };
+}
+
 /**
  * 버전별 기본 설정 반환
  * 감소율은 공식으로 자동 계산: 목표수익률 × 2 / 분할수

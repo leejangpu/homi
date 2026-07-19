@@ -9,12 +9,14 @@
     "SOXL": {
       "splitCount": 20,
       "targetProfit": 0.20,
-      "exchange": "AMEX"
+      "exchange": "AMEX",
+      "largeNumPct": 10
     },
     "TQQQ": {
       "splitCount": 40,
       "targetProfit": 0.15,
-      "exchange": "NASD"
+      "exchange": "NASD",
+      "largeNumPct": 10
     }
   },
   "autoRestart": true,

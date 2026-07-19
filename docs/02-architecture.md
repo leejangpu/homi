@@ -58,12 +58,13 @@ homi/
 |------|------|
 | `src/main-open.ts` | 장 오픈 LOC/LIMIT 주문 제출 |
 | `src/main-close.ts` | 장 마감 체결 확인 & 사이클 동기화 |
-| `src/calculator.ts` | 분할매수/매도 계산(전반전/후반전/쿼터모드) |
+| `src/calculator.ts` | 분할매수/매도 계산(전반전/후반전/쿼터모드) + `applyLargeNumberBuy`(큰수매수 후처리) |
 | `src/kisApi.ts` | 한국투자증권 OpenAPI |
 | `config.json` | 종목·분할수·목표수익률(`strategyVersion`) |
 | `state/` | 사이클 상태 JSON (ticker별) |
 
 - 스케줄: **macOS launchd** `com.homi.infinite-buy-{open,close}.plist` → `open.sh`(KST 04:00, 마감 1h 전)/`close.sh`(KST 07:00, 마감 후). 각 래퍼가 실행 후 `infinite-buy-bot` 신원으로 state/logs/history를 자체 커밋·푸시. GH Actions 워크플로(`infinite-buy-{open,close,toggle}.yml`)는 `cron` 주석 처리, `workflow_dispatch` 수동용으로만 잔존
+- 매수 제출부(`main-open.ts`)는 `applyLargeNumberBuy`로 **큰수매수 후처리**: 각 LOC 매수가를 큰수(현재가×(1+`largeNumPct`%), 기본 +10%)로 클램프하고 그 가격에서 수량 재계산 + 큰수 아래로 1주씩 **대폭락 티어 최대 5단**. LOC 밴드 초과 거부 회피 & 폭락 시 무조건 매수 보장. `config.json` `tickerConfigs.*.largeNumPct`로 조정. (v4 언이시트 큰수 로직을 v2/v3 실행부에 이식)
 - 보유종목 조회는 토스증권 OpenAPI 병행(→ 5항)
 
 ### v4.0 (라오어 언이시트 포팅, 별도 모듈 `src/v4/`)
