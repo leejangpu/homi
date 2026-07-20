@@ -1131,11 +1131,77 @@
       "result": "pending",
       "winnings": 0,
       "winDetail": ""
+    },
+    {
+      "round": 1234,
+      "buyDate": "2026-07-20",
+      "drawDate": "2026-07-25",
+      "tickets": [
+        {
+          "numbers": [
+            2,
+            15,
+            21,
+            22,
+            30,
+            35
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            13,
+            14,
+            19,
+            20,
+            36,
+            40
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            1,
+            12,
+            14,
+            17,
+            37,
+            45
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            19,
+            20,
+            26,
+            29,
+            38,
+            44
+          ],
+          "mode": "random"
+        },
+        {
+          "numbers": [
+            5,
+            11,
+            21,
+            26,
+            31,
+            36
+          ],
+          "mode": "random"
+        }
+      ],
+      "totalAmount": 5000,
+      "result": "pending",
+      "winnings": 0,
+      "winDetail": ""
     }
   ],
   "stats": {
-    "totalSpent": 90000,
+    "totalSpent": 95000,
     "totalWon": 10000,
-    "totalRounds": 18
+    "totalRounds": 19
   }
 }
