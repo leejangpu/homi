@@ -393,11 +393,11 @@ async function processTickerOrders(
 
   console.log(`[Open]     매수 주문 ${buyOrders.length}건, 매도 주문 ${sellOrders.length}건`);
 
-  // 큰수 매수: 가격을 큰수(현재가 +largeNumPct%)로 클램프 + 그 가격에서 수량 재계산
-  //           + 큰수 아래로 대폭락 티어(1주씩 최대 5단). LOC 거부 회피 & 무조건 매수 보장.
-  const lnb = applyLargeNumberBuy(buyOrders, currentPrice, largeNumPct, cycleData.buyPerRound);
-  if (lnb.clampedCount > 0 || lnb.tierCount > 0) {
-    console.log(`[Open]     큰수매수: 기준 ${fmtUSD(lnb.largeNum)} (현재가 +${largeNumPct}%), 클램프 ${lnb.clampedCount}건, 대폭락 티어 ${lnb.tierCount}건`);
+  // 큰수 매수: 매수가를 큰수(현재가 +largeNumPct%)로 클램프 + 그 가격에서 수량 재계산.
+  //           LOC 밴드 초과 거부 회피. 주문 개수는 그대로(무한매수법 원형).
+  const lnb = applyLargeNumberBuy(buyOrders, currentPrice, largeNumPct);
+  if (lnb.clampedCount > 0) {
+    console.log(`[Open]     큰수 클램프: 기준 ${fmtUSD(lnb.largeNum)} (현재가 +${largeNumPct}%), ${lnb.clampedCount}건 눌림`);
   }
   buyOrders = lnb.orders;
 
