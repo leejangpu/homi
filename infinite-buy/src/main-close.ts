@@ -266,9 +266,11 @@ async function syncTicker(
       // 쿼터모드 매수 체결 → round 증가
       const newRound = (quarterMode.round || 0) + 1;
       if (newRound > 10) {
-        // 쿼터모드 10회 완료 → 리셋 (다음 open에서 MOC 매도로 자금 확보)
-        cycleData.quarterMode = { ...quarterMode, round: newRound, isActive: false };
-        console.log(`[Close]   → 쿼터모드 10회 완료, 리셋 (round=${newRound})`);
+        // 쿼터모드 10회 완료 → round를 1로 리셋 + isActive=false.
+        // 다음 open에서 MOC 매도 1회로 자금 재확보(진입일처럼 매수 없음) → 재활성화 후 새 배치 시작.
+        // ⚠️ round를 1로 되돌리지 않으면 isQuarterModeReset(round>10)이 계속 참이 되어 매일 MOC 강제청산 버그.
+        cycleData.quarterMode = { ...quarterMode, round: 1, isActive: false };
+        console.log(`[Close]   → 쿼터모드 10회 완료 → 새 배치 리셋 (round=1, 다음 open MOC 자금확보)`);
       } else {
         cycleData.quarterMode = { ...quarterMode, round: newRound };
         console.log(`[Close]   → 쿼터모드 round ${quarterMode.round} → ${newRound}`);

@@ -868,12 +868,9 @@ test('J2', '쿼터모드 진입 시 매수 주문 없음 (아직 MOC 미체결)'
   });
   const result = calculate(params);
 
-  // 진입 시점이므로 매수 주문 없어야 함 (quarterMode.isActive=false)
-  // generateBuyOrders: phase=QUARTER_MODE && quarterMode?.isActive false → else (후반전) 분기
-  // 하지만 buyPerRound=250, avgPrice=50, star=-10%, price=45, qty=floor(250/45)=5
-  // 실제로는 매수 주문이 생성됨 (후반전 분기)
-  // 이것이 맞는 동작인지 확인
-  assert(result.buyOrders.length > 0, 'buy orders exist (falls to else branch)');
+  // 진입일(isActive=false)은 1/4 MOC 매도로 자금확보만, 매수 없음 (라오어 v2.2 정석).
+  // 활성화(MOC 체결) 이후에만 시드/10로 매수 시작.
+  assertEqual(result.buyOrders.length, 0, 'no buy on quarter-mode entry (MOC sell only)');
   assertEqual(result.sellOrders[0].orderType, 'MOC', 'sell is MOC only');
 });
 

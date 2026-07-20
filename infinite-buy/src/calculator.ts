@@ -320,19 +320,22 @@ function generateBuyOrders(
         intendedAmount: halfAmount,
       });
     }
-  } else if (phase === 'QUARTER_MODE' && quarterMode?.isActive) {
-    // 쿼터모드: 별% LOC (쿼터모드 1회 매수금 사용)
-    const starPrice = calculatePrice(avgPrice, starPercent);
-    const qty = calculateQuantity(quarterMode.quarterBuyPerRound, starPrice);
-    if (qty > 0) {
-      orders.push({
-        orderType: 'LOC',
-        price: starPrice,
-        quantity: qty,
-        amount: Math.round(starPrice * qty * 100) / 100,
-        label: `쿼터모드 ${quarterMode.round}/10 ${formatStarPercentLabel(starPercent)} LOC [${versionLabel}]`,
-        intendedAmount: quarterMode.quarterBuyPerRound,
-      });
+  } else if (phase === 'QUARTER_MODE') {
+    // 쿼터모드 진입일(isActive=false)은 1/4 MOC 매도로 자금확보만 하고 **매수하지 않는다**
+    // (라오어 v2.2 정석. 진입 시점엔 잔금이 ~0이라 매수하면 자금부족 거부). 활성화 이후에만 시드/10로 매수.
+    if (quarterMode?.isActive) {
+      const starPrice = calculatePrice(avgPrice, starPercent);
+      const qty = calculateQuantity(quarterMode.quarterBuyPerRound, starPrice);
+      if (qty > 0) {
+        orders.push({
+          orderType: 'LOC',
+          price: starPrice,
+          quantity: qty,
+          amount: Math.round(starPrice * qty * 100) / 100,
+          label: `쿼터모드 ${quarterMode.round}/10 ${formatStarPercentLabel(starPercent)} LOC [${versionLabel}]`,
+          intendedAmount: quarterMode.quarterBuyPerRound,
+        });
+      }
     }
   } else {
     // 후반전: 1개 LOC 주문 (별%)
