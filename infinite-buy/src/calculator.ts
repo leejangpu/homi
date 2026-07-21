@@ -146,10 +146,11 @@ function getPhase(
     return 'QUARTER_MODE';
   }
 
-  // V2.2 쿼터모드 진입 조건: T > splitCount - 1 또는 잔금 < 1회 매수금
-  // 단, 새 사이클(T=0, 보유수량=0)일 때는 쿼터모드 진입하지 않음
+  // V2.2 쿼터모드(쿼터손절) 진입 조건: T > splitCount×(39/40) 또는 잔금 < 1회 매수금
+  // 임계값은 언이시트 v2.2 매도셀 CW6의 AND(39*(M/40)<T, T<=40*(M/40))와 일치.
+  // 20분할 → 19.5, 40분할 → 39. 단, 새 사이클(T=0, 보유수량=0)일 때는 진입하지 않음.
   const isNewCycle = tValue === 0 && totalQuantity === 0;
-  if (strategyVersion === 'v2.2' && !isNewCycle && (tValue > splitCount - 1 || remainingCash < buyPerRound)) {
+  if (strategyVersion === 'v2.2' && !isNewCycle && (tValue > (splitCount * 39) / 40 || remainingCash < buyPerRound)) {
     return 'QUARTER_MODE';
   }
 
@@ -186,8 +187,8 @@ export function shouldEnterQuarterMode(
     return { shouldEnter: false };
   }
 
-  // V2.2 쿼터모드 조건
-  if (tValue > splitCount - 1) {
+  // V2.2 쿼터모드 조건 (언이시트 CW6 임계값: T > splitCount×39/40. 20분할=19.5, 40분할=39)
+  if (tValue > (splitCount * 39) / 40) {
     return { shouldEnter: true, reason: 'T_EXCEEDED' };
   }
   if (remainingCash < buyPerRound) {
@@ -386,8 +387,9 @@ function generateSellOrders(
   const orders: SellOrder[] = [];
   const versionLabel = strategyVersion === 'v2.2' ? 'V2.2' : 'V3.0';
 
-  // 1/4 올림 (최소 1개)
-  let quarterQty = Math.max(1, Math.ceil(totalQuantity / 4));
+  // 1/4 매도 수량 = ROUND(보유/4) — 언이시트 CU6/BF51의 ROUND(Z/4,0)와 일치 (반올림).
+  // (보유 1~2주면 0이 될 수 있음: 시트도 동일. 총보유 초과 시 캡)
+  let quarterQty = Math.round(totalQuantity / 4);
   if (quarterQty >= totalQuantity) {
     quarterQty = totalQuantity;
   }

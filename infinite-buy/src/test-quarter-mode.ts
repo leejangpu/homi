@@ -175,9 +175,9 @@ test('B2', '진입 시 quarterModeInfo 정보 올바른지', () => {
   assertEqual(result.quarterModeInfo!.quarterModeState!.round, 1, 'round');
 });
 
-test('B3', 'MOC 수량 - 소수 보유시 올림 (최소 1)', () => {
+test('B3', 'MOC 수량 - ROUND(보유/4) (언이시트 CU6)', () => {
   const params = makeParams({
-    totalQuantity: 3, // ceil(3/4) = 1
+    totalQuantity: 3, // ROUND(3/4)=ROUND(0.75)=1
     avgPrice: 50,
     totalInvested: 10000,
     remainingCash: 0,
@@ -187,7 +187,7 @@ test('B3', 'MOC 수량 - 소수 보유시 올림 (최소 1)', () => {
   assertEqual(result.sellOrders[0].quantity, 1, 'MOC qty for 3 shares');
 });
 
-test('B4', 'MOC 수량 - 1주 보유시 전량', () => {
+test('B4', 'MOC 수량 - 1주 보유시 ROUND(1/4)=0 (시트 동일)', () => {
   const params = makeParams({
     totalQuantity: 1,
     avgPrice: 50,
@@ -196,7 +196,8 @@ test('B4', 'MOC 수량 - 1주 보유시 전량', () => {
     buyPerRound: 250,
   });
   const result = calculate(params);
-  assertEqual(result.sellOrders[0].quantity, 1, 'MOC qty for 1 share = all');
+  // 언이시트 ROUND(1/4,0)=0. 1~2주는 쿼터매도 0 (3/4 목표 LIMIT가 잔량 커버).
+  assertEqual(result.sellOrders[0].quantity, 0, 'MOC qty for 1 share = ROUND(0.25)=0');
 });
 
 // ==================== C. 쿼터 시드 계산 ====================
