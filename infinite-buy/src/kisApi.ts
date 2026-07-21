@@ -344,6 +344,49 @@ export class KisApiClient {
   }
 
   /**
+   * 해외주식 주문 취소 (미국 정정취소 TTTT1004U, RVSE_CNCL_DVSN_CD=02).
+   * 원주문번호(ODNO)와 거래소전송조직번호(KRX_FWDG_ORD_ORGNO)로 취소.
+   */
+  async cancelOrder(
+    appKey: string, appSecret: string, accessToken: string, accountNo: string,
+    params: {
+      ticker: string;
+      exchange: string;
+      orgOrderNo: string;      // 원주문번호 (submitOrder 응답의 output.ODNO)
+      krxFwdgOrgNo?: string;   // 원주문 output.KRX_FWDG_ORD_ORGNO
+      quantity: number;
+    }
+  ): Promise<OrderResponse> {
+    const [accountPrefix, accountSuffix] = accountNo.split('-');
+    const response = await fetch(`${BASE_URL}/uapi/overseas-stock/v1/trading/order-rvsecncl`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        authorization: `Bearer ${accessToken}`,
+        appkey: appKey, appsecret: appSecret,
+        tr_id: 'TTTT1004U',
+      },
+      body: JSON.stringify({
+        CANO: accountPrefix, ACNT_PRDT_CD: accountSuffix,
+        OVRS_EXCG_CD: params.exchange, PDNO: params.ticker,
+        KRX_FWDG_ORD_ORGNO: params.krxFwdgOrgNo ?? '',
+        ORGN_ODNO: params.orgOrderNo,
+        RVSE_CNCL_DVSN_CD: '02',   // 02: 취소 (01: 정정)
+        ORD_QTY: String(params.quantity),
+        OVRS_ORD_UNPR: '0',
+        CTAC_TLNO: '',
+        MGCO_APTM_ODNO: '',
+        ORD_SVR_DVSN_CD: '0',
+      }),
+    });
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Cancel failed: ${response.status} - ${errorBody}`);
+    }
+    return response.json();
+  }
+
+  /**
    * 해외주식 주문체결내역 조회
    */
   async getOrderHistory(
