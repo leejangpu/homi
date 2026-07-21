@@ -10,13 +10,13 @@
       "splitCount": 20,
       "targetProfit": 0.20,
       "exchange": "AMEX",
-      "largeNumPct": 10
+      "largeNumPct": 15
     },
     "TQQQ": {
       "splitCount": 40,
       "targetProfit": 0.15,
       "exchange": "NASD",
-      "largeNumPct": 10
+      "largeNumPct": 15
     }
   },
   "autoRestart": true,

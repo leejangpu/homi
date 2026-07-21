@@ -14,6 +14,12 @@
 export type Phase = 'FIRST_HALF' | 'SECOND_HALF' | 'QUARTER_MODE';
 export type StrategyVersion = 'v2.2' | 'v3.0';
 
+/**
+ * 쿼터손절모드 매수 별지점 = 평단 × (1 + 이 값). 언이시트 v2.2 `BB51` 리터럴 0.9 (= 평단 −10%).
+ * **고정값. 목표수익률과 무관**(시트가 하드코딩). 쿼터모드 '매수'에만 적용, 매도 별지점은 별도(-목표 유지).
+ */
+const QUARTER_MODE_BUY_STAR_PERCENT = -0.10;
+
 export interface CalculateParams {
   ticker: string;
   currentPrice: number;
@@ -325,7 +331,9 @@ function generateBuyOrders(
     // 쿼터모드 진입일(isActive=false)은 1/4 MOC 매도로 자금확보만 하고 **매수하지 않는다**
     // (라오어 v2.2 정석. 진입 시점엔 잔금이 ~0이라 매수하면 자금부족 거부). 활성화 이후에만 시드/10로 매수.
     if (quarterMode?.isActive) {
-      const starPrice = calculatePrice(avgPrice, starPercent);
+      // 쿼터손절 매수 별지점은 평단 −10% 고정(언이시트 BB51). 매도 별지점(starPercent=−목표)과 분리.
+      const buyStar = QUARTER_MODE_BUY_STAR_PERCENT;
+      const starPrice = calculatePrice(avgPrice, buyStar);
       const qty = calculateQuantity(quarterMode.quarterBuyPerRound, starPrice);
       if (qty > 0) {
         orders.push({
@@ -333,7 +341,7 @@ function generateBuyOrders(
           price: starPrice,
           quantity: qty,
           amount: Math.round(starPrice * qty * 100) / 100,
-          label: `쿼터모드 ${quarterMode.round}/10 ${formatStarPercentLabel(starPercent)} LOC [${versionLabel}]`,
+          label: `쿼터모드 ${quarterMode.round}/10 ${formatStarPercentLabel(buyStar)} LOC [${versionLabel}]`,
           intendedAmount: quarterMode.quarterBuyPerRound,
         });
       }

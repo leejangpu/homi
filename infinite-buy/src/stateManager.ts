@@ -21,7 +21,7 @@ export interface Config {
     splitCount: number;
     targetProfit: number;
     exchange: 'NASD' | 'AMEX' | 'NYSE';
-    largeNumPct?: number;  // 큰수 매수 기준 % (기본 10). 현재가 대비 LOC 상한 & 대폭락 티어 기준
+    largeNumPct?: number;  // 큰수 매수 기준 % (기본 15, 언이시트 v2.2 기준). 현재가 대비 LOC 상한
   }>;
   autoRestart: boolean;
   equalSplit: boolean;

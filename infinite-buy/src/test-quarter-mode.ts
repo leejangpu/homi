@@ -694,8 +694,9 @@ test('H1', 'SOXL 30분할 쿼터모드 진입 (T초과)', () => {
   assertEqual(result.reason, 'T_EXCEEDED', 'reason');
 });
 
-test('H2', 'SOXL 쿼터모드 별% = -12%', () => {
-  // star% = 0.12 - (0.008 * 30) = 0.12 - 0.24 = -0.12
+test('H2', 'SOXL 쿼터모드: 매도별%=-12%(−목표), 매수별지점=-10%(고정) 분리', () => {
+  // 쿼터 star%(매도 별지점) = 0.12 - (0.008 * 30) = -0.12
+  // 쿼터 매수 별지점 = -10% 고정(언이시트 BB51), 목표수익률과 무관
   const qm: QuarterModeState = {
     isActive: true, round: 1,
     originalBuyPerRound: 333,
@@ -712,10 +713,10 @@ test('H2', 'SOXL 쿼터모드 별% = -12%', () => {
   });
   const result = calculate(params);
 
-  assertEqual(result.starPercent, -0.12, 'star% = -12%');
-  // 매수가 = 30 * 0.88 = 26.40
-  assertEqual(result.buyOrders[0].price, 26.4, 'buy price');
-  // qty = floor(300 / 26.40) = 11
+  assertEqual(result.starPercent, -0.12, 'star%(매도 별지점) = -12%');
+  // 매수가 = 30 * 0.90 = 27.0 (−10% 고정, 목표 12%와 무관)
+  assertEqual(result.buyOrders[0].price, 27.0, 'buy price = 평단×0.9');
+  // qty = floor(300 / 27.0) = 11
   assertEqual(result.buyOrders[0].quantity, 11, 'buy qty');
 });
 

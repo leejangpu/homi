@@ -248,7 +248,7 @@ async function processTickerOrders(
   const splitCount = tickerConfig.splitCount;
   const targetProfit = tickerConfig.targetProfit;
   const exchange = tickerConfig.exchange;
-  const largeNumPct = tickerConfig.largeNumPct ?? 10;
+  const largeNumPct = tickerConfig.largeNumPct ?? 15;
   const starDecreaseRate = calculateDecreaseRate(targetProfit, splitCount);
   console.log(`[Open]   설정: split=${splitCount}, target=${(targetProfit * 100).toFixed(1)}%, decrease=${(starDecreaseRate * 100).toFixed(3)}%`);
 
