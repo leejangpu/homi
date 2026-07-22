@@ -236,7 +236,9 @@ test('C4', 'calculate()에서 시드 계산이 올바른지', () => {
   const qState = result.quarterModeInfo?.quarterModeState;
   assert(!!qState, 'quarterModeState exists');
   assertEqual(qState!.quarterSeed, 500, 'quarterSeed');
-  assertEqual(qState!.quarterBuyPerRound, 50, 'quarterBuyPerRound');
+  // 분할수: refPrice=현재가50×(1+목표0.1)=55. 500/10=50 < 55 → 9로 축소. 500/9=55.6 ≥ 55.
+  assertEqual(qState!.quarterSplits, 9, 'quarterSplits reduced to 9');
+  assertEqual(qState!.quarterBuyPerRound, 500 / 9, 'quarterBuyPerRound = seed/splits');
   assertEqual(qState!.originalBuyPerRound, 250, 'originalBuyPerRound preserved');
 });
 
@@ -958,9 +960,10 @@ test('K1', 'T=20이지만 잔금 부족 → 쿼터모드 진입', () => {
   assertEqual(result.phase, 'QUARTER_MODE', 'phase');
   assert(result.quarterModeInfo?.shouldEnterQuarterMode === true, 'shouldEnter');
   assertEqual(result.quarterModeInfo?.reason, 'INSUFFICIENT_CASH', 'reason');
-  // 시드 = min(100, 250*10=2500) = 100
+  // 시드 = min(100, 250*10=2500) = 100. refPrice=55라 10회 불가 → 분할수 1로 축소.
   assertEqual(result.quarterModeInfo?.quarterModeState?.quarterSeed, 100, 'seed=100');
-  assertEqual(result.quarterModeInfo?.quarterModeState?.quarterBuyPerRound, 10, 'qBuyPerRound=10');
+  assertEqual(result.quarterModeInfo?.quarterModeState?.quarterSplits, 1, 'splits=1 (시드 작아 1회만)');
+  assertEqual(result.quarterModeInfo?.quarterModeState?.quarterBuyPerRound, 100, 'qBuyPerRound=100');
 });
 
 test('K2', '잔금 부족 진입 후 MOC 체결로 잔금 회복 → 쿼터모드 정상 진행', () => {

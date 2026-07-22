@@ -41,10 +41,11 @@ export interface CalculateParams {
  */
 export interface QuarterModeState {
   isActive: boolean;          // 쿼터모드 활성화 여부
-  round: number;              // 현재 쿼터모드 회차 (1~10)
+  round: number;              // 현재 쿼터모드 회차 (1~quarterSplits)
   originalBuyPerRound: number; // 쿼터모드 진입 전 1회 매수금
   quarterSeed: number;        // 쿼터모드 시드 (최대 = originalBuyPerRound × 10)
-  quarterBuyPerRound: number; // 쿼터모드 1회 매수금 (quarterSeed / 10)
+  quarterBuyPerRound: number; // 쿼터모드 1회 매수금 (quarterSeed / quarterSplits)
+  quarterSplits?: number;     // 쿼터모드 분할수 (max 10, 시드가 작으면 축소). 미지정 시 10
 }
 
 export interface BuyOrder {
@@ -205,17 +206,31 @@ export function shouldEnterQuarterMode(
 
 /**
  * 쿼터모드 시드 계산
- * 시드 = 예수금 전체 (매도금 + 기존 잔금 + 수익금)
- * 단, 최대 시드 = 기존 1회 매수금 × 10
+ * 시드 = 예수금 전체 (매도금 + 기존 잔금 + 수익금), 최대 = 기존 1회 매수금 × 10
+ *
+ * 분할수: 기본 max 10분할. 단 시드/10이 1주 값도 안 되면(=10회 못 나눔) 분할수를 줄인다.
+ *   기준가 = 현재가 × (1 + 목표%)  ← 버퍼(가격이 목표%만큼 올라도 1주 살 수 있게 보수적)
+ *   시드/분할수 < 기준가 이면 분할수--  (최소 1)
+ * currentPrice/targetProfit 미지정(0)이면 분할수는 10 고정(하위호환).
  */
 export function calculateQuarterModeSeed(
   remainingCash: number,
-  originalBuyPerRound: number
-): { quarterSeed: number; quarterBuyPerRound: number } {
+  originalBuyPerRound: number,
+  currentPrice: number = 0,
+  targetProfit: number = 0
+): { quarterSeed: number; quarterBuyPerRound: number; quarterSplits: number } {
   const maxSeed = originalBuyPerRound * 10;
   const quarterSeed = Math.min(remainingCash, maxSeed);
-  const quarterBuyPerRound = quarterSeed / 10;
-  return { quarterSeed, quarterBuyPerRound };
+
+  let quarterSplits = 10;
+  const refPrice = currentPrice > 0 ? currentPrice * (1 + targetProfit) : 0;
+  if (refPrice > 0) {
+    while (quarterSplits > 1 && quarterSeed / quarterSplits < refPrice) {
+      quarterSplits--;
+    }
+  }
+  const quarterBuyPerRound = quarterSeed / quarterSplits;
+  return { quarterSeed, quarterBuyPerRound, quarterSplits };
 }
 
 /**
@@ -341,7 +356,7 @@ function generateBuyOrders(
           price: starPrice,
           quantity: qty,
           amount: Math.round(starPrice * qty * 100) / 100,
-          label: `쿼터모드 ${quarterMode.round}/10 ${formatStarPercentLabel(buyStar)} LOC [${versionLabel}]`,
+          label: `쿼터모드 ${quarterMode.round}/${quarterMode.quarterSplits ?? 10} ${formatStarPercentLabel(buyStar)} LOC [${versionLabel}]`,
           intendedAmount: quarterMode.quarterBuyPerRound,
         });
       }
@@ -429,7 +444,7 @@ function generateSellOrders(
 
   // V2.2 쿼터모드 진입 시점 (아직 활성화되지 않음) 또는 쿼터모드 10회 완료 후: MOC만 (자금확보용)
   const isQuarterModeEntry = phase === 'QUARTER_MODE' && !quarterMode?.isActive;
-  const isQuarterModeReset = phase === 'QUARTER_MODE' && quarterMode?.isActive && quarterMode.round > 10;
+  const isQuarterModeReset = phase === 'QUARTER_MODE' && quarterMode?.isActive && quarterMode.round > (quarterMode.quarterSplits ?? 10);
   const needMOCOnly = isQuarterModeEntry || isQuarterModeReset;
 
   if (needMOCOnly) {
@@ -451,7 +466,7 @@ function generateSellOrders(
       price: starPrice,
       quantity: quarterQty,
       amount: Math.round(starPrice * quarterQty * 100) / 100,
-      label: `쿼터매도 ${quarterMode.round}/10 ${formatStarPercentLabel(starPercent)} LOC [${versionLabel}]`,
+      label: `쿼터매도 ${quarterMode.round}/${quarterMode.quarterSplits ?? 10} ${formatStarPercentLabel(starPercent)} LOC [${versionLabel}]`,
     });
   } else {
     // 전반전/후반전: 별% LOC 쿼터매도
@@ -532,14 +547,16 @@ export function calculate(params: CalculateParams): CalculateResult {
       // 이미 쿼터모드 진행 중
       quarterModeState = quarterMode;
     } else {
-      // 새로 쿼터모드 진입 (아직 MOC 매도 전)
-      const { quarterSeed, quarterBuyPerRound: qBuyPerRound } = calculateQuarterModeSeed(remainingCash, buyPerRound);
+      // 새로 쿼터모드 진입 (아직 MOC 매도 전). 분할수는 현재가·목표 기준으로 산정.
+      const { quarterSeed, quarterBuyPerRound: qBuyPerRound, quarterSplits } =
+        calculateQuarterModeSeed(remainingCash, buyPerRound, currentPrice, targetProfit);
       quarterModeState = {
         isActive: false, // MOC 매도 체결 후 true로 변경
         round: 1,
         originalBuyPerRound: buyPerRound,
         quarterSeed,
         quarterBuyPerRound: qBuyPerRound,
+        quarterSplits,
       };
     }
   }

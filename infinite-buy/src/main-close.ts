@@ -202,12 +202,12 @@ async function syncTicker(
     console.log(`[Close]   쿼터모드 상태: active=${quarterMode.isActive}, round=${quarterMode.round}, hasSell=${hasSellExec}, hasBuy=${hasBuyExec}`);
 
     if (!quarterMode.isActive && hasSellExec) {
-      // MOC 매도 체결 → 쿼터모드 활성화 + 시드 재계산
+      // MOC 매도 체결 → 쿼터모드 활성화 + 시드/분할수 재계산 (현재가·목표 기준)
       const newRemainingCash = cycleData.principal - totalInvested;
-      const { quarterSeed, quarterBuyPerRound } = calculateQuarterModeSeed(
-        newRemainingCash, quarterMode.originalBuyPerRound
+      const { quarterSeed, quarterBuyPerRound, quarterSplits } = calculateQuarterModeSeed(
+        newRemainingCash, quarterMode.originalBuyPerRound, currentPrice, cycleData.targetProfit
       );
-      console.log(`[Close]   → 쿼터모드 활성화: remainingCash=${fmtUSD(newRemainingCash)}, seed=${fmtUSD(quarterSeed)}, qBuyPerRound=${fmtUSD(quarterBuyPerRound)}`);
+      console.log(`[Close]   → 쿼터모드 활성화: remainingCash=${fmtUSD(newRemainingCash)}, seed=${fmtUSD(quarterSeed)}, 분할=${quarterSplits}, qBuyPerRound=${fmtUSD(quarterBuyPerRound)}`);
 
       const updatedState: CycleState = {
         ...cycleData,
@@ -216,6 +216,7 @@ async function syncTicker(
           isActive: true,
           quarterSeed,
           quarterBuyPerRound,
+          quarterSplits,
         },
         totalInvested, remainingCash: newRemainingCash,
         avgPrice, totalQuantity,
@@ -265,12 +266,13 @@ async function syncTicker(
     if (quarterMode.isActive && hasBuyExec) {
       // 쿼터모드 매수 체결 → round 증가
       const newRound = (quarterMode.round || 0) + 1;
-      if (newRound > 10) {
-        // 쿼터모드 10회 완료 → round를 1로 리셋 + isActive=false.
+      const splits = quarterMode.quarterSplits ?? 10;
+      if (newRound > splits) {
+        // 쿼터모드 분할수 회차 완료 → round를 1로 리셋 + isActive=false.
         // 다음 open에서 MOC 매도 1회로 자금 재확보(진입일처럼 매수 없음) → 재활성화 후 새 배치 시작.
-        // ⚠️ round를 1로 되돌리지 않으면 isQuarterModeReset(round>10)이 계속 참이 되어 매일 MOC 강제청산 버그.
+        // ⚠️ round를 1로 되돌리지 않으면 isQuarterModeReset(round>splits)이 계속 참이 되어 매일 MOC 강제청산 버그.
         cycleData.quarterMode = { ...quarterMode, round: 1, isActive: false };
-        console.log(`[Close]   → 쿼터모드 10회 완료 → 새 배치 리셋 (round=1, 다음 open MOC 자금확보)`);
+        console.log(`[Close]   → 쿼터모드 ${splits}회 완료 → 새 배치 리셋 (round=1, 다음 open MOC 자금확보)`);
       } else {
         cycleData.quarterMode = { ...quarterMode, round: newRound };
         console.log(`[Close]   → 쿼터모드 round ${quarterMode.round} → ${newRound}`);
