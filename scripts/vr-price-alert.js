@@ -250,7 +250,7 @@ async function main() {
       `⚖️ VR ${isBuy ? '매수' : '매도'} 신호 — ${t.ticker}\n\n` +
       `${fmtMoney(hit.price, cur)} ${isBuy ? '매수' : '매도'}점 돌파 → 총 ${hit.qty}주 ${isBuy ? '매수' : '매도'}해주세요\n` +
       `현재가: ${fmtMoney(price, cur)} (${symbol})\n\n` +
-      `체결 후 웹 VR 계산기에서 체크하거나, 텔레그램으로 "체크해줘"라고 알려주세요.`;
+      `체결 후 웹 VR 계산기에서 체크하거나, Claude에게 "체크해줘"라고 요청하세요.`;
     await sendTelegram(env, msg);
     state[t.ticker] = { type: hit.type, furthestSeq: hit.furthestSeq, date: today };
     alerted++;

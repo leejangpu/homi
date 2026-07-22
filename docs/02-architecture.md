@@ -130,7 +130,7 @@ homi/
 
 - **한국투자증권(KIS) OpenAPI** — 무한매수법 주문/체결(`infinite-buy/src/kisApi.ts`). IP 등록 방식이라 반드시 집 맥에서 실행(launchd)
 - **토스증권 OpenAPI** — 보유종목 조회. **IPv4 강제 필수**(dual-stack IPv6 나가면 `unidentified-client` 401), `X-Tossinvest-Account`는 accountSeq. 스펙 `docs/toss-api/`
-- **텔레그램** — 알림 전부 **Alram🔔**(`@idca_local_bot`) 한 봇으로 통합(infinite-buy/signal-alert/lotto 공유). 대화형은 Claude Code 텔레그램 플러그인(별도 봇 서버 없음)
+- **텔레그램** — 알림 전부 **Alram🔔**(`@idca_local_bot`) 한 봇으로 통합(infinite-buy/signal-alert/lotto/vr-price-alert 공유). 발신 전용 — 대화형 채널 없음 (옛 Claude Code 텔레그램 플러그인은 2026-07-22 정리)
 - **Claude CLI** — 가계부 AI 리포트 생성(sonnet)
 
 ## 기술 스택
