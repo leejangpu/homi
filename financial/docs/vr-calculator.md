@@ -39,6 +39,7 @@
 | 필드 | 의미 |
 |---|---|
 | `ticker` | 종목/식별자 (예: `TQQQ`, `ISA나스닥레버리지`) |
+| `marketTicker` | **조회용 티커** (가격 알림용 실제 시장 심볼. US는 티커 `TQQQ`, KR은 6자리 종목코드 `409820` 등. 미입력 시 USD는 `ticker`가 티커 형태면 폴백) |
 | `currentPrice` | 현재가 |
 | `totalQuantity` | 현재 보유 수량 |
 | `targetValue` | **현재 목표 평가액 V** (전략의 핵심 기준값) |
@@ -98,6 +99,15 @@ signal = eval < minBand → 'buy'
 
 - `scripts/vr-reminder.js` — `financial/vr-state.json`을 읽어 macOS **미리알림(Reminders)**에 리밸런싱 항목을 등록(기본 07:00). AppleScript(`osascript`)로 중복 방지 후 생성.
 - 스케줄: launchd `com.homi.vr-reminder.plist` + GH Actions `vr-reminder.yml`.
+
+## 가격 알림 (장중 밴드 이탈 감시)
+
+- `scripts/vr-price-alert.js` — DB `vr_tracker`의 활성 트래커를 읽어 **토스 OpenAPI**로 현재가를 조회, 평가금이 밴드를 이탈(매수/매도점 도달)하면 **Alram🔔 텔레그램**으로 알림.
+- 스케줄: launchd `com.homi.vr-price-alert.plist` — **매시 05분** 기동, 스크립트가 토스 `market-calendar/{KR,US}`로 개장 여부를 판정해 **정규장 중에만** 조회 (KRW 종목→국내장 09:00–15:30, USD 종목→미국장 KST 22:30–05:00·서머타임 자동 반영, 휴장일 자동 스킵).
+- 조회 심볼: 트래커 `marketTicker`(웹 "조회용 티커" 필드). 미입력 시 USD는 `ticker` 폴백, KRW는 스킵(로그에 표기).
+- **dedup**: 같은 종목·같은 신호는 KST 하루 1회만 발송 (`logs/vr-price-alert-state.json`).
+- 판정식은 `vrCalculate`와 동일: `평가금 = 보유수량 × 현재가`, `minBand/maxBand = V × (1 ∓ 밴드%)` (소수 2자리 반올림).
+- 로그: `logs/vr-price-alert.log`. API 키: `infinite-buy/.env` (토스 + 텔레그램, IPv4 강제).
 
 ## 관련 파일 요약
 

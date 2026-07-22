@@ -3480,6 +3480,7 @@ function vrGetInputs(){
   const strategyStartDate = gs('vr-strategyStartDate') || '';
   return {
     ticker: gs('vr-ticker') || 'QLD',
+    marketTicker: gs('vr-marketTicker').toUpperCase(),
     currentPrice: g('vr-currentPrice'),
     totalQuantity: g('vr-totalQuantity'),
     targetValue: g('vr-targetValue'),
@@ -4025,6 +4026,10 @@ async function renderVRCalc(){
       <div class="vr-field">
         <label>종목명</label>
         <input type="text" id="vr-ticker" value="${s.ticker||'QLD'}" placeholder="예: QLD">
+      </div>
+      <div class="vr-field">
+        <label>조회용 티커 <span style="color:var(--text-dim);font-weight:400">(가격 알림용)</span></label>
+        <input type="text" id="vr-marketTicker" value="${s.marketTicker||''}" placeholder="${cur==='KRW'?'예: 409820 (6자리 종목코드)':'예: TQQQ'}">
       </div>
       <div class="vr-field">
         <label>현재가 (${cs})</label>
