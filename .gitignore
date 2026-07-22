@@ -55,3 +55,5 @@ financial/data/*.db-wal
 financial/data/*.db-shm
 
 !.env.example
+
+financial/token_modify.json
