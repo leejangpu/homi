@@ -100,13 +100,14 @@ signal = eval < minBand → 'buy'
 - `scripts/vr-reminder.js` — `financial/vr-state.json`을 읽어 macOS **미리알림(Reminders)**에 리밸런싱 항목을 등록(기본 07:00). AppleScript(`osascript`)로 중복 방지 후 생성.
 - 스케줄: launchd `com.homi.vr-reminder.plist` + GH Actions `vr-reminder.yml`.
 
-## 가격 알림 (장중 밴드 이탈 감시)
+## 가격 알림 (장중 매수/매도점 도달 감시)
 
-- `scripts/vr-price-alert.js` — DB `vr_tracker`의 활성 트래커를 읽어 **토스 OpenAPI**로 현재가를 조회, 평가금이 밴드를 이탈(매수/매도점 도달)하면 **Alram🔔 텔레그램**으로 알림.
+- `scripts/vr-price-alert.js` — DB `vr_tracker`의 활성 트래커를 읽어 **토스 OpenAPI**로 현재가를 조회, **매수점/매도점(주문 목록의 지정가)에 도달**하면 **Alram🔔 텔레그램**으로 알림.
 - 스케줄: launchd `com.homi.vr-price-alert.plist` — **매시 05분** 기동, 스크립트가 토스 `market-calendar/{KR,US}`로 개장 여부를 판정해 **정규장 중에만** 조회 (KRW 종목→국내장 09:00–15:30, USD 종목→미국장 KST 22:30–05:00·서머타임 자동 반영, 휴장일 자동 스킵).
 - 조회 심볼: 트래커 `marketTicker`(웹 "조회용 티커" 필드). 미입력 시 USD는 `ticker` 폴백, KRW는 스킵(로그에 표기).
-- **dedup**: 같은 종목·같은 신호는 KST 하루 1회만 발송 (`logs/vr-price-alert-state.json`).
-- 판정식은 `vrCalculate`와 동일: `평가금 = 보유수량 × 현재가`, `minBand/maxBand = V × (1 ∓ 밴드%)` (소수 2자리 반올림).
+- **판정**: 웹 `vrCalculate`와 동일 공식으로 주문 목록을 재생성하고 `buyGroupSize`/`sellGroupSize` **묶음 기준**으로 도달 여부를 본다(묶음 지정가 = 묶음 마지막 주문 가격). 이미 체결 처리된 주문(`executedBuy/SellCount`, 원본 seq 고수위)은 제외. 여러 점을 지나쳤으면 **가장 깊은 점 가격 + 누적 수량**으로 알림 (예: "₩60,182 매도점 돌파 → 총 6주 매도해주세요").
+- **dedup**: 같은 종목·같은 도달 지점(seq)은 KST 하루 1회만, 더 깊은 점 돌파 시 재알림 (`logs/vr-price-alert-state.json`).
+- 체결 후: 웹 계산기에서 체크하거나, Claude에게 "체크해줘"라고 요청하면 `executedBuy/SellCount`를 API PATCH로 대신 갱신.
 - 로그: `logs/vr-price-alert.log`. API 키: `infinite-buy/.env` (토스 + 텔레그램, IPv4 강제).
 
 ## 관련 파일 요약

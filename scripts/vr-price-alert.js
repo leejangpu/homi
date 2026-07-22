@@ -1,8 +1,11 @@
 // VR 가격 알림: 장중 매시 VR 트래커 종목의 현재가를 토스 OpenAPI로 조회해
-// 평가금이 밴드를 이탈(매수/매도점 도달)하면 Alram🔔 텔레그램으로 알린다.
+// 매수점/매도점(주문 목록의 지정가) 도달 시 Alram🔔 텔레그램으로 알린다.
+// - 주문 목록은 웹 vrCalculate와 동일 공식으로 생성, buyGroupSize/sellGroupSize 묶음 기준으로 판정
+// - 이미 체결 처리된 주문(executedBuy/SellCount, 원본 seq 기준)은 제외
+// - 여러 점을 지나쳤으면 가장 깊은 점 가격 + 누적 수량으로 알림 (예: "₩900 매도점 돌파, 총 6주 매도")
 // - KRW 종목 → 국내장(market-calendar/KR), USD 종목 → 미국장(market-calendar/US) 개장 시에만 조회
 // - 조회 심볼: 트래커 `marketTicker`(웹 "조회용 티커" 필드), USD는 ticker 자체가 티커 형태면 폴백
-// - 같은 종목·같은 신호는 KST 하루 1회만 알림 (state 파일 dedup)
+// - 같은 종목·같은 도달 지점은 KST 하루 1회만 알림, 더 깊은 점 돌파 시 재알림 (state 파일 dedup)
 // 스케줄: launchd com.homi.vr-price-alert.plist (매시 05분)
 
 const fs = require('fs');
@@ -96,6 +99,80 @@ function resolveSymbol(t) {
 
 const round2 = n => Math.round(n * 100) / 100;
 
+// ===== 주문 목록 생성 — 웹 vrCalculate(financial/index.html)와 동일 공식 =====
+
+function calcWeekNumber(strategyStartDate) {
+  if (!strategyStartDate) return 0;
+  const start = new Date(strategyStartDate + 'T00:00:00+09:00');
+  return Math.max(0, Math.floor((Date.now() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)));
+}
+
+function buildOrders(t) {
+  const V = t.targetValue;
+  const Q = t.totalQuantity;
+  const bandRate = (t.bandPercent || 15) / 100;
+  const minBand = round2(V * (1 - bandRate));
+  const maxBand = round2(V * (1 + bandRate));
+
+  const baseLimitMap = { accumulate: 0.75, lump: 0.50, withdraw: 0.25 };
+  const baseLimit = baseLimitMap[t.investmentMode] || 0.75;
+  const weekNumber = calcWeekNumber(t.strategyStartDate);
+  const poolLimit = Math.max(0.10, baseLimit - Math.floor(weekNumber / 26) * 0.05);
+  const buyBudget = (t.pool || 0) * poolLimit * 0.60;
+
+  const buyOrders = [];
+  let remaining = buyBudget;
+  for (let n = 1; n <= 500 && remaining > 0; n++) {
+    const price = round2(minBand / (Q + n));
+    if (price <= 0 || remaining < price) break;
+    remaining -= price;
+    buyOrders.push({ seq: n, price });
+  }
+
+  const sellOrders = [];
+  for (let n = 1; n < Q; n++) sellOrders.push({ seq: n, price: round2(maxBand / (Q - n)) });
+
+  return { buyOrders, sellOrders, minBand, maxBand };
+}
+
+// 웹 vrApplyGrouping과 동일: groupSize개씩 묶고 묶음 지정가 = 마지막(가장 깊은) 주문의 가격
+function applyGrouping(orders, groupSize) {
+  if (!groupSize || groupSize <= 1) return orders.map(o => ({ ...o, firstOrigSeq: o.seq, lastOrigSeq: o.seq }));
+  const grouped = [];
+  for (let i = 0; i < orders.length; i += groupSize) {
+    const chunk = orders.slice(i, i + groupSize);
+    grouped.push({
+      firstOrigSeq: chunk[0].seq,
+      lastOrigSeq: chunk[chunk.length - 1].seq,
+      price: chunk[chunk.length - 1].price,
+    });
+  }
+  return grouped;
+}
+
+// 현재가가 도달한 미체결 매수/매도점을 찾는다.
+// 매수점: 가격이 지정가 이하로 내려오면 도달(점 가격은 내림차순), 매도점: 지정가 이상이면 도달(오름차순).
+// executed(체결 고수위, 원본 seq)는 제외하고, 도달한 점들의 누적 수량과 가장 깊은 점 가격을 돌려준다.
+function findTriggered(t, price) {
+  const { buyOrders, sellOrders } = buildOrders(t);
+  const check = (type, orders, groupSize, executed) => {
+    const groups = applyGrouping(orders, groupSize);
+    const crossed = groups.filter(g =>
+      g.lastOrigSeq > executed && (type === 'buy' ? price <= g.price : price >= g.price));
+    if (!crossed.length) return null;
+    let qty = 0;
+    for (const g of crossed) qty += g.lastOrigSeq - Math.max(executed, g.firstOrigSeq - 1);
+    const prices = crossed.map(g => g.price);
+    return {
+      type, qty,
+      price: type === 'buy' ? Math.min(...prices) : Math.max(...prices),
+      furthestSeq: Math.max(...crossed.map(g => g.lastOrigSeq)),
+    };
+  };
+  return check('buy', buyOrders, t.buyGroupSize || 1, t.executedBuyCount || 0)
+    || check('sell', sellOrders, t.sellGroupSize || 1, t.executedSellCount || 0);
+}
+
 function fmtMoney(n, currency) {
   if (currency === 'KRW') return '₩' + Math.round(n).toLocaleString('ko-KR');
   return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -159,34 +236,33 @@ async function main() {
     if (!price || !(price > 0)) { console.log(`[warn] ${t.ticker}(${symbol}): 현재가 조회 실패`); continue; }
 
     const cur = t.currency || 'USD';
-    const evaluation = round2(t.totalQuantity * price);
-    const bandRate = (t.bandPercent || 15) / 100;
-    const minBand = round2(t.targetValue * (1 - bandRate));
-    const maxBand = round2(t.targetValue * (1 + bandRate));
-    const signal = evaluation < minBand ? 'buy' : evaluation > maxBand ? 'sell' : 'hold';
-
-    console.log(`${t.ticker}(${symbol}) 현재가 ${price} 평가금 ${evaluation} 밴드 [${minBand} ~ ${maxBand}] → ${signal}`);
-    if (signal === 'hold') continue;
+    const hit = findTriggered(t, price);
+    console.log(`${t.ticker}(${symbol}) 현재가 ${price} → ${hit ? `${hit.type} ${hit.qty}주 (점 ${hit.price}, seq≤${hit.furthestSeq})` : '도달한 점 없음'}`);
+    if (!hit) continue;
 
     const prev = state[t.ticker];
-    if (prev && prev.signal === signal && prev.date === today) { console.log(`  (오늘 이미 알림 — dedup)`); continue; }
+    if (prev && prev.type === hit.type && prev.furthestSeq >= hit.furthestSeq && prev.date === today) {
+      console.log('  (오늘 이미 알림 — dedup)'); continue;
+    }
 
-    const isBuy = signal === 'buy';
-    const gapPct = round2(Math.abs(evaluation - (isBuy ? minBand : maxBand)) / t.targetValue * 100);
+    const isBuy = hit.type === 'buy';
     const msg =
       `⚖️ VR ${isBuy ? '매수' : '매도'} 신호 — ${t.ticker}\n\n` +
-      `현재가: ${fmtMoney(price, cur)} (${symbol})\n` +
-      `평가금 ${fmtMoney(evaluation, cur)} ${isBuy ? '<' : '>'} ${isBuy ? '하단' : '상단'}밴드 ${fmtMoney(isBuy ? minBand : maxBand, cur)} (밴드 이탈 ${gapPct}%)\n` +
-      `목표 V: ${fmtMoney(t.targetValue, cur)} · 밴드 ±${t.bandPercent || 15}%\n\n` +
-      `가계부 웹 VR 계산기에서 주문 목록을 확인하세요.`;
+      `${fmtMoney(hit.price, cur)} ${isBuy ? '매수' : '매도'}점 돌파 → 총 ${hit.qty}주 ${isBuy ? '매수' : '매도'}해주세요\n` +
+      `현재가: ${fmtMoney(price, cur)} (${symbol})\n\n` +
+      `체결 후 웹 VR 계산기에서 체크하거나, 텔레그램으로 "체크해줘"라고 알려주세요.`;
     await sendTelegram(env, msg);
-    state[t.ticker] = { signal, date: today };
+    state[t.ticker] = { type: hit.type, furthestSeq: hit.furthestSeq, date: today };
     alerted++;
-    console.log(`  → 텔레그램 알림 발송`);
+    console.log('  → 텔레그램 알림 발송');
   }
 
   if (alerted) fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
   console.log(`완료: 알림 ${alerted}건`);
 }
 
-main().catch(e => { console.error('vr-price-alert 실패:', e.message); process.exit(1); });
+module.exports = { buildOrders, applyGrouping, findTriggered, loadTrackers };
+
+if (require.main === module) {
+  main().catch(e => { console.error('vr-price-alert 실패:', e.message); process.exit(1); });
+}
