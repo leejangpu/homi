@@ -4,21 +4,38 @@
   "splits": 7,
   "splitAmount": 205.08,
   "cycleStartCash": 1435.58,
-  "lots": [],
-  "prevClose": 70.28,
-  "plannedOrders": [],
-  "submittedOrders": [
+  "lots": [
+    {
+      "id": "c1d20260723",
+      "buyDate": "2026-07-23",
+      "buyPrice": 66.3,
+      "qty": 2,
+      "daysHeld": 0
+    }
+  ],
+  "prevClose": 66.3,
+  "plannedOrders": [
     {
       "kind": "buy",
       "side": "BUY",
       "symbol": "TQQQ",
-      "price": 70.28,
+      "price": 66.3,
+      "qty": 3,
+      "clientOrderId": "2026-07-23-b"
+    },
+    {
+      "kind": "profit_sell",
+      "side": "SELL",
+      "symbol": "TQQQ",
+      "price": 66.5,
       "qty": 2,
-      "clientOrderId": "2026-07-22-b",
-      "orderId": "EbbUX6nDWBqxysLHo4aP6SkR1bTk70ymceHj1zutb9kx5odMnPCfj9qvUl8sL2Jt",
-      "submitDate": "2026-07-24"
+      "lotId": "c1d20260723",
+      "clientOrderId": "2026-07-23-p-c1d20260723"
     }
   ],
-  "updatedAt": "2026-07-22",
-  "lastCloseDate": "2026-07-22"
+  "submittedOrders": [],
+  "updatedAt": "2026-07-23",
+  "lastCloseDate": "2026-07-23",
+  "cycleBuyCost": 132.6,
+  "cycleSellProceeds": 0
 }
