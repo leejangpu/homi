@@ -28,8 +28,16 @@ export interface CycleState {
   cycleStartCash: number; // 참고용 스냅샷
   lots: Lot[];
   prevClose: number | null; // 다음날 매수 기준선 (직전 마감 종가)
-  plannedOrders: PlannedOrder[];
+  plannedOrders: PlannedOrder[];   // main-close가 계획 → main-open이 소비
+  submittedOrders: SubmittedOrder[]; // main-open이 제출 → main-close가 체결 대조
+  lastCloseDate?: string;  // 마지막으로 마감 반영한 거래일 (멱등 처리)
   updatedAt: string;
+}
+
+// main-open이 실제 제출한 주문 (체결 대조용 orderId 포함)
+export interface SubmittedOrder extends PlannedOrder {
+  orderId: string;
+  submitDate: string;
 }
 
 export type OrderSide = "BUY" | "SELL";

@@ -121,7 +121,7 @@ function step(state: CycleState, cash: number, i: number, close: number): { stat
   const s: CycleState = {
     symbol: "TEST", cycleSeq: 1, splits: 7, splitAmount: 100, cycleStartCash: 700,
     lots: Array.from({ length: 5 }, (_, k) => ({ id: `L${k}`, buyDate: day(1), buyPrice: 20, qty: 1, daysHeld: 3 })),
-    prevClose: 20, plannedOrders: [], updatedAt: day(1),
+    prevClose: 20, plannedOrders: [], submittedOrders: [], updatedAt: day(1),
   };
   const ctx: CloseContext = { today: day(2), todayClose: 20, availableCash: 50, fills: [] };
   const orders = planNextDay(s, ctx, cfg);
@@ -137,7 +137,7 @@ function step(state: CycleState, cash: number, i: number, close: number): { stat
   const s: CycleState = {
     symbol: "TEST", cycleSeq: 1, splits: 7, splitAmount: 100, cycleStartCash: 700,
     lots: Array.from({ length: 7 }, (_, k) => ({ id: `L${k}`, buyDate: day(1), buyPrice: 90, qty: 1, daysHeld: 2 })),
-    prevClose: 90, plannedOrders: [], updatedAt: day(1),
+    prevClose: 90, plannedOrders: [], submittedOrders: [], updatedAt: day(1),
   };
   const orders = planNextDay(s, { today: day(2), todayClose: 90, availableCash: 500, fills: [] }, cfg);
   ok(!orders.some(o => o.kind === "buy"), "D: 남은분할0 → 매수 없음");

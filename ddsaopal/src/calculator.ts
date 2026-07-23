@@ -192,6 +192,7 @@ export function initState(cfg: Config): CycleState {
     lots: [],
     prevClose: null,
     plannedOrders: [],
+    submittedOrders: [],
     updatedAt: "",
   };
 }

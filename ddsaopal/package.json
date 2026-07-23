@@ -9,9 +9,14 @@
     "close": "tsx src/main-close.ts",
     "open": "tsx src/main-open.ts"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1"
   }
 }
