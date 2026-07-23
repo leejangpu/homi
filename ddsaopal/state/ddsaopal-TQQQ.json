@@ -6,17 +6,19 @@
   "cycleStartCash": 1435.58,
   "lots": [],
   "prevClose": 70.28,
-  "plannedOrders": [
+  "plannedOrders": [],
+  "submittedOrders": [
     {
       "kind": "buy",
       "side": "BUY",
       "symbol": "TQQQ",
       "price": 70.28,
       "qty": 2,
-      "clientOrderId": "2026-07-22-b"
+      "clientOrderId": "2026-07-22-b",
+      "orderId": "EbbUX6nDWBqxysLHo4aP6SkR1bTk70ymceHj1zutb9kx5odMnPCfj9qvUl8sL2Jt",
+      "submitDate": "2026-07-24"
     }
   ],
-  "submittedOrders": [],
   "updatedAt": "2026-07-22",
   "lastCloseDate": "2026-07-22"
 }
