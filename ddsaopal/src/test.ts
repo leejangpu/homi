@@ -82,7 +82,13 @@ function step(state: CycleState, cash: number, i: number, close: number): { stat
   ok(s.cycleSeq === 2, `A: 사이클 종료 → seq 2 (got ${s.cycleSeq})`);
   ok(approx(s.splitAmount, Math.floor((cash) * 100 / 7) / 100), `A: 재분할 splitAmount=cash/7 (got ${s.splitAmount}, cash ${cash})`);
   ok(s.plannedOrders.filter(o => o.kind === "buy").length === 1, "A: 새 사이클 매수 1건 계획");
-  console.log(`  → 현금 ${cash.toFixed(2)}, splitAmount ${s.splitAmount}`);
+  // 사이클 리포트: 매수 99+98=197, 매도 100+100=200, 수익 3, 수익률 3/197*100
+  ok(!!s.cycleReport, "A: 사이클 종료 리포트 존재");
+  ok(approx(s.cycleReport!.bought, 197) && approx(s.cycleReport!.sold, 200), `A: 매수197/매도200 (got ${s.cycleReport!.bought}/${s.cycleReport!.sold})`);
+  ok(approx(s.cycleReport!.profit, 3), `A: 수익 $3 (got ${s.cycleReport!.profit})`);
+  ok(approx(s.cycleReport!.returnPct, 3 / 197 * 100), `A: 수익률 ${(3 / 197 * 100).toFixed(3)}% (got ${s.cycleReport!.returnPct.toFixed(3)})`);
+  ok(s.cycleReport!.cycleSeq === 1, "A: 종료된 사이클 번호 1");
+  console.log(`  → 현금 ${cash.toFixed(2)}, splitAmount ${s.splitAmount}, 리포트 수익 $${s.cycleReport!.profit.toFixed(2)} (${s.cycleReport!.returnPct.toFixed(2)}%)`);
 }
 
 // ===== 시나리오 B: 12영업일 손절 (저가 종가매도) =====
@@ -112,6 +118,9 @@ function step(state: CycleState, cash: number, i: number, close: number): { stat
   ok(stopSeenOnPlanDay === 12, `B: 손절 계획은 day12 마감에 잡힘 (got ${stopSeenOnPlanDay})`);
   ok(s.lots.length === 0, "B: day13 손절 체결 → flat");
   ok(s.cycleSeq === 2, `B: 손절로 사이클 종료 (seq ${s.cycleSeq})`);
+  // 손절 사이클 리포트: 매수 99, 매도(손절 종가) 99.16 → 손익 근소
+  ok(!!s.cycleReport && approx(s.cycleReport!.bought, 99), `B: 리포트 매수합계 99 (got ${s.cycleReport?.bought})`);
+  ok(!!s.cycleReport && s.cycleReport!.profit > 0 && s.cycleReport!.profit < 1, `B: 손절 사이클 소액 수익 (got ${s.cycleReport?.profit.toFixed(2)})`);
 }
 
 // ===== 시나리오 C: 현금 부족 시 min 매수 (남은예수금/남은분할) =====

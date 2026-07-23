@@ -4,7 +4,7 @@
 //   planNextDay(state, ctx, cfg) — 다음 개장일 주문 계획(매수/이익매도/손절) 산출
 // main-close 는 applyFills → planNextDay 순으로 호출한다.
 
-import type { CloseContext, Config, CycleState, FillResult, Lot, PlannedOrder } from "./types.js";
+import type { CloseContext, Config, CycleReport, CycleState, FillResult, Lot, PlannedOrder } from "./types.js";
 
 // ---------- 틱/금액 유틸 ----------
 
@@ -60,38 +60,64 @@ export function applyFills(state: CycleState, ctx: CloseContext, cfg: Config): C
     else if (f.lotId) byLot.set(f.lotId, f);
   }
 
-  // 기존 로트: 매도/손절 반영 + 생존분 aging
+  let cycleBuyCost = state.cycleBuyCost ?? 0;
+  let cycleSellProceeds = state.cycleSellProceeds ?? 0;
+
+  // 기존 로트: 매도/손절 반영(체결금 누적) + 생존분 aging
   const survivors: Lot[] = [];
   for (const lot of state.lots) {
     const f = byLot.get(lot.id);
     let qty = lot.qty;
-    if (f && f.filledQty > 0) qty -= f.filledQty; // 매도 체결분 차감
+    if (f && f.filledQty > 0) {
+      qty -= f.filledQty; // 매도 체결분 차감
+      cycleSellProceeds += f.filledQty * f.filledPrice;
+    }
     if (qty <= 0) continue; // 전량 매도 → 로트 소멸
     survivors.push({ ...lot, qty, daysHeld: lot.daysHeld + 1 });
   }
 
-  // 매수 체결 → 새 로트 (aging 대상 아님)
+  // 사이클 종료 판정: 매도 반영 후(새 매수 전) 생존 로트 0 & 직전에 보유가 있었음
   let cycleSeq = state.cycleSeq;
+  let splitAmount = state.splitAmount;
+  let cycleStartCash = state.cycleStartCash;
+  let cycleReport: CycleReport | undefined;
+
+  const cycleEnded = survivors.length === 0 && hadLots;
+  if (cycleEnded) {
+    const bought = cycleBuyCost;
+    const sold = cycleSellProceeds;
+    const profit = sold - bought;
+    cycleReport = {
+      cycleSeq, // 종료된(현재) 사이클 번호
+      endDate: ctx.today,
+      bought,
+      sold,
+      profit,
+      returnPct: bought > 0 ? (profit / bought) * 100 : 0,
+    };
+    cycleSeq += 1;                 // 다음 사이클 번호
+    cycleBuyCost = 0;              // 다음 사이클 누적 초기화
+    cycleSellProceeds = 0;
+    splitAmount = floorCent(ctx.availableCash / cfg.splits);
+    cycleStartCash = ctx.availableCash;
+  } else if (survivors.length === 0 && splitAmount <= 0) {
+    // 최초 부트스트랩(보유·이력 없음)
+    if (cycleSeq === 0) cycleSeq = 1;
+    splitAmount = floorCent(ctx.availableCash / cfg.splits);
+    cycleStartCash = ctx.availableCash;
+  }
+
+  // 매수 체결 → 새 로트(현/새 사이클 소속). aging 대상 아님, 매수금 누적
   const lots = [...survivors];
   if (buyFill && buyFill.filledQty > 0) {
-    const id = lotId(cycleSeq, ctx.today);
+    cycleBuyCost += buyFill.filledQty * buyFill.filledPrice;
     lots.push({
-      id,
+      id: lotId(cycleSeq, ctx.today),
       buyDate: ctx.today,
       buyPrice: buyFill.filledPrice,
       qty: buyFill.filledQty,
       daysHeld: 0,
     });
-  }
-
-  // 사이클 리셋: flat 이 되면(직전에 로트가 있었거나 splitAmount 미설정) 재분할
-  let splitAmount = state.splitAmount;
-  let cycleStartCash = state.cycleStartCash;
-  if (lots.length === 0 && (hadLots || splitAmount <= 0)) {
-    if (hadLots) cycleSeq += 1;          // 실제 사이클 종료 → 다음 사이클 번호
-    else if (cycleSeq === 0) cycleSeq = 1; // 최초 부트스트랩 → 1번 사이클
-    splitAmount = floorCent(ctx.availableCash / cfg.splits);
-    cycleStartCash = ctx.availableCash;
   }
 
   return {
@@ -101,6 +127,9 @@ export function applyFills(state: CycleState, ctx: CloseContext, cfg: Config): C
     splitAmount,
     cycleStartCash,
     lots,
+    cycleBuyCost,
+    cycleSellProceeds,
+    cycleReport,
     prevClose: ctx.todayClose, // 내일 매수 기준선
     plannedOrders: [],
     updatedAt: ctx.today,
@@ -193,6 +222,8 @@ export function initState(cfg: Config): CycleState {
     prevClose: null,
     plannedOrders: [],
     submittedOrders: [],
+    cycleBuyCost: 0,
+    cycleSellProceeds: 0,
     updatedAt: "",
   };
 }

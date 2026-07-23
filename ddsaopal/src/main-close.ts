@@ -59,6 +59,16 @@ async function main() {
     `다음 계획: ${next.plannedOrders.map((o) => `${o.kind} ${o.qty}@${o.price}`).join(", ") || "없음"}`,
   ];
   if (mismatch) lines.push(mismatch);
+
+  // 사이클 종료 시 실현 손익 요약
+  if (next.cycleReport) {
+    const r = next.cycleReport;
+    const sign = r.profit >= 0 ? "+" : "-";
+    lines.push("");
+    lines.push(`🔄 사이클 ${r.cycleSeq} 종료 (${r.endDate})`);
+    lines.push(`매수합계 $${r.bought.toFixed(2)} → 매도합계 $${r.sold.toFixed(2)}`);
+    lines.push(`수익 ${sign}$${Math.abs(r.profit).toFixed(2)} (${sign}${Math.abs(r.returnPct).toFixed(2)}%)`);
+  }
   const msg = lines.join("\n");
   console.log(msg);
   await notify(env, msg);

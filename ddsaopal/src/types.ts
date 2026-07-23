@@ -31,7 +31,20 @@ export interface CycleState {
   plannedOrders: PlannedOrder[];   // main-close가 계획 → main-open이 소비
   submittedOrders: SubmittedOrder[]; // main-open이 제출 → main-close가 체결 대조
   lastCloseDate?: string;  // 마지막으로 마감 반영한 거래일 (멱등 처리)
+  cycleBuyCost?: number;   // 현 사이클 매수 체결금 누적 (USD)
+  cycleSellProceeds?: number; // 현 사이클 매도/손절 체결금 누적 (USD)
+  cycleReport?: CycleReport;  // 이번 마감에 사이클이 끝났다면 그 요약 (없으면 미종료)
   updatedAt: string;
+}
+
+// 사이클 종료 요약 (실현 손익)
+export interface CycleReport {
+  cycleSeq: number;    // 종료된 사이클 번호
+  endDate: string;
+  bought: number;      // 매수 체결금 합계 (USD)
+  sold: number;        // 매도/손절 체결금 합계 (USD)
+  profit: number;      // sold - bought (USD)
+  returnPct: number;   // profit / bought * 100
 }
 
 // main-open이 실제 제출한 주문 (체결 대조용 orderId 포함)
