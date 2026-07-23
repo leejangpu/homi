@@ -1,0 +1,10 @@
+{
+  "enabled": false,
+  "symbol": "TQQQ",
+  "splits": 7,
+  "sellProfitRate": 0.003,
+  "stopLossOpenDays": 12,
+  "stopSellDiscount": 0.30,
+  "capitalSource": "toss_buyable",
+  "accountSeq": 1
+}

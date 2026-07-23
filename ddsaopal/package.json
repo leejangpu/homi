@@ -1,0 +1,17 @@
+{
+  "name": "ddsaopal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "떨사오팔 — 떨어지면 사고 오르면 판다 (토스증권 API 자동매매)",
+  "scripts": {
+    "test": "tsx src/test.ts",
+    "close": "tsx src/main-close.ts",
+    "open": "tsx src/main-open.ts"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
