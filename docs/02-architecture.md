@@ -1,6 +1,6 @@
 # Architecture (현행)
 
-> 최종 업데이트: 2026-07-16
+> 최종 업데이트: 2026-07-23
 > 이 문서는 현행 구조 서술본. 최상위 인덱스·명령어·스케줄러/봇 맵은 루트 `CLAUDE.md`가 단일 진실원이며, 충돌 시 CLAUDE.md 우선.
 
 ## 프로젝트 구조
@@ -12,13 +12,14 @@ homi/
 ├── lotto/              # 로또 자동구매 (Python + Playwright, 로컬 launchd)
 ├── infinite-buy/       # 무한매수법 자동매매 (TypeScript). v2.2/v3.0 + v4.0(src/v4/) 공존
 ├── signal-alert/       # 시장 신호 알림 (Python, 공포탐욕+VIX+RSI 교집합, launchd)
+├── ddsaopal/           # 떨사오팔 — 토스 API n분할 매수 자동매매 (TypeScript, launchd)
 ├── scripts/            # 시스템 헬퍼 (LAN IP 알림, VR 리마인더, 자동 커밋)
 ├── 가계부/              # 영수증 원본 이미지 보관
 ├── .github/workflows/  # GitHub Actions 워크플로우
 └── docs/               # 문서 (+ 서브시스템별 docs/)
 ```
 
-핵심 서브시스템은 넷: **가계부**, **무한매수법**, **로또**, **시장 신호 알림**. VR 계산기는 가계부 웹 안의 한 탭으로 동거한다.
+핵심 서브시스템은 다섯: **가계부**, **무한매수법**, **로또**, **시장 신호 알림**, **떨사오팔**. VR 계산기는 가계부 웹 안의 한 탭으로 동거한다.
 
 ## 1. financial/ — 가계부 대시보드 + VR 계산기
 
@@ -126,19 +127,39 @@ homi/
 - 데이터: CNN dataviz API(공포탐욕), yfinance(VIX `^VIX`, 종목 종가)
 - 실행 모드: `./run.sh`(조건부 발송) / `--print`(콘솔만) / `--test`(현재 지표 발송) / `--sample both`(샘플 메시지)
 
-## 6. 외부 API 연동
+## 6. ddsaopal/ — 떨사오팔 (n분할 매수 자동매매)
+
+"떨어지면 사고 오르면 판다". 토스증권 API로 예수금을 n분할(기본 7)해 **전일 종가 LOC 매수 / 매수가 +0.3% LOC 매도 / 매수 후 12영업일 손절**. 보유 로트가 0이 되면 사이클 종료 → 남은 예수금으로 재분할·재시작. infinite-buy(KIS)와 **완전 분리**(별도 폴더·상태·스케줄).
+
+**실행**: 집 맥 launchd(`com.homi.ddsaopal-{open,close}.plist`, 화~토). open KST 04:00(미 마감 1시간 전, 계획 제출) / close KST 07:00(미 마감 후, 체결 대조·다음날 계획).
+
+| 파일 | 역할 |
+|------|------|
+| `SPEC.md` | 전략 권위 사양(코드가 이걸 포팅) |
+| `src/calculator.ts` | **순수 코어** — `applyFills`(체결반영·aging·사이클리셋) / `planNextDay`(다음날 매수/매도/손절 계획) |
+| `src/tossApi.ts` | 토스 클라(IPv4 강제): 토큰·US캘린더·완료세션종가·매수가능금액·보유·주문조회·LOC주문 |
+| `src/main-{close,open}.ts` | 마감 반영·계획 / 개장 제출(3중 가드) |
+| `src/{state,telegram,test,probe,verify-order}.ts` | 상태 IO / 알림 / 회귀테스트 / 읽기전용 스모크 / 주문접수 검증 |
+| `docs/RUNBOOK.md` | 운영·모니터링·장애대응 |
+
+- **주문은 전부 LOC**(`LIMIT`+`CLS`, 미국주식 종가 체결). **토스는 MOC 미지원** → 손절 종가매도는 저가 지정가 LOC(`prevClose×(1−0.30)`)로 종가 체결을 유도.
+- **기준가 주의**: 토스 일봉은 미마감 당일 형성봉을 줄 수 있어, `getLastSessionClose`가 마감시각 경과로 필터링해 **마지막 완료 세션 종가**만 전일 종가로 쓴다.
+- **실주문 3중 가드**: `config.enabled` + `DDSAOPAL_LIVE_ORDERS=YES_REALLY` + DRY-RUN 기본. 멱등성 키(`clientOrderId`)로 재시도 중복 방지.
+- **상태**: `state/ddsaopal-<SYMBOL>.json`(사이클/1분할금액/보유 로트/다음 계획). 2026-07-23 라이브 전환.
+
+## 7. 외부 API 연동
 
 - **한국투자증권(KIS) OpenAPI** — 무한매수법 주문/체결(`infinite-buy/src/kisApi.ts`). IP 등록 방식이라 반드시 집 맥에서 실행(launchd)
-- **토스증권 OpenAPI** — 보유종목 조회. **IPv4 강제 필수**(dual-stack IPv6 나가면 `unidentified-client` 401), `X-Tossinvest-Account`는 accountSeq. 스펙 `docs/toss-api/`
-- **텔레그램** — 알림 전부 **Alram🔔**(`@idca_local_bot`) 한 봇으로 통합(infinite-buy/signal-alert/lotto/vr-price-alert 공유). 발신 전용 — 대화형 채널 없음 (옛 Claude Code 텔레그램 플러그인은 2026-07-22 정리)
+- **토스증권 OpenAPI** — 무한매수법 보유종목 조회 + **떨사오팔 LOC 주문/체결·캘린더·매수가능금액**. **IPv4 강제 필수**(dual-stack IPv6 나가면 `unidentified-client` 401), `X-Tossinvest-Account`는 accountSeq. US LOC는 `LIMIT`+`CLS`(MOC 미지원). 스펙 `docs/toss-api/`
+- **텔레그램** — 알림 전부 **Alram🔔**(`@idca_local_bot`) 한 봇으로 통합(infinite-buy/signal-alert/lotto/vr-price-alert/ddsaopal 공유). 발신 전용 — 대화형 채널 없음 (옛 Claude Code 텔레그램 플러그인은 2026-07-22 정리)
 - **Claude CLI** — 가계부 AI 리포트 생성(sonnet)
 
 ## 기술 스택
 
-- **Backend**: Node.js 20(financial, server, infinite-buy), Python 3.11(lotto, signal-alert)
+- **Backend**: Node.js 20(financial, server, infinite-buy, ddsaopal), Python 3.11(lotto, signal-alert)
 - **Frontend**: 순수 HTML/JS(financial, ECharts + jSpreadsheet)
 - **데이터 저장**: **SQLite DB**(가계부 `financial/data/homi.db`, 단일 진실원) + git 관리 파일(export 사본·상태 JSON)
-- **자동화**: macOS launchd(가계부 서버·로또·signal-alert·VR 리마인더·삼성카드·LAN IP·**무한매수법 v2.2/v3.0**), GitHub Actions(가계부 리포트/영수증; 무한매수법 v4는 self-hosted runner 수동 트리거)
+- **자동화**: macOS launchd(가계부 서버·로또·signal-alert·VR 리마인더·삼성카드·LAN IP·**무한매수법 v2.2/v3.0**·**떨사오팔**), GitHub Actions(가계부 리포트/영수증; 무한매수법 v4는 self-hosted runner 수동 트리거)
 - **배포**: 로컬 Express(financial, LAN 전용), 로컬 실행(lotto, signal-alert)
 
 ## GitHub Actions 워크플로우 현황
