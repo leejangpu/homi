@@ -255,7 +255,9 @@ def main():
         sys.exit(1)
 
     scope = "전체(backlog)" if lookback is None else f"최근 {lookback}일"
-    mails = fetch_unread(service, lookback_days=lookback)
+    # --all(backlog)은 상한을 크게, 데일리는 100 유지
+    cap = 2000 if lookback is None else 100
+    mails = fetch_unread(service, cap=cap, lookback_days=lookback)
     log(f"안읽음 수집({scope}): {len(mails)}개")
     if not mails:
         log("처리할 안읽음 없음.")
