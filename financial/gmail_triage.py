@@ -4,8 +4,10 @@
 흐름:
   1. 안읽음 메일(is:unread in:inbox) 수집 (발신/제목/스니펫)
   2. 간단 기계 필터링은 최소화 — Claude CLI(sonnet)로 중요도 분류
-  3. 기계성 메일 → 읽음처리(UNREAD 라벨 제거)
-  4. 중요 메일 → Alram🔔 텔레그램으로 요약 전송 (안읽음 유지)
+  3. 기계성 메일 → 보관처리(UNREAD·INBOX 라벨 제거: 읽음 + 받은편지함에서 치움)
+  4. 중요 메일 → 받은편지함에 안읽음으로 남기고 Alram🔔 텔레그램으로 요약 전송
+
+결과적으로 받은편지함에는 '내가 읽어야 할 메일'만 안읽음으로 남는다.
 
 삼성카드 루틴(sync_samsungcard.py)과 토큰을 분리한다:
   - credentials.json 은 공유(같은 OAuth 클라이언트)
@@ -98,7 +100,7 @@ def fetch_unread(service, cap=100, lookback_days=LOOKBACK_DAYS):
     for mid in ids:
         m = service.users().messages().get(
             userId="me", id=mid, format="metadata",
-            metadataHeaders=["From", "Subject", "Message-ID"],
+            metadataHeaders=["From", "Subject"],
         ).execute()
         headers = {h["name"].lower(): h["value"]
                    for h in m.get("payload", {}).get("headers", [])}
@@ -107,18 +109,8 @@ def fetch_unread(service, cap=100, lookback_days=LOOKBACK_DAYS):
             "from": headers.get("from", ""),
             "subject": headers.get("subject", ""),
             "snippet": (m.get("snippet", "") or "")[:200],
-            "msgid": (headers.get("message-id", "") or "").strip().lstrip("<").rstrip(">"),
         })
     return mails
-
-
-def gmail_link(msgid):
-    """rfc822msgid 검색 딥링크 — 계정·폴더 무관하게 해당 메일을 정확히 연다."""
-    if not msgid:
-        return None
-    import urllib.parse
-    return ("https://mail.google.com/mail/u/0/#search/rfc822msgid:"
-            + urllib.parse.quote(msgid, safe=""))
 
 
 # ---------------------------------------------------------------- AI 분류
@@ -188,13 +180,16 @@ def classify_all(mails):
 
 
 # ---------------------------------------------------------------- 실행 액션
-def mark_read(service, ids):
+def archive_mails(service, ids):
+    """기계성 메일을 읽음처리 + 보관(아카이브): UNREAD·INBOX 라벨 제거.
+    받은편지함에서 사라지고(보관함/전체메일에는 남음) 읽음 상태가 된다."""
     if not ids:
         return
     for start in range(0, len(ids), 1000):
         chunk = ids[start:start + 1000]
         service.users().messages().batchModify(
-            userId="me", body={"ids": chunk, "removeLabelIds": ["UNREAD"]},
+            userId="me",
+            body={"ids": chunk, "removeLabelIds": ["UNREAD", "INBOX"]},
         ).execute()
 
 
@@ -233,19 +228,15 @@ def send_telegram(text):
         return False
 
 
-def build_message(important, id2msgid):
+def build_message(important):
     today = datetime.now().strftime("%m/%d")
     lines = [f"📬 Gmail 안읽음 정리 ({today})", ""]
     if not important:
-        lines.append("확인 필요한 중요 메일 없음. 기계성 메일만 읽음처리 완료.")
+        lines.append("확인 필요한 중요 메일 없음. 기계성 메일은 보관처리 완료.")
     else:
-        lines.append(f"[확인 필요 · {len(important)}건] (안읽음 유지)")
+        lines.append(f"[확인 필요 · {len(important)}건] (받은편지함에 안읽음으로 남겨둠)")
         for it in important:
             lines.append(f"• {it.get('title','(제목없음)')} — {it.get('summary','')}")
-            link = gmail_link(id2msgid.get(it.get("id")))
-            if link:
-                # 탭하면 Gmail 앱/웹에서 해당 메일이 바로 열림
-                lines.append(f"  {link}")
     return "\n".join(lines)
 
 
@@ -274,15 +265,14 @@ def main():
     log(f"분류 결과 → 중요 {len(important)}건 / 기계성 {len(mechanical)}건")
 
     if dry:
-        log("[DRY-RUN] 읽음처리/전송 생략.")
+        log("[DRY-RUN] 보관처리/전송 생략.")
         log("중요: " + json.dumps([it.get("title") for it in important], ensure_ascii=False))
         return
 
-    mark_read(service, mechanical)
-    log(f"읽음처리 완료: {len(mechanical)}개")
+    archive_mails(service, mechanical)
+    log(f"보관처리(읽음+아카이브) 완료: {len(mechanical)}개")
 
-    id2msgid = {m["id"]: m.get("msgid", "") for m in mails}
-    msg = build_message(important, id2msgid)
+    msg = build_message(important)
     if send_telegram(msg):
         log("텔레그램 전송 완료.")
     else:
