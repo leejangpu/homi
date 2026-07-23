@@ -210,6 +210,19 @@ def load_telegram_creds():
     return None, None
 
 
+def _chunk_by_lines(text, limit=3800):
+    """텔레그램 4096자 제한 대응: 줄 경계로 limit 이하 청크로 분할."""
+    chunks, cur = [], ""
+    for line in text.split("\n"):
+        if len(cur) + len(line) + 1 > limit and cur:
+            chunks.append(cur)
+            cur = ""
+        cur += (line + "\n")
+    if cur.strip():
+        chunks.append(cur)
+    return chunks
+
+
 def send_telegram(text):
     import urllib.request
     import urllib.parse
@@ -217,15 +230,20 @@ def send_telegram(text):
     if not token:
         log("텔레그램 자격증명 못 찾음 — 전송 생략")
         return False
-    data = urllib.parse.urlencode({"chat_id": chat, "text": text}).encode()
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    try:
-        with urllib.request.urlopen(url, data=data, timeout=15) as resp:
-            ok = json.load(resp).get("ok", False)
-        return ok
-    except Exception as e:
-        log(f"텔레그램 전송 실패: {e}")
-        return False
+    chunks = _chunk_by_lines(text)
+    all_ok = True
+    for i, chunk in enumerate(chunks):
+        prefix = f"({i+1}/{len(chunks)})\n" if len(chunks) > 1 else ""
+        data = urllib.parse.urlencode({"chat_id": chat, "text": prefix + chunk}).encode()
+        try:
+            with urllib.request.urlopen(url, data=data, timeout=15) as resp:
+                ok = json.load(resp).get("ok", False)
+            all_ok = all_ok and ok
+        except Exception as e:
+            log(f"텔레그램 전송 실패(청크 {i+1}/{len(chunks)}): {e}")
+            all_ok = False
+    return all_ok
 
 
 def build_message(important):
