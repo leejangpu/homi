@@ -231,6 +231,10 @@ def build_message(important):
         lines.append(f"[확인 필요 · {len(important)}건] (안읽음 유지)")
         for it in important:
             lines.append(f"• {it.get('title','(제목없음)')} — {it.get('summary','')}")
+            mid = it.get("id")
+            if mid:
+                # Gmail 딥링크: 탭하면 Gmail 앱/웹에서 해당 메일 바로 열림
+                lines.append(f"  https://mail.google.com/mail/u/0/#all/{mid}")
     return "\n".join(lines)
 
 
