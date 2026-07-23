@@ -98,16 +98,27 @@ def fetch_unread(service, cap=100, lookback_days=LOOKBACK_DAYS):
     for mid in ids:
         m = service.users().messages().get(
             userId="me", id=mid, format="metadata",
-            metadataHeaders=["From", "Subject"],
+            metadataHeaders=["From", "Subject", "Message-ID"],
         ).execute()
-        headers = {h["name"]: h["value"] for h in m.get("payload", {}).get("headers", [])}
+        headers = {h["name"].lower(): h["value"]
+                   for h in m.get("payload", {}).get("headers", [])}
         mails.append({
             "id": mid,
-            "from": headers.get("From", ""),
-            "subject": headers.get("Subject", ""),
+            "from": headers.get("from", ""),
+            "subject": headers.get("subject", ""),
             "snippet": (m.get("snippet", "") or "")[:200],
+            "msgid": (headers.get("message-id", "") or "").strip().lstrip("<").rstrip(">"),
         })
     return mails
+
+
+def gmail_link(msgid):
+    """rfc822msgid 검색 딥링크 — 계정·폴더 무관하게 해당 메일을 정확히 연다."""
+    if not msgid:
+        return None
+    import urllib.parse
+    return ("https://mail.google.com/mail/u/0/#search/rfc822msgid:"
+            + urllib.parse.quote(msgid, safe=""))
 
 
 # ---------------------------------------------------------------- AI 분류
@@ -222,7 +233,7 @@ def send_telegram(text):
         return False
 
 
-def build_message(important):
+def build_message(important, id2msgid):
     today = datetime.now().strftime("%m/%d")
     lines = [f"📬 Gmail 안읽음 정리 ({today})", ""]
     if not important:
@@ -231,10 +242,10 @@ def build_message(important):
         lines.append(f"[확인 필요 · {len(important)}건] (안읽음 유지)")
         for it in important:
             lines.append(f"• {it.get('title','(제목없음)')} — {it.get('summary','')}")
-            mid = it.get("id")
-            if mid:
-                # Gmail 딥링크: 탭하면 Gmail 앱/웹에서 해당 메일 바로 열림
-                lines.append(f"  https://mail.google.com/mail/u/0/#all/{mid}")
+            link = gmail_link(id2msgid.get(it.get("id")))
+            if link:
+                # 탭하면 Gmail 앱/웹에서 해당 메일이 바로 열림
+                lines.append(f"  {link}")
     return "\n".join(lines)
 
 
@@ -270,7 +281,8 @@ def main():
     mark_read(service, mechanical)
     log(f"읽음처리 완료: {len(mechanical)}개")
 
-    msg = build_message(important)
+    id2msgid = {m["id"]: m.get("msgid", "") for m in mails}
+    msg = build_message(important, id2msgid)
     if send_telegram(msg):
         log("텔레그램 전송 완료.")
     else:
