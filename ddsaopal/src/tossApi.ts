@@ -167,3 +167,8 @@ export async function placeLocOrder(token: string, accountSeq: number, o: Planne
   if (!orderId) throw new Error("주문 생성 실패: " + JSON.stringify(j).slice(0, 300));
   return { orderId, clientOrderId: j.result.clientOrderId ?? o.clientOrderId };
 }
+
+/** 주문 취소 */
+export async function cancelOrder(token: string, accountSeq: number, orderId: string): Promise<any> {
+  return authPost(token, `/api/v1/orders/${encodeURIComponent(orderId)}/cancel`, {}, accountSeq);
+}
