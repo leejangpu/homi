@@ -92,6 +92,7 @@ function authPost(token: string, path: string, bodyObj: any, accountSeq?: number
 export interface USCalendar {
   todayDate: string;       // KST 기준 오늘 날짜
   regularOpen: boolean;    // 오늘 미국 정규장 운영 여부
+  regularEndTime?: string; // 오늘 정규장 마감 시각 (ISO), 휴장이면 없음
   previousBusinessDate: string;
 }
 
@@ -101,16 +102,33 @@ export async function getUSCalendar(token: string): Promise<USCalendar> {
   return {
     todayDate: r.today?.date,
     regularOpen: !!r.today?.regularMarket,
+    regularEndTime: r.today?.regularMarket?.endTime,
     previousBusinessDate: r.previousBusinessDay?.date,
   };
 }
 
-/** 최근 일봉 종가 (숫자). 방금 마감한 세션의 종가. */
+/** 최근 일봉 종가 (형성 중 당일봉 포함, 참조용). */
 export async function getDailyClose(token: string, symbol: string): Promise<{ date: string; close: number }> {
   const j = await authGet(token, `/api/v1/candles?symbol=${encodeURIComponent(symbol)}&interval=1d&count=1&adjusted=false`);
   const c = j.result?.candles?.[0];
   if (!c) throw new Error(`일봉 조회 실패: ${symbol}`);
   return { date: String(c.timestamp).slice(0, 10), close: Number(c.closePrice) };
+}
+
+/**
+ * 마지막으로 "마감 완료된" 정규 세션의 종가 (전략 기준가 = 전일 종가).
+ * 아직 안 끝난 당일 형성 봉을 제외한다:
+ *   오늘 정규장 마감시각이 지났으면 → 오늘 세션 종가, 아니면 → 직전 영업일 종가.
+ */
+export async function getLastSessionClose(token: string, symbol: string): Promise<{ date: string; close: number }> {
+  const cal = await getUSCalendar(token);
+  const closedToday = cal.regularEndTime != null && new Date(cal.regularEndTime).getTime() <= Date.now();
+  const refDate = closedToday ? cal.todayDate : cal.previousBusinessDate;
+  const j = await authGet(token, `/api/v1/candles?symbol=${encodeURIComponent(symbol)}&interval=1d&count=6&adjusted=false`);
+  const candles: any[] = j.result?.candles ?? [];
+  const hit = candles.find((c) => String(c.timestamp).slice(0, 10) === refDate);
+  if (!hit) throw new Error(`완료 세션 종가 조회 실패: ${symbol} ${refDate}`);
+  return { date: refDate, close: Number(hit.closePrice) };
 }
 
 /** 매수가능금액 (USD) */

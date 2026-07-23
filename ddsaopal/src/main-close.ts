@@ -6,7 +6,7 @@ import type { Config, FillResult } from "./types.js";
 import { runClose } from "./calculator.js";
 import { loadState, saveState } from "./state.js";
 import { notify, } from "./telegram.js";
-import { getBuyingPowerUSD, getDailyClose, getHoldingQty, getOrder, getToken, loadEnv } from "./tossApi.js";
+import { getBuyingPowerUSD, getHoldingQty, getLastSessionClose, getOrder, getToken, loadEnv } from "./tossApi.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const cfg: Config = JSON.parse(readFileSync(join(__dirname, "..", "config.json"), "utf8"));
@@ -15,7 +15,7 @@ async function main() {
   const env = loadEnv();
   const token = await getToken(env);
 
-  const { date: today, close: todayClose } = await getDailyClose(token, cfg.symbol);
+  const { date: today, close: todayClose } = await getLastSessionClose(token, cfg.symbol);
   const state = loadState(cfg);
 
   if (state.lastCloseDate === today) {

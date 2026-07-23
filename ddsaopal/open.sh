@@ -1,7 +1,7 @@
 #!/bin/bash
 # launchd 래퍼: 떨사오팔 장 개시(마감 1시간 전) 주문 제출
 # 실주문 활성화: config.json enabled=true 로 바꾸고 아래 export 주석 해제
-# export DDSAOPAL_LIVE_ORDERS=YES_REALLY
+export DDSAOPAL_LIVE_ORDERS=YES_REALLY
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"

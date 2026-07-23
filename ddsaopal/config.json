@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "symbol": "TQQQ",
   "splits": 7,
   "sellProfitRate": 0.003,

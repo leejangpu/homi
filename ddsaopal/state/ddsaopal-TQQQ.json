@@ -5,18 +5,18 @@
   "splitAmount": 205.08,
   "cycleStartCash": 1435.58,
   "lots": [],
-  "prevClose": 69.48,
+  "prevClose": 70.28,
   "plannedOrders": [
     {
       "kind": "buy",
       "side": "BUY",
       "symbol": "TQQQ",
-      "price": 69.48,
+      "price": 70.28,
       "qty": 2,
-      "clientOrderId": "2026-07-23-b"
+      "clientOrderId": "2026-07-22-b"
     }
   ],
   "submittedOrders": [],
-  "updatedAt": "2026-07-23",
-  "lastCloseDate": "2026-07-23"
+  "updatedAt": "2026-07-22",
+  "lastCloseDate": "2026-07-22"
 }
