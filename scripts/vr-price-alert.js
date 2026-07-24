@@ -6,7 +6,8 @@
 //   같은 날 앞 메시지와 수량이 겹치지 않으므로 각 메시지를 그대로 주문하면 됨(상태 갱신 레이스에도 안전)
 // - KRW 종목 → 국내장(market-calendar/KR), USD 종목 → 미국장(market-calendar/US) 개장 시에만 조회
 // - 조회 심볼: 트래커 `marketTicker`(웹 "조회용 티커" 필드), USD는 ticker 자체가 티커 형태면 폴백
-// - state 파일(furthestSeq/date)로 신규 지점 판정 + dedup: 오늘 이미 알린 깊이는 재알림 안 함, 더 깊어지면 신규분만
+// - state 파일(furthestSeq/session/date)로 신규 지점 판정: 같은 거래세션에 이미 알린 깊이는 재알림 안 함,
+//   더 깊어지면 신규분만. 세션이 바뀌면(다음 장) floor 리셋 → 체결(executed) 안 된 지점은 미체결로 재알림
 // 스케줄: launchd com.homi.vr-price-alert.plist (매시 05분)
 
 const fs = require('fs');
@@ -65,8 +66,11 @@ function tossGet(token, apiPath) {
 }
 
 // 정규장 세션(KR은 integrated.regularMarket, US는 regularMarket) 기준으로 현재 개장 여부.
-// 날짜 경계(미국장은 KST 자정 걸침) 대비 today + previousBusinessDay 둘 다 검사.
-async function isMarketOpen(token, market) {
+// 현재 정규장 세션의 식별자(`{market}:{세션시작epoch}`)를 반환. 휴장/장외면 null.
+// 세션 시작 epoch를 키로 쓰므로 미국장이 KST 자정을 걸쳐도(22:30~05:00) 한 세션 = 한 키.
+// → 알림 dedup을 KST 날짜가 아니라 "거래 세션" 단위로 하기 위함(자정 넘어 같은 세션 중복알림 방지 +
+//   다음 세션엔 미체결분 재알림). today + previousBusinessDay 둘 다 검사(미국장 날짜경계 대비).
+async function currentSession(token, market) {
   const j = await tossGet(token, `/api/v1/market-calendar/${market}`);
   const r = j.result || {};
   const now = Date.now();
@@ -76,9 +80,9 @@ async function isMarketOpen(token, market) {
     if (!session) continue;
     const start = Date.parse(session.startTime);
     const end = Date.parse(session.endTime);
-    if (now >= start && now <= end) return true;
+    if (now >= start && now <= end) return `${market}:${start}`;
   }
-  return false;
+  return null;
 }
 
 function loadTrackers() {
@@ -221,9 +225,9 @@ async function main() {
   const targets = [];
   for (const market of ['KR', 'US']) {
     if (!byMarket[market].length) continue;
-    const open = await isMarketOpen(token, market);
-    console.log(`${market} 장: ${open ? '개장중' : '휴장/장외'} (종목 ${byMarket[market].map(x => x.symbol).join(',') || '-'})`);
-    if (open) targets.push(...byMarket[market]);
+    const session = await currentSession(token, market);
+    console.log(`${market} 장: ${session ? '개장중' : '휴장/장외'} (종목 ${byMarket[market].map(x => x.symbol).join(',') || '-'})`);
+    if (session) targets.push(...byMarket[market].map(x => ({ ...x, session })));
   }
   if (!targets.length) { console.log('개장중인 시장 없음 — 종료'); return; }
 
@@ -236,15 +240,16 @@ async function main() {
   const today = kstToday();
   let alerted = 0;
 
-  for (const { t, symbol } of targets) {
+  for (const { t, symbol, session } of targets) {
     const price = priceMap[symbol];
     if (!price || !(price > 0)) { console.log(`[warn] ${t.ticker}(${symbol}): 현재가 조회 실패`); continue; }
 
     const cur = t.currency || 'USD';
-    // 오늘 이미 알린 지점은 카운팅에서 제외(floor). 여러 지점 지나쳐도 신규분만 알린다.
+    // 같은 세션에서 이미 알린 지점은 카운팅에서 제외(floor). 여러 지점 지나쳐도 신규분만 알린다.
+    // 세션이 바뀌면(다음 장) floor=0 → 체결(executed) 안 됐으면 미체결분을 다시 알린다.
     const prev = state[t.ticker];
     const floor = { buy: 0, sell: 0 };
-    if (prev && prev.date === today) floor[prev.type] = prev.furthestSeq;
+    if (prev && prev.session === session) floor[prev.type] = prev.furthestSeq;
 
     const hit = findTriggered(t, price, floor);
     console.log(`${t.ticker}(${symbol}) 현재가 ${price} → ${hit ? `${hit.type} ${hit.qty}주 (점 ${hit.price}, seq≤${hit.furthestSeq}, floor ${hit.type}=${floor[hit.type]})` : '신규 도달점 없음'}`);
@@ -257,7 +262,7 @@ async function main() {
       `현재가: ${fmtMoney(price, cur)} (${symbol})\n\n` +
       `체결 후 웹 VR 계산기에서 체크하거나, Claude에게 "체크해줘"라고 요청하세요.`;
     await sendTelegram(env, msg);
-    state[t.ticker] = { type: hit.type, furthestSeq: hit.furthestSeq, date: today };
+    state[t.ticker] = { type: hit.type, furthestSeq: hit.furthestSeq, session, date: today };
     alerted++;
     console.log('  → 텔레그램 알림 발송');
   }
