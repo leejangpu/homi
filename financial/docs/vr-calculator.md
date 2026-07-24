@@ -105,9 +105,9 @@ signal = eval < minBand → 'buy'
 - `scripts/vr-price-alert.js` — DB `vr_tracker`의 활성 트래커를 읽어 **토스 OpenAPI**로 현재가를 조회, **매수점/매도점(주문 목록의 지정가)에 도달**하면 **Alram🔔 텔레그램**으로 알림.
 - 스케줄: launchd `com.homi.vr-price-alert.plist` — **매시 05분** 기동, 스크립트가 토스 `market-calendar/{KR,US}`로 개장 여부를 판정해 **정규장 중에만** 조회 (KRW 종목→국내장 09:00–15:30, USD 종목→미국장 KST 22:30–05:00·서머타임 자동 반영, 휴장일 자동 스킵).
 - 조회 심볼: 트래커 `marketTicker`(웹 "조회용 티커" 필드). 미입력 시 USD는 `ticker` 폴백, KRW는 스킵(로그에 표기).
-- **판정**: 웹 `vrCalculate`와 동일 공식으로 주문 목록을 재생성하고 `buyGroupSize`/`sellGroupSize` **묶음 기준**으로 도달 여부를 본다(묶음 지정가 = 묶음 마지막 주문 가격). 이미 체결 처리된 주문(`executedBuy/SellCount`, 원본 seq 고수위)은 제외. 여러 점을 지나쳤으면 **가장 깊은 점 가격 + 누적 수량**으로 알림 (예: "₩60,182 매도점 돌파 → 총 6주 매도해주세요").
-- **dedup**: 같은 종목·같은 도달 지점(seq)은 KST 하루 1회만, 더 깊은 점 돌파 시 재알림 (`logs/vr-price-alert-state.json`).
-- 체결 후: 웹 계산기에서 체크하거나, Claude에게 "체크해줘"라고 요청하면 `executedBuy/SellCount`를 API PATCH로 대신 갱신.
+- **판정**: 웹 `vrCalculate`와 동일 공식으로 주문 목록을 재생성하고 `buyGroupSize`/`sellGroupSize` **묶음 기준**으로 도달 여부를 본다(묶음 지정가 = 묶음 마지막 주문 가격). **카운팅 기준선 = `max(체결 executedBuy/SellCount, 오늘 이미 알린 furthestSeq)`** — 이미 체결했거나 **같은 날 앞 메시지에서 이미 알린 지점은 제외**하고 신규 지점의 누적 수량만 센다. 여러 점을 지나쳤으면 **가장 깊은 점 가격 + 신규 누적 수량**으로 알림 (예: "₩60,182 매도점 돌파 → 총 6주 매도해주세요"). 같은 날 메시지끼리 수량이 겹치지 않으므로 **각 메시지를 그대로 주문**하면 되고, 체결 반영(executed) 갱신 타이밍 레이스에도 안전.
+- **dedup**: 오늘 이미 알린 깊이(furthestSeq)는 재알림 안 함, 더 깊은 점 돌파 시 **신규분만** 알림 (`logs/vr-price-alert-state.json`).
+- 체결 후: 웹 계산기에서 체크하거나, Claude에게 "체크해줘"라고 요청하면 `executedBuy/SellCount`를 갱신. Claude는 **`scripts/vr-check.js`** 로 처리한다 — `node scripts/vr-check.js`(오늘 보낸 알림 전부 체결 반영, 전 트래커), `node scripts/vr-check.js <ticker>`(특정 종목만), `node scripts/vr-check.js <ticker> buy|sell <n>`(수동), `--status`(조회만). 내부적으로 `store.applyVrPatch`(낙관적 잠금)+`gitsync.afterVrChange`로 웹/API와 동일 경로 반영. "오늘 보낸 매수/매도 전부 체결했어" 요청을 1커맨드로 처리(state 파일의 furthestSeq까지 반영).
 - 로그: `logs/vr-price-alert.log`. API 키: `infinite-buy/.env` (토스 + 텔레그램, IPv4 강제).
 
 ## 관련 파일 요약

@@ -1,11 +1,12 @@
 // VR 가격 알림: 장중 매시 VR 트래커 종목의 현재가를 토스 OpenAPI로 조회해
 // 매수점/매도점(주문 목록의 지정가) 도달 시 Alram🔔 텔레그램으로 알린다.
 // - 주문 목록은 웹 vrCalculate와 동일 공식으로 생성, buyGroupSize/sellGroupSize 묶음 기준으로 판정
-// - 이미 체결 처리된 주문(executedBuy/SellCount, 원본 seq 기준)은 제외
-// - 여러 점을 지나쳤으면 가장 깊은 점 가격 + 누적 수량으로 알림 (예: "₩900 매도점 돌파, 총 6주 매도")
+// - 카운팅 기준선 = max(체결 executedBuy/SellCount, 오늘 이미 알린 furthestSeq) → 그 너머 신규 지점만 센다
+// - 여러 점을 지나쳤으면 가장 깊은 점 가격 + 신규 누적 수량으로 알림 (예: "₩900 매도점 돌파, 총 6주 매도")
+//   같은 날 앞 메시지와 수량이 겹치지 않으므로 각 메시지를 그대로 주문하면 됨(상태 갱신 레이스에도 안전)
 // - KRW 종목 → 국내장(market-calendar/KR), USD 종목 → 미국장(market-calendar/US) 개장 시에만 조회
 // - 조회 심볼: 트래커 `marketTicker`(웹 "조회용 티커" 필드), USD는 ticker 자체가 티커 형태면 폴백
-// - 같은 종목·같은 도달 지점은 KST 하루 1회만 알림, 더 깊은 점 돌파 시 재알림 (state 파일 dedup)
+// - state 파일(furthestSeq/date)로 신규 지점 판정 + dedup: 오늘 이미 알린 깊이는 재알림 안 함, 더 깊어지면 신규분만
 // 스케줄: launchd com.homi.vr-price-alert.plist (매시 05분)
 
 const fs = require('fs');
@@ -150,18 +151,22 @@ function applyGrouping(orders, groupSize) {
   return grouped;
 }
 
-// 현재가가 도달한 미체결 매수/매도점을 찾는다.
+// 현재가가 도달한 미체결·미알림 매수/매도점을 찾는다.
 // 매수점: 가격이 지정가 이하로 내려오면 도달(점 가격은 내림차순), 매도점: 지정가 이상이면 도달(오름차순).
-// executed(체결 고수위, 원본 seq)는 제외하고, 도달한 점들의 누적 수량과 가장 깊은 점 가격을 돌려준다.
-function findTriggered(t, price) {
+// 카운팅 기준선(baseline) = max(executed 체결 고수위, floor 오늘 이미 알린 seq).
+// → 이미 체결했거나 오늘 이전 메시지에서 이미 알린 지점은 제외하고, 신규 지점의 누적 수량만 센다.
+//   메시지 수량이 겹치지 않으므로 사용자는 각 메시지를 그대로 주문하면 되고, 상태 갱신 레이스에도 안전.
+// floor = { buy, sell } (오늘 마지막 알림의 furthestSeq, 없으면 0).
+function findTriggered(t, price, floor = { buy: 0, sell: 0 }) {
   const { buyOrders, sellOrders } = buildOrders(t);
   const check = (type, orders, groupSize, executed) => {
+    const baseline = Math.max(executed, floor[type] || 0);
     const groups = applyGrouping(orders, groupSize);
     const crossed = groups.filter(g =>
-      g.lastOrigSeq > executed && (type === 'buy' ? price <= g.price : price >= g.price));
+      g.lastOrigSeq > baseline && (type === 'buy' ? price <= g.price : price >= g.price));
     if (!crossed.length) return null;
     let qty = 0;
-    for (const g of crossed) qty += g.lastOrigSeq - Math.max(executed, g.firstOrigSeq - 1);
+    for (const g of crossed) qty += g.lastOrigSeq - Math.max(baseline, g.firstOrigSeq - 1);
     const prices = crossed.map(g => g.price);
     return {
       type, qty,
@@ -236,14 +241,14 @@ async function main() {
     if (!price || !(price > 0)) { console.log(`[warn] ${t.ticker}(${symbol}): 현재가 조회 실패`); continue; }
 
     const cur = t.currency || 'USD';
-    const hit = findTriggered(t, price);
-    console.log(`${t.ticker}(${symbol}) 현재가 ${price} → ${hit ? `${hit.type} ${hit.qty}주 (점 ${hit.price}, seq≤${hit.furthestSeq})` : '도달한 점 없음'}`);
-    if (!hit) continue;
-
+    // 오늘 이미 알린 지점은 카운팅에서 제외(floor). 여러 지점 지나쳐도 신규분만 알린다.
     const prev = state[t.ticker];
-    if (prev && prev.type === hit.type && prev.furthestSeq >= hit.furthestSeq && prev.date === today) {
-      console.log('  (오늘 이미 알림 — dedup)'); continue;
-    }
+    const floor = { buy: 0, sell: 0 };
+    if (prev && prev.date === today) floor[prev.type] = prev.furthestSeq;
+
+    const hit = findTriggered(t, price, floor);
+    console.log(`${t.ticker}(${symbol}) 현재가 ${price} → ${hit ? `${hit.type} ${hit.qty}주 (점 ${hit.price}, seq≤${hit.furthestSeq}, floor ${hit.type}=${floor[hit.type]})` : '신규 도달점 없음'}`);
+    if (!hit) continue;
 
     const isBuy = hit.type === 'buy';
     const msg =
