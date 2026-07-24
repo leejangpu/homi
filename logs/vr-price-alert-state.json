@@ -1,0 +1,12 @@
+{
+  "TQQQ": {
+    "type": "buy",
+    "furthestSeq": 1,
+    "date": "2026-07-24"
+  },
+  "ISA나스닥레버리지": {
+    "type": "buy",
+    "furthestSeq": 8,
+    "date": "2026-07-24"
+  }
+}
