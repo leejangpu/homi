@@ -1,0 +1,92 @@
+[
+  {
+    "timestamp": "2026-07-24T19:00:08.206Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 157.31,
+      "quantity": 4,
+      "label": "후반전 -5.4% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031512887"
+    }
+  },
+  {
+    "timestamp": "2026-07-24T19:00:08.738Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LOC",
+      "price": 174.58,
+      "quantity": 13,
+      "label": "쿼터매도 -5.4% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031512894"
+    }
+  },
+  {
+    "timestamp": "2026-07-24T19:00:09.271Z",
+    "ticker": "SOXL",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LIMIT",
+      "price": 221.45,
+      "quantity": 39,
+      "label": "목표 +20% LIMIT [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031512900"
+    }
+  },
+  {
+    "timestamp": "2026-07-24T19:00:10.661Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "BUY",
+      "orderType": "LOC",
+      "price": 72.87,
+      "quantity": 4,
+      "label": "후반전 -0.9% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031512921"
+    }
+  },
+  {
+    "timestamp": "2026-07-24T19:00:11.198Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LOC",
+      "price": 72.88,
+      "quantity": 24,
+      "label": "쿼터매도 -0.9% LOC [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031512929"
+    }
+  },
+  {
+    "timestamp": "2026-07-24T19:00:12.257Z",
+    "ticker": "TQQQ",
+    "action": "ORDER_RESULT",
+    "details": {
+      "side": "SELL",
+      "orderType": "LIMIT",
+      "price": 84.56,
+      "quantity": 72,
+      "label": "목표 +15% LIMIT [V2.2]",
+      "success": true,
+      "message": "주문 전송 완료 되었습니다.",
+      "orderNo": "0031512938"
+    }
+  }
+]
